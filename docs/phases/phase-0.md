@@ -46,6 +46,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.5 Generated README status table | done; spec review column waits for 0.8 |
 | 0.7 Dependency allowlist (`docs/DEPENDENCIES.md` table, checked by `cargo xtask check`) | done: 23 packages, 0 shipped |
 | 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | tooling done; **0 of 3 files reviewed: needs a human** |
+| 0.9 CLAUDE.md additions (tier rule enforced, `docs/SPEC-STYLE.md`, errata rule) | done |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -255,7 +256,10 @@ recorded artifact.
 
 - ~~Rule: never write or edit `spec-reviews.toml`.~~ Done with 0.8 (CLAUDE.md rule 6).
 - Rule: raising a crate's `tier` requires the report showing all its proofs
-  pass, no surviving mutations, and up-to-date spec reviews.
+  pass, no surviving mutations, and up-to-date spec reviews. **As built:**
+  CLAUDE.md rule 7, enforced by `cargo xtask check`. "No surviving mutations"
+  became "Tier 2 requires every mutation to be `killed`": incidental kills
+  don't count either.
 - How to write a Verus spec in this repo: the transcription conventions
   used in `utf8/spec.rs` (queue modelling, step-number comments, modelling
   choices written down at the top of the file).
@@ -302,7 +306,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1–0.8 and 0.12 are done (0.8 needs its first human review). Next: 0.9–0.11.
+0.1–0.9 and 0.12 are done (0.8 needs its first human review). Next: 0.10, 0.11.
 
 ## Explicitly out of scope for Phase 0
 

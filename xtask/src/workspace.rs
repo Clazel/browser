@@ -198,7 +198,21 @@ pub fn inherits_workspace_lints(c: &Crate) -> Result<bool, String> {
 /// Check declared tiers are present, in range, and backed by tooling.
 /// Returns (violations, notes); notes are shortfalls that are allowed but
 /// must be visible.
-pub fn check_tiers(c: &Crate, kani_proofs: usize, unreviewed: usize) -> (Vec<String>, Vec<String>) {
+/// What backs a crate's declared tier.
+pub struct TierEvidence {
+    pub kani_proofs: usize,
+    /// Reviewable files that are unreviewed or stale.
+    pub unreviewed: usize,
+    /// (mutations not expected `killed`, total), if the crate has any.
+    pub mutations: Option<(usize, usize)>,
+}
+
+pub fn check_tiers(c: &Crate, ev: &TierEvidence) -> (Vec<String>, Vec<String>) {
+    let TierEvidence {
+        kani_proofs,
+        unreviewed,
+        mutations,
+    } = *ev;
     let mut bad = Vec::new();
     let mut notes = Vec::new();
     let m = relative(&c.manifest);
@@ -223,6 +237,23 @@ pub fn check_tiers(c: &Crate, kani_proofs: usize, unreviewed: usize) -> (Vec<Str
                     "{m}: tier {t} requires every spec file reviewed and current \
                      ({unreviewed} not; see docs/SPEC-REVIEWS.md)"
                 ));
+            }
+            // Tier 2 means the implementation is correct against its spec,
+            // so no deliberately broken spec may get past the proofs.
+            // (`verify` checks each `killed` really is killed; whether a kill
+            // is real rather than incidental is part of the human review of
+            // mutations.json.)
+            if t >= 2 {
+                match mutations {
+                    None | Some((_, 0)) => bad.push(format!(
+                        "{m}: tier {t} requires proof mutation tests (mutations.json)"
+                    )),
+                    Some((gaps, total)) if gaps > 0 => bad.push(format!(
+                        "{m}: tier {t} requires every mutation to be \"killed\"; \
+                         {gaps} of {total} are \"killed-incidentally\" or \"survives\""
+                    )),
+                    Some(_) => {}
+                }
             }
             if t < target {
                 notes.push(format!(

@@ -12,19 +12,34 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 3. **Contracts before code.** In a Tier 2 crate, write the `spec fn` and the
    `requires`/`ensures` first and commit them separately, *then* the
    implementation and proof. The spec is the part humans review.
-4. **No proof escape hatches.** `assume`, `admit`, `#[verifier::external_body]`
-   and `#[verifier::exec_allows_no_decreases_clause]` are banned. A genuinely
-   needed axiom goes in a crate's `axioms.rs` with a comment that justifies it,
-   and is counted by `scripts/verify.sh`.
-5. **Cite the spec.** Every function implementing a standard links to the
-   exact algorithm and quotes the step numbers it covers, e.g.
-   `// URL §4.4 basic URL parser, step 3.2`.
+4. **No proof escape hatches.** `assume`, `admit`, `assume_specification`,
+   and the `#[verifier::...]` attributes `external_body`, `external`,
+   `external_fn_specification` and `exec_allows_no_decreases_clause` are
+   banned. A genuinely needed axiom goes in the crate's `axioms.rs`, with a
+   `// AXIOM:` justification within the three lines above it. The checker
+   rejects every other use and counts the axioms in the README table.
+5. **Cite the spec, and follow `docs/SPEC-STYLE.md`.** Every function
+   implementing a standard links to the exact algorithm and quotes the step
+   numbers it covers, e.g. `// URL §4.4 basic URL parser, step 3.2`. Spec
+   files keep the standard's structure, names and step numbers, and list
+   every modelling choice at the top.
 6. **Never write spec reviews.** Do not add, edit or delete rows in
    `docs/SPEC-REVIEWS.md`, and do not "refresh" a stale review's hash. Only a
    human who has read the file against the standard may. Editing a spec is
    fine; it simply makes the old review stale.
 7. **Never mark something verified that isn't.** If a proof doesn't go through,
-   say so in the PR and leave the crate at its real tier.
+   say so in the PR and leave the crate at its real tier. Raising `tier` in a
+   crate's `Cargo.toml` requires all of the following, and `cargo xtask check`
+   rejects the claim otherwise:
+   - every proof and harness passing in `cargo xtask verify`;
+   - Tier 1: Kani harnesses; Tier 2: Verus enabled, and every mutation in
+     `mutations.json` expected `killed` (none `survives` or
+     `killed-incidentally`);
+   - any tier above 0: every spec file reviewed and current.
+
+   Never relabel a mutation's `expect` to get past this. `verify` catches a
+   false `killed`, and relabelling `killed-incidentally` as `killed` edits a
+   reviewed file, which makes its review stale.
 8. **Write our own parsers.** Any code that parses untrusted bytes is ours.
    Shipped dependencies are allowed only for crypto (verified libraries), OS and
    windowing bindings, and GPU access. Proof libraries (`vstd`) and build
@@ -32,6 +47,10 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
    transitive ones included, needs a row in the allowlist table in
    `docs/DEPENDENCIES.md`, with its exact version and class. `cargo xtask check`
    enforces this.
+9. **Never report upstream.** When a standard, read literally, is wrong,
+   specify its evident intent, comment why at that spot, and add an entry to
+   `docs/ERRATA.md`. Filing an issue with a standards body is public: leave
+   "Reported upstream: not yet" for a human to act on.
 
 ## Workflow
 - Run `scripts/verify.sh` (same as `cargo xtask verify`) before calling any

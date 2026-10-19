@@ -135,7 +135,15 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
                 m.kani_harnesses = s.kani_proofs;
                 violations.extend(s.violations);
                 axioms = axioms.saturating_add(s.axioms);
-                let (bad, notes) = workspace::check_tiers(c, s.kani_proofs, unreviewed);
+                let evidence = mutate::gaps(c).map(|mutations| workspace::TierEvidence {
+                    kani_proofs: s.kani_proofs,
+                    unreviewed,
+                    mutations,
+                });
+                let (bad, notes) = match evidence {
+                    Ok(ev) => workspace::check_tiers(c, &ev),
+                    Err(e) => (vec![e], Vec::new()),
+                };
                 decl_problems.extend(bad);
                 decl_notes.extend(notes);
             }

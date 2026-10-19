@@ -75,6 +75,17 @@ pub fn has_mutations(c: &Crate) -> bool {
     c.dir.join(FILE).is_file()
 }
 
+/// For the tier check: (mutations not expected to be `killed`, total), or
+/// `None` if the crate has no mutations file.
+pub fn gaps(c: &Crate) -> Result<Option<(usize, usize)>, String> {
+    if !has_mutations(c) {
+        return Ok(None);
+    }
+    let all = load(c)?;
+    let gaps = all.iter().filter(|m| m.expect != Expect::Killed).count();
+    Ok(Some((gaps, all.len())))
+}
+
 fn load(c: &Crate) -> Result<Vec<Mutation>, String> {
     let path = c.dir.join(FILE);
     let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
