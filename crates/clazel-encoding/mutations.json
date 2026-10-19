@@ -129,6 +129,162 @@
         "lemma": "lemma_equals_utf8_decode(seq![0xEFu8, 0xBBu8, 0xBFu8])",
         "witness": "utf8_decode(seq![0xEFu8, 0xBBu8, 0xBFu8]).len() == 1 && unicode_decode_with_bom_removed(seq![0xEFu8, 0xBBu8, 0xBFu8]).len() == 0"
       }
+    },
+    {
+      "id": "encoder-ascii-range",
+      "file": "src/utf8/spec.rs",
+      "find": "if code_point <= 0x7F {",
+      "replace": "if code_point < 0x7F {",
+      "expect": "killed",
+      "reason": "Sends U+007F through step 3, which has no range for it: the mutant encodes U+007F as four bytes, where Unicode Table 3-6 (independent_encode.rs) gives one, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x7Fu32])",
+        "witness": "utf8_encode(seq![0x7Fu32]).len() == 4 && unicode_encode(seq![0x7Fu32]).len() == 1"
+      }
+    },
+    {
+      "id": "encoder-two-byte-range",
+      "file": "src/utf8/spec.rs",
+      "find": "0x80 <= code_point <= 0x7FF",
+      "replace": "0x80 <= code_point <= 0x7FE",
+      "expect": "killed",
+      "reason": "Sends U+07FF to the four-byte row: the mutant encodes it as the overlong F0 80 9F BF, which the decoder turns into four U+FFFD, so the round trip lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x7FFu32])",
+        "witness": "utf8_encode(seq![0x7FFu32]).len() == 4 && utf8_decode_without_bom(utf8_encode(seq![0x7FFu32])).len() == 4"
+      }
+    },
+    {
+      "id": "encoder-three-byte-range",
+      "file": "src/utf8/spec.rs",
+      "find": "0x800 <= code_point <= 0xFFFF",
+      "replace": "0x800 <= code_point <= 0xFFFE",
+      "expect": "killed",
+      "reason": "Encodes U+FFFF as the overlong F0 8F BF BF, which the decoder turns into four U+FFFD, so the round trip lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFFFu32])",
+        "witness": "utf8_encode(seq![0xFFFFu32]).len() == 4 && utf8_decode_without_bom(utf8_encode(seq![0xFFFFu32])).len() == 4"
+      }
+    },
+    {
+      "id": "encoder-two-byte-offset",
+      "file": "src/utf8/spec.rs",
+      "find": "(1nat, 0xC0u32)",
+      "replace": "(1nat, 0xE0u32)",
+      "expect": "killed",
+      "reason": "Wrong two-byte lead offset: the mutant encodes U+0080 starting with E2, where Unicode Table 3-6 (110yyyyy) gives C2, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x80u32])",
+        "witness": "utf8_encode(seq![0x80u32])[0] == 0xE2u8 && unicode_encode(seq![0x80u32])[0] == 0xC2u8"
+      }
+    },
+    {
+      "id": "encoder-two-byte-count",
+      "file": "src/utf8/spec.rs",
+      "find": "(1nat, 0xC0u32)",
+      "replace": "(2nat, 0xC0u32)",
+      "expect": "killed",
+      "reason": "One continuation byte too many: the mutant encodes U+0080 as three bytes, where Unicode Table 3-6 gives two, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x80u32])",
+        "witness": "utf8_encode(seq![0x80u32]).len() == 3 && unicode_encode(seq![0x80u32]).len() == 2"
+      }
+    },
+    {
+      "id": "encoder-three-byte-offset",
+      "file": "src/utf8/spec.rs",
+      "find": "(2nat, 0xE0u32)",
+      "replace": "(2nat, 0xF0u32)",
+      "expect": "killed",
+      "reason": "Wrong three-byte lead offset: the mutant encodes U+0800 starting with F0, where Unicode Table 3-6 (1110zzzz) gives E0, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x800u32])",
+        "witness": "utf8_encode(seq![0x800u32])[0] == 0xF0u8 && unicode_encode(seq![0x800u32])[0] == 0xE0u8"
+      }
+    },
+    {
+      "id": "encoder-four-byte-offset",
+      "file": "src/utf8/spec.rs",
+      "find": "(3nat, 0xF0u32)",
+      "replace": "(3nat, 0xE0u32)",
+      "expect": "killed",
+      "reason": "Wrong four-byte lead offset: the mutant encodes U+10000 as E0 90 80 80, which the decoder turns into four U+FFFD, so the round trip lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x10000u32])",
+        "witness": "utf8_encode(seq![0x10000u32])[0] == 0xE0u8 && utf8_decode_without_bom(utf8_encode(seq![0x10000u32])).len() == 4"
+      }
+    },
+    {
+      "id": "encoder-lead-shift",
+      "file": "src/utf8/spec.rs",
+      "find": "seq![((code_point >> ((6 * count) as u32)) + offset) as u8]",
+      "replace": "seq![((code_point >> ((6 * count + 6) as u32)) + offset) as u8]",
+      "expect": "killed",
+      "reason": "The lead byte loses its top payload bits: the mutant encodes U+0080 starting with C0, where Unicode Table 3-6 (110yyyyy) gives C2, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x80u32])",
+        "witness": "utf8_encode(seq![0x80u32])[0] == 0xC0u8 && unicode_encode(seq![0x80u32])[0] == 0xC2u8"
+      }
+    },
+    {
+      "id": "encoder-trail-shift",
+      "file": "src/utf8/spec.rs",
+      "find": "let temp = code_point >> ((6 * (count - 1)) as u32);",
+      "replace": "let temp = code_point >> ((6 * count) as u32);",
+      "expect": "killed",
+      "reason": "Continuation bytes take the wrong six bits: the mutant encodes U+0080 as C2 82, where Unicode Table 3-6 gives C2 80, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0x80u32])",
+        "witness": "utf8_encode(seq![0x80u32])[1] == 0x82u8 && unicode_encode(seq![0x80u32])[1] == 0x80u8"
+      }
+    },
+    {
+      "id": "encoder-continuation-mask",
+      "file": "src/utf8/spec.rs",
+      "find": "(temp & 0x3Fu32)",
+      "replace": "(temp & 0x7Fu32)",
+      "expect": "killed",
+      "reason": "Continuation bytes keep seven bits: the mutant encodes U+00FF as C3 FF, where Unicode Table 3-6 (10xxxxxx) gives C3 BF, so lemma_equals_utf8_encode is false.",
+      "certificate": {
+        "file": "src/utf8/independent_encode.rs",
+        "lemma": "lemma_equals_utf8_encode(seq![0xFFu32])",
+        "witness": "utf8_encode(seq![0xFFu32])[1] == 0xFFu8 && unicode_encode(seq![0xFFu32])[1] == 0xBFu8"
+      }
+    },
+    {
+      "id": "encoder-continuation-marker",
+      "file": "src/utf8/spec.rs",
+      "find": "bytes.push((0x80u32 |",
+      "replace": "bytes.push((0xC0u32 |",
+      "expect": "killed",
+      "reason": "Continuation bytes are marked 11xxxxxx: the mutant encodes U+0080 as C2 C0, which the decoder turns into two U+FFFD, so the round trip lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x80u32])",
+        "witness": "utf8_encode(seq![0x80u32])[1] == 0xC0u8 && utf8_decode_without_bom(utf8_encode(seq![0x80u32])).len() == 2"
+      }
+    },
+    {
+      "id": "encoder-drop-output",
+      "file": "src/utf8/spec.rs",
+      "find": "EncoderHandlerResult::Bytes(bytes) => bytes + encoder_process_queue(input, i + 1),",
+      "replace": "EncoderHandlerResult::Bytes(bytes) => encoder_process_queue(input, i + 1),",
+      "expect": "killed",
+      "reason": "Process an item step 6.2 no longer pushes the handler's bytes: the mutant encodes U+0041 to nothing, which decodes to nothing, so the round trip lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x41u32])",
+        "witness": "utf8_encode(seq![0x41u32]).len() == 0 && utf8_decode_without_bom(utf8_encode(seq![0x41u32])).len() == 0"
+      }
     }
   ]
 }

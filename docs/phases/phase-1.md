@@ -104,6 +104,17 @@ contract, implementation, independent transcription (Unicode §3.9 D92),
 mutations, round-trip lemma (`decode(encode(s)) == s` for scalar values).
 After 1.1–1.4: **raise `clazel-encoding` to tier 2.**
 
+**As built:** `encode(&[u32]) -> Vec<u8>` takes scalar values as `u32`
+(the decoder's output type), with `requires all_scalar_values`. UTF-8's
+encoder never returns error, so the spec's handler result has only
+finished and bytes, and the "html" error mode is not a parameter (listed
+as a modelling choice). The independent transcription is a separate file,
+`utf8/independent_encode.rs`, so the decoder's one stays as it was.
+`lemma_decode_encode` proves the round trip for "UTF-8 decode without
+BOM" and "UTF-8 decode without BOM or fail". Mutations whose certificate
+witness is a single equality need a second conjunct, because the mutation
+runner only recognises a compute failure printed as "simplifies to false".
+
 ### 1.5 Percent-encoding (M)
 
 URL §1.3: percent-encode, percent-decode (bytes and string), the five
@@ -187,7 +198,9 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.0 Test-data plumbing | not started |
 | 1.1 UTF-8 decoder implementation and proof | done: 25 verified, 0 errors; contract changed to `u32` output (below) |
 | 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
-| 1.3–1.12 | not started |
+| 1.3 UTF-8 conformance | not started |
+| 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; tier not raised (waits for 1.3) |
+| 1.5–1.12 | not started |
 
 ## Risks
 

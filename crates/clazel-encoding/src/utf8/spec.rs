@@ -13,6 +13,28 @@
 //!   exactly the one just read from position `i`.
 //! - The output I/O queue is a `Seq<u32>` of code points, with end-of-queue
 //!   left implicit.
+//!
+//! Modelling choices for the encoder (§8.1.2, and "UTF-8 encode" in §6):
+//! - An I/O queue of scalar values is `input: Seq<u32>` plus a read position
+//!   `i`, with end-of-queue at `input.len()`, as for bytes. A `u32` that is
+//!   not a scalar value can be represented but never occurs: §4.1 process
+//!   an item, step 3, asserts the encoder never sees a surrogate, and the
+//!   hook takes "an I/O queue of scalar values". The contract states this
+//!   as a precondition (`contract::encode_requires`). For a `u32` above
+//!   U+10FFFF the handler below takes the step 3 branch for U+10000 to
+//!   U+10FFFF; the standard defines nothing there and nothing depends on it.
+//! - The output I/O queue is a `Seq<u8>`, initially empty (the hooks'
+//!   "default « »"), with end-of-queue left implicit.
+//! - UTF-8's encoder's handler only ever returns finished or bytes (it has
+//!   no error step; the standard notes "The UTF-8 encoder cannot return
+//!   error"), so [`EncoderHandlerResult`] has only those two results.
+//!   Process an item step 7, the only step that reads the error mode, is
+//!   then unreachable, so the "html" mode of "encode" step 2 is not a
+//!   parameter. Its assertions, steps 1 and 2, hold for an encoder in
+//!   "html" mode.
+//! - The handler's "unused" I/O queue argument is omitted.
+//! - The handler's while loop (step 5) is the recursive
+//!   [`encoder_while_count`], with `bytes` as an accumulator.
 
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -293,6 +315,117 @@ pub open spec fn utf8_decode(input: Seq<u8>) -> Seq<u32> {
 pub open spec fn utf8_decode_without_bom_or_fail(input: Seq<u8>) -> Option<Seq<u32>> {
     // 1. process the queue in "fatal" mode. 2. error => failure. 3. output.
     process_queue(ErrorMode::Fatal, initial_decoder(), input, 0)
+}
+
+/// An item read from an I/O queue of scalar values (§3, I/O queue).
+pub enum ScalarItem {
+    /// A scalar value.
+    ScalarValue(u32),
+    /// end-of-queue.
+    EndOfQueue,
+}
+
+/// What UTF-8's encoder's handler returns (§4.1, handler): finished, or one
+/// or more items, here bytes. See the modelling choices for the omitted
+/// error and continue.
+pub enum EncoderHandlerResult {
+    /// finished
+    Finished,
+    /// the bytes returned, in order
+    Bytes(Seq<u8>),
+}
+
+/// UTF-8's encoder's handler, step 5: "While count is greater than 0:".
+/// `bytes` is what has been appended so far.
+pub open spec fn encoder_while_count(code_point: u32, count: nat, bytes: Seq<u8>) -> Seq<u8>
+    decreases count
+{
+    if count > 0 {
+        // 5.1 "Set temp to codePoint >> (6 × (count − 1))."
+        let temp = code_point >> ((6 * (count - 1)) as u32);
+        // 5.2 "Append to bytes 0x80 | (temp & 0x3F)."
+        let bytes = bytes.push((0x80u32 | (temp & 0x3Fu32)) as u8);
+        // 5.3 "Decrease count by one."
+        encoder_while_count(code_point, (count - 1) as nat, bytes)
+    } else {
+        bytes
+    }
+}
+
+/// UTF-8's encoder's handler (§8.1.2, <https://encoding.spec.whatwg.org/#utf-8-encoder>),
+/// given codePoint.
+pub open spec fn encoder_handler(code_point: ScalarItem) -> EncoderHandlerResult {
+    match code_point {
+        // 1. "If codePoint is end-of-queue, then return finished."
+        ScalarItem::EndOfQueue => EncoderHandlerResult::Finished,
+        ScalarItem::ScalarValue(code_point) => {
+            if code_point <= 0x7F {
+                // 2. "If codePoint is an ASCII code point, then return a byte
+                //    whose value is codePoint." (Infra: an ASCII code point
+                //    is U+0000 NULL to U+007F DELETE, inclusive.)
+                EncoderHandlerResult::Bytes(seq![code_point as u8])
+            } else {
+                // 3. "Set count and offset based on the range codePoint is in:"
+                let (count, offset) = if 0x80 <= code_point <= 0x7FF {
+                    // U+0080 to U+07FF, inclusive: 1 and 0xC0
+                    (1nat, 0xC0u32)
+                } else if 0x800 <= code_point <= 0xFFFF {
+                    // U+0800 to U+FFFF, inclusive: 2 and 0xE0
+                    (2nat, 0xE0u32)
+                } else {
+                    // U+10000 to U+10FFFF, inclusive: 3 and 0xF0 (see the
+                    // modelling choices for values above U+10FFFF)
+                    (3nat, 0xF0u32)
+                };
+                // 4. "Let bytes be a byte sequence whose first byte is
+                //    (codePoint >> (6 × count)) + offset."
+                let bytes = seq![((code_point >> ((6 * count) as u32)) + offset) as u8];
+                // 5. the while loop; 6. "Return bytes bytes, in order."
+                EncoderHandlerResult::Bytes(encoder_while_count(code_point, count, bytes))
+            }
+        },
+    }
+}
+
+/// The item at read position `i` of a queue of scalar values (§3, read an
+/// item): the scalar value there, or end-of-queue once they are exhausted.
+pub open spec fn scalar_item_at(input: Seq<u32>, i: nat) -> ScalarItem {
+    if i < input.len() {
+        ScalarItem::ScalarValue(input[i as int])
+    } else {
+        ScalarItem::EndOfQueue
+    }
+}
+
+/// "Process a queue" (§4.1, #concept-encoding-run), with "process an item"
+/// (#concept-encoding-process) inlined, for UTF-8's encoder reading `input`
+/// from position `i`. Returns the output bytes.
+pub open spec fn encoder_process_queue(input: Seq<u32>, i: nat) -> Seq<u8>
+    decreases input.len() - i
+    when i <= input.len()
+{
+    // 1.1 "Let result be the result of processing an item with the result of
+    //      reading from input": process an item, 4. run the handler.
+    match encoder_handler(scalar_item_at(input, i)) {
+        // process an item, 5. finished: push end-of-queue (implicit), return.
+        // 1.2 "If result is not continue, then return result."
+        EncoderHandlerResult::Finished => seq![],
+        // 6. one or more items: 6.2 push them to output. (6.1 asserts only
+        // about decoders.) 8. "Return continue.", so 1.2 loops.
+        EncoderHandlerResult::Bytes(bytes) => bytes + encoder_process_queue(input, i + 1),
+    }
+}
+
+/// "UTF-8 encode" (§6, #utf-8-encode): "return the result of encoding
+/// ioQueue with encoding UTF-8 and output", where "encode" (§6 "Legacy
+/// hooks for standards", #encode) is:
+pub open spec fn utf8_encode(input: Seq<u32>) -> Seq<u8> {
+    // 1. "Let encoder be the result of getting an encoder from encoding."
+    //    (get an encoder: 1. the assertion holds for UTF-8; 2. "Return an
+    //    instance of encoding's encoder." UTF-8's encoder has no state.)
+    // 2. "Process a queue with encoder, ioQueue, output, and "html"."
+    // 3. "Return output."
+    encoder_process_queue(input, 0)
 }
 
 /// A Unicode scalar value: a code point that is not a surrogate (Infra §4.5).
