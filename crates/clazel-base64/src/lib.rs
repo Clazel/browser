@@ -7,9 +7,15 @@
 //! Tier: see `[package.metadata.clazel]` in `Cargo.toml` and
 //! `docs/VERIFICATION.md`.
 //!
-//! - [`spec`]: a step-by-step transcription of the standard.
+//! - [`spec`]: a step-by-step transcription of the standard. This is the
+//!   part a human must check against the standard.
 //! - [`contract`]: what the executable decoder and encoder are proven to
 //!   satisfy.
+//! - [`decode`] and [`encode`]: the executable code, and its proofs.
+//! - [`lemmas`]: facts proven about the spec itself.
 
 pub mod contract;
+pub mod decode;
+pub mod encode;
+pub mod lemmas;
 pub mod spec;
