@@ -48,6 +48,8 @@
 //!   "%25" for that octet to be used as data".
 
 #[allow(unused_imports)]
+use super::spec::*;
+#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
@@ -250,6 +252,170 @@ pub open spec fn component_disagreement(c: u32) -> bool {
 /// sub-delim it leaves alone) and ~ (an unreserved character it encodes).
 pub open spec fn form_disagreement(c: u32) -> bool {
     c == 0x2A || c == 0x7E
+}
+
+// ===========================================================================
+// Proof: this transcription equals `spec.rs` where RFC 3986 and the URL
+// Standard agree. Everything below is proof machinery; the transcription
+// ends above.
+// ===========================================================================
+
+/// §2.1 percent-encoding of an octet equals "percent-encode", for every
+/// byte.
+pub proof fn lemma_percent_encode_equals_rfc3986(byte: u8)
+    ensures
+        percent_encode(byte) == rfc_pct_encode(byte),
+{
+    assert(percent_encode(byte) =~= rfc_pct_encode(byte));
+}
+
+/// From position `i`: when every "%" from `i` on begins a percent-encoded
+/// octet, percent-decode from `i` is the RFC's decoding of the rest.
+proof fn lemma_percent_decode_equals_rfc3986_from(s: Seq<u8>, i: nat)
+    requires
+        i <= s.len(),
+        forall|k: int| i <= k < s.len() && #[trigger] s[k] == 0x25 ==> rfc_pct_encoded_at(s, k),
+    ensures
+        percent_decode_from(s, i) == rfc_pct_decode(s.skip(i as int)),
+    decreases s.len() - i,
+{
+    let t = s.skip(i as int);
+    if i < s.len() {
+        assert(t[0] == s[i as int]);
+        if s[i as int] == 0x25 {
+            assert(rfc_pct_encoded_at(s, i as int));
+            assert(t[1] == s[i + 1int] && t[2] == s[i + 2int]);
+            assert(rfc_pct_encoded_at(t, 0));
+            assert(hex_value(s[i + 1int]) == rfc_hexdig_value(s[i + 1int] as u32));
+            assert(hex_value(s[i + 2int]) == rfc_hexdig_value(s[i + 2int] as u32));
+            lemma_percent_decode_equals_rfc3986_from(s, i + 3);
+            assert(t.skip(3) =~= s.skip(i + 3int));
+        } else {
+            assert(!rfc_pct_encoded_at(t, 0));
+            lemma_percent_decode_equals_rfc3986_from(s, i + 1);
+            assert(t.skip(1) =~= s.skip(i + 1int));
+        }
+    } else {
+        assert(t.len() == 0);
+    }
+}
+
+/// On the domain where RFC 3986 defines decoding ([`rfc_decodable`]),
+/// percent-decode equals it.
+pub proof fn lemma_percent_decode_equals_rfc3986(s: Seq<u8>)
+    requires
+        rfc_decodable(s),
+    ensures
+        percent_decode(s) == rfc_pct_decode(s),
+{
+    lemma_percent_decode_equals_rfc3986_from(s, 0);
+    assert(s.skip(0) =~= s);
+}
+
+/// One percent-encoded octet: percent-decode equals the RFC's decoding.
+/// An instance of [`lemma_percent_decode_equals_rfc3986`] whose
+/// precondition has no quantifier, for kill certificates.
+pub proof fn lemma_percent_decode_equals_rfc3986_triplet(h1: u8, h2: u8)
+    requires
+        rfc_hexdig(h1 as u32),
+        rfc_hexdig(h2 as u32),
+    ensures
+        percent_decode(seq![0x25u8, h1, h2]) == rfc_pct_decode(seq![0x25u8, h1, h2]),
+{
+    let s = seq![0x25u8, h1, h2];
+    assert(rfc_pct_encoded_at(s, 0));
+    assert forall|k: int| 0 <= k < s.len() implies rfc_uri_character(#[trigger] s[k] as u32) by {
+        if k == 0 {
+            assert(s[k] == 0x25);
+        } else if k == 1 {
+            assert(s[k] == h1);
+        } else {
+            assert(s[k] == h2);
+        }
+    }
+    lemma_percent_decode_equals_rfc3986(s);
+}
+
+/// The C0 control set contains a code point exactly as "not a URI
+/// character" says, except on [`c0_control_disagreement`].
+pub proof fn lemma_c0_control_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::C0Control, c) == !rfc_uri_character(c))
+            <==> !c0_control_disagreement(c),
+{
+}
+
+/// The fragment set against §3.5, except on [`fragment_disagreement`].
+pub proof fn lemma_fragment_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::Fragment, c) == !rfc_fragment_char(c))
+            <==> !fragment_disagreement(c),
+{
+}
+
+/// The query set against §3.4, except on [`query_disagreement`].
+pub proof fn lemma_query_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::Query, c) == !rfc_query_char(c)) <==> !query_disagreement(c),
+{
+}
+
+/// The special-query set against §3.4, except on
+/// [`special_query_disagreement`].
+pub proof fn lemma_special_query_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::SpecialQuery, c) == !rfc_query_char(c))
+            <==> !special_query_disagreement(c),
+{
+}
+
+/// The path set against §3.3, except on [`path_disagreement`].
+pub proof fn lemma_path_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::Path, c) == !rfc_path_char(c)) <==> !path_disagreement(c),
+{
+}
+
+/// The userinfo set against §3.2.1, except on [`userinfo_disagreement`].
+pub proof fn lemma_userinfo_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::Userinfo, c) == !rfc_userinfo_char(c))
+            <==> !userinfo_disagreement(c),
+{
+}
+
+/// The component set against "encode all but unreserved", except on
+/// [`component_disagreement`].
+pub proof fn lemma_component_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::Component, c) == !rfc_unreserved(c))
+            <==> !component_disagreement(c),
+{
+}
+
+/// The application/x-www-form-urlencoded set against "encode all but
+/// unreserved", except on [`form_disagreement`].
+pub proof fn lemma_form_set_vs_rfc3986(c: u32)
+    requires
+        is_code_point(c),
+    ensures
+        (contains(PercentEncodeSet::ApplicationXWwwFormUrlencoded, c) == !rfc_unreserved(c))
+            <==> !form_disagreement(c),
+{
 }
 
 } // verus!
