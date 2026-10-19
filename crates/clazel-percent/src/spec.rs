@@ -79,6 +79,23 @@ pub open spec fn is_ascii_hex_digit(c: u32) -> bool {
     is_ascii_upper_hex_digit(c) || is_ascii_lower_hex_digit(c)
 }
 
+/// Infra §4.6: an ASCII upper alpha is a code point in the range U+0041 (A)
+/// to U+005A (Z), inclusive; an ASCII lower alpha, U+0061 (a) to U+007A
+/// (z), inclusive; an ASCII alpha is either; an ASCII alphanumeric is an
+/// ASCII digit or ASCII alpha. (Used by the note after the
+/// application/x-www-form-urlencoded percent-encode set.)
+pub open spec fn is_ascii_alphanumeric(c: u32) -> bool {
+    is_ascii_digit(c) || (0x41 <= c <= 0x5A) || (0x61 <= c <= 0x7A)
+}
+
+/// Infra §4.5: "To isomorphic decode a byte sequence input, return a
+/// string whose code point length is equal to input's length and whose
+/// code points have the same values as the values of input's bytes, in
+/// the same order."
+pub open spec fn isomorphic_decode(input: Seq<u8>) -> Seq<u32> {
+    input.map_values(|b: u8| b as u32)
+}
+
 /// Infra §4.6: a C0 control is a code point in the range U+0000 NULL to
 /// U+001F INFORMATION SEPARATOR ONE, inclusive.
 pub open spec fn is_c0_control(c: u32) -> bool {

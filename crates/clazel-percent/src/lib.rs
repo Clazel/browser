@@ -8,6 +8,7 @@
 //! - [`spec`]: a step-by-step transcription of the standard.
 //! - [`contract`]: what the executable functions are proven to satisfy.
 //! - [`encode`] and [`decode`]: the executable functions, and their proofs.
+//! - [`lemmas`] and [`examples`]: facts proven about the spec itself.
 //! - [`independent`]: a second transcription, from RFC 3986, proven equal
 //!   to [`spec`] where the two standards agree.
 //!
@@ -17,5 +18,7 @@
 pub mod contract;
 pub mod decode;
 pub mod encode;
+pub mod examples;
 pub mod independent;
+pub mod lemmas;
 pub mod spec;
