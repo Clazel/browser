@@ -17,7 +17,9 @@ transcription, certified mutation kills) is next. Recheck every proof yourself, 
 ```sh
 docker build --platform linux/amd64 -t clazel-verify .
 docker run --rm --platform linux/amd64 clazel-verify
-``` See [docs/ROADMAP.md](docs/ROADMAP.md).
+```
+
+See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Verification status
 
