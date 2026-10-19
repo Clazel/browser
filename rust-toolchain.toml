@@ -1,0 +1,6 @@
+# Must match the toolchain the pinned Verus release was built against
+# (see scripts/toolchains.env), so builds and proofs see the same compiler.
+[toolchain]
+channel = "1.98.1"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

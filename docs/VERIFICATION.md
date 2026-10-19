@@ -16,9 +16,19 @@ Humans review **specifications and contracts** (small). Machines check
 | 2 | Functionally correct: the implementation refines an executable spec | Verus proofs (SMT-backed, unbounded) |
 | 3 | Empirically tested | Web Platform Tests, fuzzing, differential testing against other engines |
 
-Every crate declares its tier in its `Cargo.toml` `description` and in the
-crate-level doc comment. Machine-readable tiers, enforced by `verify.sh`, are
-planned (Phase 0 item 0.3) but not implemented yet.
+Every crate declares its tier in `Cargo.toml`:
+
+```toml
+[package.metadata.clazel]
+tier = 0          # what is proven about the shipped code today
+target-tier = 2   # what this policy requires for the crate
+```
+
+`tier` is never raised for proofs about a spec alone; it describes the code
+that runs. `verify.sh` currently checks that every crate declares both
+values and uses the workspace lints. Checking that the declared tier is
+*true* (Verus enabled for Tier 2, Kani harnesses for Tier 1) comes with the
+`xtask` checker (Phase 0 item 0.4).
 
 ## What must be at which tier
 
@@ -39,7 +49,8 @@ planned (Phase 0 item 0.3) but not implemented yet.
   panic-freedom and for cross-checking Verus specs on small inputs.
 - **Miri**: catches UB in the one audited `unsafe` crate, and in dependencies.
 
-Pinned versions (proofs must be reproducible):
+Pinned versions (proofs must be reproducible). The source of truth is
+`scripts/toolchains.env`; `verify.sh` fails if installed tools differ.
 
 | Tool | Version | Install |
 |------|---------|---------|

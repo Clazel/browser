@@ -37,6 +37,9 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | Verus 0.2026.10.04 and Kani 0.68.0 on the dev Mac | done, by hand |
 | `verify.sh`: fmt, clippy, tests, escape-hatch grep, Kani, Verus | done, basic version |
 | Fresh (uncached) Verus runs | done |
+| 0.1 Toolchain pin (`rust-toolchain.toml`, `scripts/toolchains.env`, version checks in `verify.sh`) | done |
+| 0.3 Machine-readable tiers (declared and checked present; truth checked in 0.4) | done |
+| 0.12 Verus output noise | done |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -256,7 +259,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.3 and 0.12 can start right away. 0.4 is the critical path.
+0.1, 0.3 and 0.12 are done. Next: 0.4, the critical path, and 0.2 in parallel.
 
 ## Explicitly out of scope for Phase 0
 
