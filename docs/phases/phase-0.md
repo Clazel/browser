@@ -43,6 +43,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.4 `xtask` checker (token scanner, tier truth, pins, runner; `verify.sh` wraps it) | done |
 | 0.6 Proof mutation testing (`cargo xtask mutate`, part of `verify`) | done: 10 UTF-8 mutations, 2 killed by a theorem |
 | 0.2 `scripts/setup.sh` with checksums | done on macOS arm64; Linux x86-64 untested until 0.11 |
+| 0.5 Generated README status table | done; spec review column waits for 0.8 |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -148,6 +149,12 @@ thin wrapper around it.
 | Spec / proof / exec lines | Verus's bundled `line_count` tool |
 | Spec review | up to date / stale / missing (0.8) |
 | Mutation score | killed / total (0.6) |
+
+**As built:** `cargo xtask report [--write]`. The metrics are recorded by the
+checks themselves as they run. The table has no spec review column yet (it
+needs 0.8) and no WPT column (no suites yet). `--write` refuses while any check
+fails. Tested: a hand-edited mutation score was caught, and a planted `admit()`
+blocked the write.
 
 The README table lives between `<!-- BEGIN STATUS -->` and
 `<!-- END STATUS -->` markers. `cargo xtask report --write` regenerates it,
@@ -275,7 +282,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.2, 0.3, 0.4, 0.6 and 0.12 are done. Next: 0.5, 0.7, 0.8.
+0.1, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.12 are done. Next: 0.7, 0.8.
 
 ## Explicitly out of scope for Phase 0
 

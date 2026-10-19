@@ -6,9 +6,13 @@
 //! - `cargo xtask check`: only the fast static checks (no build, no proofs).
 //! - `cargo xtask mutate`: only the proof mutation tests (also part of
 //!   `verify`).
+//! - `cargo xtask report [--write]`: run the checks that produce the README
+//!   status table, print it, and with `--write` update README.md. `verify`
+//!   fails if README.md's table differs from what it measured.
 
 mod mutate;
 mod pins;
+mod report;
 mod scan;
 mod verus;
 mod workspace;
@@ -29,6 +33,8 @@ enum Outcome {
 struct Runner {
     failed: bool,
     skipped: bool,
+    /// What the checks measured, for the README status table.
+    metrics: report::Table,
 }
 
 impl Runner {
@@ -106,8 +112,14 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     let mut decl_notes = Vec::new();
     let mut axioms = 0usize;
     for c in crates {
+        let m = r.metrics.entry(c.name.clone()).or_default();
+        m.tier = c.tier;
+        m.target_tier = c.target_tier;
+        m.is_verus = c.verus;
         match workspace::scan_crate(c) {
             Ok(s) => {
+                m.axioms = s.axioms;
+                m.kani_harnesses = s.kani_proofs;
                 violations.extend(s.violations);
                 axioms = axioms.saturating_add(s.axioms);
                 let (bad, notes) = workspace::check_tiers(c, s.kani_proofs);
@@ -267,6 +279,13 @@ fn kani(r: &mut Runner, crates: &[Crate], pins: &Pins) {
                     Err(format!("unexpected Kani summary:\n{out}"))
                 }
             });
+        if let Ok(lines) = &res {
+            let summary = lines.join(" ");
+            let summary = summary
+                .trim_start_matches("Complete - ")
+                .trim_end_matches('.');
+            r.metrics.entry(c.name.clone()).or_default().kani = Some(summary.to_owned());
+        }
         r.step(&format!("kani {}", c.name), from_result(res));
     }
     if !any {
@@ -298,9 +317,26 @@ fn verus(r: &mut Runner, crates: &[Crate], pins: &Pins) {
         })),
     );
     for c in crates.iter().filter(|c| c.verus) {
+        let res = verus_crate(&c.dir, &c.name);
+        if let Ok(lines) = &res
+            && let Some(summary) = lines.first()
+        {
+            let summary = summary.trim_start_matches("verification results:: ");
+            r.metrics.entry(c.name.clone()).or_default().verus = Some(summary.to_owned());
+        }
+        r.step(&format!("verus {}", c.name), from_result(res));
+        let counted = report::line_count(&c.dir);
+        if let Ok(l) = &counted {
+            r.metrics.entry(c.name.clone()).or_default().lines = Some(l.clone());
+        }
         r.step(
-            &format!("verus {}", c.name),
-            from_result(verus_crate(&c.dir, &c.name)),
+            &format!("line count {}", c.name),
+            from_result(counted.map(|l| {
+                vec![format!(
+                    "spec {}, proof {}, exec {}",
+                    l.spec, l.proof, l.exec
+                )]
+            })),
         );
     }
 }
@@ -337,6 +373,12 @@ fn mutations(r: &mut Runner, crates: &[Crate], root: &Path) {
         }
         let outcome = match mutate::run(c, root) {
             Ok(rep) => {
+                r.metrics.entry(c.name.clone()).or_default().mutations = Some(report::Mutations {
+                    killed: rep.killed,
+                    incidental: rep.incidental,
+                    survived: rep.survived,
+                    total: rep.total,
+                });
                 let mut lines = rep.lines;
                 lines.push(format!(
                     "{} mutations: {} killed by a theorem, {} killed incidentally (not coverage), {} survived (known gaps)",
@@ -350,14 +392,77 @@ fn mutations(r: &mut Runner, crates: &[Crate], root: &Path) {
     }
 }
 
+/// Compare (or, with `write`, update) README.md's status table against what
+/// this run measured.
+fn readme_table(r: &mut Runner, write: bool) {
+    const NAME: &str = "README status table";
+    let incomplete: Vec<&String> = r
+        .metrics
+        .iter()
+        .filter(|(_, m)| !m.complete())
+        .map(|(n, _)| n)
+        .collect();
+    if !incomplete.is_empty() {
+        r.step(
+            NAME,
+            Outcome::Skip(format!("not all metrics were measured, for {incomplete:?}")),
+        );
+        return;
+    }
+    let block = report::render(&r.metrics);
+    let readme = match std::fs::read_to_string(report::README) {
+        Ok(t) => t,
+        Err(e) => {
+            r.step(
+                NAME,
+                Outcome::Fail(vec![format!("{}: {e}", report::README)]),
+            );
+            return;
+        }
+    };
+    if write {
+        // Never publish numbers from a run where something failed.
+        let outcome = if r.failed {
+            Outcome::Fail(vec!["refusing to write: a check above failed".into()])
+        } else {
+            match report::splice(&readme, &block)
+                .and_then(|new| std::fs::write(report::README, new).map_err(|e| e.to_string()))
+            {
+                Ok(()) => Outcome::Pass(vec![format!("wrote {}", report::README), block]),
+                Err(e) => Outcome::Fail(vec![e]),
+            }
+        };
+        r.step(NAME, outcome);
+        return;
+    }
+    let outcome = match report::current(&readme) {
+        Some(cur) if cur == block => Outcome::Pass(Vec::new()),
+        Some(_) => Outcome::Fail(vec![
+            "README.md's table differs from what this run measured.".into(),
+            "Run `cargo xtask report --write` and commit the result. Measured:".into(),
+            block,
+        ]),
+        None => Outcome::Fail(vec![format!(
+            "{} has no {} … {} block",
+            report::README,
+            report::BEGIN,
+            report::END
+        )]),
+    };
+    r.step(NAME, outcome);
+}
+
 fn main() -> ExitCode {
-    let mode = std::env::args().nth(1);
-    let (full, only_mutate) = match mode.as_deref() {
-        Some("verify") => (true, false),
-        Some("check") => (false, false),
-        Some("mutate") => (false, true),
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let (full, only_mutate, report_mode, write) = match args.as_slice() {
+        ["verify"] => (true, false, false, false),
+        ["check"] => (false, false, false, false),
+        ["mutate"] => (false, true, false, false),
+        ["report"] => (false, false, true, false),
+        ["report", "--write"] => (false, false, true, true),
         _ => {
-            eprintln!("usage: cargo xtask <verify|check|mutate>");
+            eprintln!("usage: cargo xtask <verify|check|mutate|report [--write]>");
             return ExitCode::from(64);
         }
     };
@@ -390,9 +495,12 @@ fn main() -> ExitCode {
     }
     if full {
         build_checks(&mut r);
+    }
+    if full || report_mode {
         kani(&mut r, &crates, &pins);
         verus(&mut r, &crates, &pins);
         mutations(&mut r, &crates, &root);
+        readme_table(&mut r, write);
     }
     if r.failed {
         println!("RESULT: FAILED");
@@ -405,6 +513,9 @@ fn main() -> ExitCode {
         ExitCode::SUCCESS
     } else if only_mutate {
         println!("RESULT: MUTATION TESTS PASSED (other checks not run)");
+        ExitCode::SUCCESS
+    } else if report_mode {
+        println!("RESULT: REPORT CHECKS PASSED (fmt, clippy and tests not run)");
         ExitCode::SUCCESS
     } else {
         println!(

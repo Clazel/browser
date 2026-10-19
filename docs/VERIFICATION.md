@@ -92,6 +92,12 @@ counts these three separately.
 
 ## Honesty metrics
 
-`scripts/verify.sh` reports, per crate: tier, number of proven functions,
-`assume`/`admit`/`external_body` count (target: zero outside documented
-axioms), and WPT pass rate where applicable. These numbers go in the README.
+The README's status table is generated, never typed. For each crate it shows
+the tier and target tier, the Verus result, Kani harness results, the number of
+documented axioms (every other escape hatch is rejected outright), spec / proof /
+exec line counts, and the three-way mutation result. `cargo xtask verify` fails
+if the committed table differs from what that run measured, and `cargo xtask
+report --write` refuses to update it while any check is failing.
+
+Not yet in the table: spec review status (Phase 0 item 0.8) and WPT pass
+rates (added when a crate first runs a test suite).

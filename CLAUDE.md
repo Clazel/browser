@@ -35,5 +35,8 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 - The only accepted lint override is `#[allow(unused_imports)]` directly on
   `use vstd::prelude::*;` or `use super::spec::*;` (ghost imports look unused
   to normal builds). The checker rejects everything else.
+- Never edit README.md's status table by hand. After changing proofs,
+  harnesses, axioms or mutations, run `cargo xtask report --write` and commit
+  the regenerated table together with the change that moved the numbers.
 - Keep changes small: one spec section or one proof per commit where practical.
 - Test against official suites (WPT, html5lib-tests), vendored under `tests/`.
