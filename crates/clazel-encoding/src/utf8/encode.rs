@@ -131,13 +131,19 @@ mod tests {
         let step = if cfg!(miri) { 4099 } else { 1 };
         let mut buf = [0u8; 4];
         for c in (0..=0x10FFFFu32).step_by(step).filter_map(char::from_u32) {
-            assert_eq!(encode(&[u32::from(c)]), c.encode_utf8(&mut buf).as_bytes(), "{c:?}");
+            assert_eq!(
+                encode(&[u32::from(c)]),
+                c.encode_utf8(&mut buf).as_bytes(),
+                "{c:?}"
+            );
         }
     }
 
     #[test]
     fn boundaries() {
-        for c in [0x0, 0x7F, 0x80, 0x7FF, 0x800, 0xD7FF, 0xE000, 0xFFFD, 0xFFFF, 0x10000, 0x10FFFF] {
+        for c in [
+            0x0, 0x7F, 0x80, 0x7FF, 0x800, 0xD7FF, 0xE000, 0xFFFD, 0xFFFF, 0x10000, 0x10FFFF,
+        ] {
             let Some(c) = char::from_u32(c) else { continue };
             check(&String::from(c));
         }
