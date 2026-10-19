@@ -6,6 +6,9 @@
 //! - `cargo xtask check`: only the fast static checks (no build, no proofs).
 //! - `cargo xtask mutate`: only the proof mutation tests (also part of
 //!   `verify`).
+//! - `cargo xtask testdata`: regenerate the Rust tables converted from
+//!   vendored conformance suites (`tests/generated/*.rs`). `check` and
+//!   `verify` fail if a committed table is stale.
 //! - `cargo xtask report [--write]`: run the checks that produce the README
 //!   status table, print it, and with `--write` update README.md. `verify`
 //!   fails if README.md's table differs from what it measured.
@@ -16,6 +19,7 @@ mod pins;
 mod report;
 mod reviews;
 mod scan;
+mod testdata;
 mod verus;
 mod workspace;
 
@@ -194,6 +198,8 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     notes.extend(review_notes);
     r.step("spec reviews", outcome(review_problems, notes));
     r.step("pinned versions", from_result(check_pins(crates, pins)));
+    let (problems, notes) = testdata::run(crates, false);
+    r.step("generated test data", outcome(problems, notes));
     let tooling = crates
         .iter()
         .filter(|c| c.tooling)
@@ -568,17 +574,43 @@ fn readme_table(r: &mut Runner, write: bool) {
     r.step(NAME, outcome);
 }
 
+/// `cargo xtask testdata`: rewrite every stale generated table.
+fn generate_testdata() -> ExitCode {
+    let mut r = Runner::default();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent();
+    if !root.is_some_and(|p| std::env::set_current_dir(p).is_ok()) {
+        r.step(
+            "find repository root",
+            Outcome::Fail(vec!["cannot enter the repository root".into()]),
+        );
+        return ExitCode::from(1);
+    }
+    let res = workspace::load().map(|crates| testdata::run(&crates, true));
+    match res {
+        Ok((problems, notes)) => r.step("generate test data", outcome(problems, notes)),
+        Err(e) => r.step("load workspace", Outcome::Fail(vec![e])),
+    }
+    if r.failed {
+        println!("RESULT: FAILED");
+        ExitCode::from(1)
+    } else {
+        println!("RESULT: TEST DATA UP TO DATE");
+        ExitCode::SUCCESS
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     let (full, only_mutate, report_mode, write) = match args.as_slice() {
+        ["testdata"] => return generate_testdata(),
         ["verify"] => (true, false, false, false),
         ["check"] => (false, false, false, false),
         ["mutate"] => (false, true, false, false),
         ["report"] => (false, false, true, false),
         ["report", "--write"] => (false, false, true, true),
         _ => {
-            eprintln!("usage: cargo xtask <verify|check|mutate|report [--write]>");
+            eprintln!("usage: cargo xtask <verify|check|mutate|testdata|report [--write]>");
             return ExitCode::from(64);
         }
     };
