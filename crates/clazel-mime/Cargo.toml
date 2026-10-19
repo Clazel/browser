@@ -1,0 +1,21 @@
+[package]
+name = "clazel-mime"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "WHATWG MIME Sniffing Standard: MIME types and sniffing."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+
+# Verification tier (docs/VERIFICATION.md).
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
