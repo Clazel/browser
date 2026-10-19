@@ -31,7 +31,8 @@
 //! ## Kill certificates
 //!
 //! A `killed` mutation carries a certificate: a concrete `witness` (a Verus
-//! boolean expression over a concrete input) and a `lemma` call at that
+//! boolean expression over a concrete input; one comparison is enough) and a
+//! `lemma` call at that
 //! input. The tool adds this function to `file`:
 //!
 //! ```text

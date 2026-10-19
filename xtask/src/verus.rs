@@ -70,22 +70,75 @@ fn invoke(dir: &Path, name: &str, args: &[&str]) -> Result<Run, String> {
         String::from_utf8_lossy(&out.stdout),
         String::from_utf8_lossy(&out.stderr)
     );
+    Ok(classify(text, out.status.success()))
+}
+
+/// Classify the combined output of one Verus run that exited with `success`.
+fn classify(text: String, success: bool) -> Run {
     // Verus prints one summary per verified crate; ours is the last. A
     // partial run appends "(partial verification ...)" to it.
     let summary = text
         .lines()
         .rfind(|l| l.starts_with("verification results::"))
         .map(str::to_owned);
-    // An `assert(..) by (compute_only)` that evaluates to false stops Verus
-    // before it prints a summary; it is still a failed proof, not a build error.
+    // An `assert(..) by (compute_only)` that does not evaluate to true stops
+    // Verus before it prints a summary; it is still a failed proof, not a
+    // build error. The message names what the expression reduced to: plain
+    // "false" for a conjunction, "`1 == 0`, which evaluates to false" for a
+    // single comparison.
     let compute_false = text
         .lines()
-        .find(|l| l.starts_with("error: expression simplifies to false"))
+        .find(|l| l.starts_with("error: expression simplifies to "))
         .map(str::to_owned);
-    Ok(match (summary, compute_false) {
-        (Some(s), _) if out.status.success() && s.contains(" 0 errors") => Run::Verified(s),
+    match (summary, compute_false) {
+        (Some(s), _) if success && s.contains(" 0 errors") => Run::Verified(s),
         (Some(s), _) if !s.contains(" 0 errors") => Run::ProofFailed(s, text),
         (_, Some(e)) => Run::ProofFailed(e, text),
         _ => Run::BuildFailed(text),
-    })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Run, classify};
+
+    fn kind(text: &str, success: bool) -> &'static str {
+        match classify(text.to_owned(), success) {
+            Run::Verified(_) => "verified",
+            Run::ProofFailed(..) => "proof",
+            Run::BuildFailed(_) => "build",
+        }
+    }
+
+    #[test]
+    fn compute_only_failures_are_proof_failures() {
+        // A conjunction of false comparisons reduces all the way to `false`.
+        let conjunction = "error: expression simplifies to false\n   --> src/utf8/lemmas.rs:9:12\n";
+        assert_eq!(kind(conjunction, false), "proof");
+        // A single comparison is reported with the comparison it reduced to
+        // (output of Verus 0.2026.10.04).
+        let single = "note: verifying module utf8::lemmas (selected functions)\n\n\
+            error: expression simplifies to `1 == 4`, which evaluates to false\n   \
+            --> crates/clazel-encoding/src/utf8/lemmas.rs:404:12\n\n\
+            error: could not compile `clazel-encoding` (lib) due to 1 previous error\n";
+        assert_eq!(kind(single, false), "proof");
+    }
+
+    #[test]
+    fn build_errors_stay_build_failures() {
+        let type_error = "error[E0308]: mismatched types\n --> src/utf8/lemmas.rs:9:12\n\n\
+            error: could not compile `clazel-encoding` (lib) due to 1 previous error\n";
+        assert_eq!(kind(type_error, false), "build");
+        // Mentioning the phrase mid-line is not a compute_only failure.
+        let quoted = "error: cannot find function `f`: expression simplifies to nothing\n";
+        assert_eq!(kind(quoted, false), "build");
+    }
+
+    #[test]
+    fn summaries_decide_when_present() {
+        let ok = "verification results:: 12 verified, 0 errors\n";
+        assert_eq!(kind(ok, true), "verified");
+        let failed = "verification results:: 11 verified, 1 errors\n";
+        assert_eq!(kind(failed, false), "proof");
+    }
 }
