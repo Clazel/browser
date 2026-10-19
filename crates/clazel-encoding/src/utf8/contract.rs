@@ -1,10 +1,14 @@
 //! Contracts the executable UTF-8 decoder must be proven to meet. Each
-//! exec function's `ensures` clause will be exactly one of these
-//! predicates, so reviewing these (and [`super::spec`]) is enough to know
-//! what the implementation guarantees.
+//! exec function's `ensures` clause is exactly one of these predicates, so
+//! reviewing these (and [`super::spec`]) is enough to know what the
+//! implementation guarantees.
 //!
-//! Output is `char`, which Rust guarantees is a scalar value. That this
-//! is achievable at all follows from `lemmas::lemma_hooks_scalar`.
+//! Output is code points as `u32`, not `char`. vstd has no specification
+//! for `char::from_u32` (or any other safe `u32` to `char` conversion), and
+//! supplying one would need `assume_specification`, which expands to
+//! `unsafe` code (CLAUDE.md rules 1 and 4). Nothing is lost: every output
+//! value is a Unicode scalar value (`lemmas::lemma_hooks_scalar`), so a
+//! caller's `char::from_u32` never returns `None`.
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -13,31 +17,22 @@ use vstd::prelude::*;
 
 verus! {
 
-/// The code point values of a sequence of `char`s.
-pub open spec fn code_points(s: Seq<char>) -> Seq<u32> {
-    s.map_values(|c: char| c as u32)
-}
-
-/// Contract for `decode(&[u8]) -> Vec<char>`: equals "UTF-8 decode"
+/// Contract for `decode(&[u8]) -> Vec<u32>`: equals "UTF-8 decode"
 /// (BOM stripped, errors replaced with U+FFFD).
-pub open spec fn decode_ensures(input: Seq<u8>, output: Seq<char>) -> bool {
-    code_points(output) == utf8_decode(input)
+pub open spec fn decode_ensures(input: Seq<u8>, output: Seq<u32>) -> bool {
+    output == utf8_decode(input)
 }
 
-/// Contract for `decode_without_bom(&[u8]) -> Vec<char>`.
-pub open spec fn decode_without_bom_ensures(input: Seq<u8>, output: Seq<char>) -> bool {
-    code_points(output) == utf8_decode_without_bom(input)
+/// Contract for `decode_without_bom(&[u8]) -> Vec<u32>`.
+pub open spec fn decode_without_bom_ensures(input: Seq<u8>, output: Seq<u32>) -> bool {
+    output == utf8_decode_without_bom(input)
 }
 
-/// Contract for `decode_without_bom_or_fail(&[u8]) -> Option<Vec<char>>`:
+/// Contract for `decode_without_bom_or_fail(&[u8]) -> Option<Vec<u32>>`:
 /// `None` exactly when the standard returns failure, and the same output
 /// otherwise.
-pub open spec fn decode_without_bom_or_fail_ensures(input: Seq<u8>, output: Option<Seq<char>>) -> bool {
-    match (output, utf8_decode_without_bom_or_fail(input)) {
-        (Some(out), Some(expected)) => code_points(out) == expected,
-        (None, None) => true,
-        _ => false,
-    }
+pub open spec fn decode_without_bom_or_fail_ensures(input: Seq<u8>, output: Option<Seq<u32>>) -> bool {
+    output == utf8_decode_without_bom_or_fail(input)
 }
 
 } // verus!
