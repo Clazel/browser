@@ -40,6 +40,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.1 Toolchain pin (`rust-toolchain.toml`, `scripts/toolchains.env`, version checks in `verify.sh`) | done |
 | 0.3 Machine-readable tiers (declared and checked present; truth checked in 0.4) | done |
 | 0.12 Verus output noise | done |
+| 0.4 `xtask` checker (token scanner, tier truth, pins, runner; `verify.sh` wraps it) | done |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -259,7 +260,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.3 and 0.12 are done. Next: 0.4, the critical path, and 0.2 in parallel.
+0.1, 0.3, 0.4 and 0.12 are done. Next: 0.5–0.8 (all unblocked by 0.4), and 0.2.
 
 ## Explicitly out of scope for Phase 0
 

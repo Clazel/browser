@@ -14,7 +14,12 @@ Humans review **specifications and contracts** (small). Machines check
 | 0 | Memory safe, no undefined behaviour | Safe Rust (`unsafe_code = "forbid"`), Miri on tests, workspace clippy deny-lints |
 | 1 | Never panics, overflows or indexes out of bounds, on **any** input | Kani bounded model checking harnesses over all inputs up to a stated bound |
 | 2 | Functionally correct: the implementation refines an executable spec | Verus proofs (SMT-backed, unbounded) |
-| 3 | Empirically tested | Web Platform Tests, fuzzing, differential testing against other engines |
+
+Each tier includes the ones below it, so a higher number is always a stronger
+guarantee. **Testing is not a tier.** Web Platform Tests, fuzzing, and
+differential testing against other engines apply at every tier. They catch
+mistakes in specs, which proofs cannot, and they are the only evidence for
+Tier 0 code.
 
 Every crate declares its tier in `Cargo.toml`:
 
@@ -25,10 +30,11 @@ target-tier = 2   # what this policy requires for the crate
 ```
 
 `tier` is never raised for proofs about a spec alone; it describes the code
-that runs. `verify.sh` currently checks that every crate declares both
-values and uses the workspace lints. Checking that the declared tier is
-*true* (Verus enabled for Tier 2, Kani harnesses for Tier 1) comes with the
-`xtask` checker (Phase 0 item 0.4).
+that runs. `cargo xtask verify` checks that every crate declares both, that the
+declared tier is backed by tooling (Tier 2: Verus enabled for the crate,
+since Verus also proves the absence of panics; Tier 1: the crate has Kani
+harnesses), and it reports every crate whose `tier` is below its
+`target-tier`.
 
 ## What must be at which tier
 

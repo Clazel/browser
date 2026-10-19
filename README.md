@@ -23,7 +23,8 @@ Formalizing the standards has already found one spec bug: see
 ## Building
 
 ```sh
-scripts/verify.sh
+scripts/verify.sh        # every check, fresh proof runs (same as `cargo xtask verify`)
+cargo xtask check        # fast static checks only
 ```
 
 ## License

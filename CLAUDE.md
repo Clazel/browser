@@ -22,10 +22,18 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 6. **Never mark something verified that isn't.** If a proof doesn't go through,
    say so in the PR and leave the crate at its real tier.
 7. **Write our own parsers.** Any code that parses untrusted bytes is ours.
-   Dependencies are allowed only for crypto (verified libraries), OS and windowing
-   bindings, and GPU access, and each needs a line in `docs/DEPENDENCIES.md`.
+   Shipped dependencies are allowed only for crypto (verified libraries), OS and
+   windowing bindings, and GPU access. Proof libraries (`vstd`) and build
+   tooling that never ships (`xtask`) may use others. Every dependency needs a
+   line in `docs/DEPENDENCIES.md`.
 
 ## Workflow
-- Run `scripts/verify.sh` before calling any work done. Report its output honestly.
+- Run `scripts/verify.sh` (same as `cargo xtask verify`) before calling any
+  work done, and report its output honestly. `cargo xtask check` runs only the
+  fast static checks (unsafe, lint overrides, escape hatches, tier
+  declarations, pins); use it while iterating, never as the final check.
+- The only accepted lint override is `#[allow(unused_imports)]` directly on
+  `use vstd::prelude::*;` or `use super::spec::*;` (ghost imports look unused
+  to normal builds). The checker rejects everything else.
 - Keep changes small: one spec section or one proof per commit where practical.
 - Test against official suites (WPT, html5lib-tests), vendored under `tests/`.
