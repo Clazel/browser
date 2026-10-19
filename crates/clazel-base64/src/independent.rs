@@ -29,6 +29,7 @@
 //! - [`lemma_canonical_is_image`]: [`canonical`] strings are exactly the
 //!   outputs of [`rfc4648_encode`], so the domain above is stated exactly,
 //!   not just restricted.
+//!
 //! Outside that domain they differ by design: Infra accepts ASCII
 //! whitespace (step 1), missing padding, and non-zero pad bits (its note:
 //! "YQ" and "YR" both return `a`), which §3.3 and §3.5 let a referring
