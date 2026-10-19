@@ -24,8 +24,11 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 5. Proof mutation tests show each Tier 2 proof fails when its spec is
    broken.
 6. Every resolved dependency is on the allowlist.
-7. Every spec file has a recorded human review that matches its current
-   contents, or `verify.sh` reports it as unreviewed.
+7. ~~Every spec file has a recorded human review that matches its current
+   contents, or `verify.sh` reports it as unreviewed.~~
+   *Dropped 2026-10-19: no step may depend on a human approving something,
+   because reviewers can be socially engineered. Replaced by machine-checked
+   evidence; see "Decision: no human gate" below.*
 
 ## Status at the time of writing
 
@@ -45,7 +48,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.2 `scripts/setup.sh` with checksums | done on macOS arm64; Linux x86-64 untested until 0.11 |
 | 0.5 Generated README status table | done; spec review column waits for 0.8 |
 | 0.7 Dependency allowlist (`docs/DEPENDENCIES.md` table, checked by `cargo xtask check`) | done: 23 packages, 0 shipped |
-| 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | tooling done; **0 of 3 files reviewed: needs a human** |
+| 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | done; reviews made optional (see below) |
 | 0.9 CLAUDE.md additions (tier rule enforced, `docs/SPEC-STYLE.md`, errata rule) | done |
 | 0.10 Miri (every test, in `verify`) | done: 14 tests |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
@@ -307,7 +310,23 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1–0.10 and 0.12 are done (0.8 needs its first human review). Next: 0.11.
+0.1–0.10 and 0.12 are done. Next: 0.11.
+
+## Decision: no human gate (2026-10-19)
+
+After 0.8 was built, the project dropped human review as a requirement for
+anything. A single reviewer is a single point of failure, and "a human
+approved it" is exactly what an attacker would target. What replaced it is
+recorded in [VERIFICATION.md](../VERIFICATION.md#trust-without-reviewers):
+
+- **Certified mutation kills (built):** a `killed` label needs a certificate
+  that Verus checks, so a reviewer no longer has to judge it. Tested: a wrong
+  witness is rejected, and so is relabelling an incidental kill as `killed`.
+- **Conformance tests and an independent transcription:** required for
+  Tier 2. `cargo xtask check` checks for the files; the content arrives with
+  the first implementation (Phase 1).
+- **Reviews:** optional, still recorded (0.8), never a gate. Agents still may
+  not write them.
 
 ## Explicitly out of scope for Phase 0
 

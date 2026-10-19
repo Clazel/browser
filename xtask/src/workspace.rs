@@ -201,17 +201,32 @@ pub fn inherits_workspace_lints(c: &Crate) -> Result<bool, String> {
 /// What backs a crate's declared tier.
 pub struct TierEvidence {
     pub kani_proofs: usize,
-    /// Reviewable files that are unreviewed or stale.
-    pub unreviewed: usize,
-    /// (mutations not expected `killed`, total), if the crate has any.
+    /// (mutations not certified `killed`, total), if the crate has any.
     pub mutations: Option<(usize, usize)>,
+    /// The crate has `tests/conformance*.rs`.
+    pub conformance_tests: bool,
+    /// The crate has an `independent.rs` spec.
+    pub independent_spec: bool,
+}
+
+/// Evidence files a crate has, for `TierEvidence`.
+pub fn evidence_files(c: &Crate) -> Result<(bool, bool), String> {
+    let files = rust_files(&c.dir)?;
+    let named =
+        |p: &Path, f: &dyn Fn(&str) -> bool| p.file_name().and_then(|n| n.to_str()).is_some_and(f);
+    let conformance = files.iter().any(|p| {
+        p.parent() == Some(&c.dir.join("tests")) && named(p, &|n| n.starts_with("conformance"))
+    });
+    let independent = files.iter().any(|p| named(p, &|n| n == "independent.rs"));
+    Ok((conformance, independent))
 }
 
 pub fn check_tiers(c: &Crate, ev: &TierEvidence) -> (Vec<String>, Vec<String>) {
     let TierEvidence {
         kani_proofs,
-        unreviewed,
         mutations,
+        conformance_tests,
+        independent_spec,
     } = *ev;
     let mut bad = Vec::new();
     let mut notes = Vec::new();
@@ -230,29 +245,33 @@ pub fn check_tiers(c: &Crate, ev: &TierEvidence) -> (Vec<String>, Vec<String>) {
                     "{m}: tier {t} requires Kani harnesses (#[kani::proof]); found none"
                 ));
             }
-            // A tier is a claim about code checked against human-reviewed
-            // specs; with unreviewed specs there is nothing to claim yet.
-            if t >= 1 && unreviewed > 0 {
-                bad.push(format!(
-                    "{m}: tier {t} requires every spec file reviewed and current \
-                     ({unreviewed} not; see docs/SPEC-REVIEWS.md)"
-                ));
-            }
             // Tier 2 means the implementation is correct against its spec,
-            // so no deliberately broken spec may get past the proofs.
-            // (`verify` checks each `killed` really is killed; whether a kill
-            // is real rather than incidental is part of the human review of
-            // mutations.json.)
+            // and that the spec matches the standard, all without a human
+            // gate (docs/VERIFICATION.md, "Trust without reviewers"). No
+            // deliberately broken spec may get past the proofs, and each kill
+            // is certified by Verus (`verify` checks the certificates).
             if t >= 2 {
                 match mutations {
                     None | Some((_, 0)) => bad.push(format!(
                         "{m}: tier {t} requires proof mutation tests (mutations.json)"
                     )),
                     Some((gaps, total)) if gaps > 0 => bad.push(format!(
-                        "{m}: tier {t} requires every mutation to be \"killed\"; \
-                         {gaps} of {total} are \"killed-incidentally\" or \"survives\""
+                        "{m}: tier {t} requires every mutation to be a certified \"killed\"; \
+                         {gaps} of {total} are not"
                     )),
                     Some(_) => {}
+                }
+                if !conformance_tests {
+                    bad.push(format!(
+                        "{m}: tier {t} requires conformance tests (tests/conformance*.rs) \
+                         running the implementation against official suites and other engines"
+                    ));
+                }
+                if !independent_spec {
+                    bad.push(format!(
+                        "{m}: tier {t} requires an independent transcription (independent.rs) \
+                         proven equivalent to the spec"
+                    ));
                 }
             }
             if t < target {

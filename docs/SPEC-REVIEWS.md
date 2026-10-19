@@ -1,12 +1,15 @@
 # Spec reviews
 
-A proof only shows that code matches its spec. Whether the spec matches the
-web standard is checked by a person. This file records those reviews.
+**Optional.** Reviews gate nothing. Whether a spec matches its standard is
+established by machine-checked evidence instead: conformance tests,
+independent transcriptions and certified mutation kills (see
+[VERIFICATION.md](VERIFICATION.md#trust-without-reviewers)). A reviewer can be
+socially engineered, so no reviewer is required. A human review is still a
+useful extra signal, and this file records the ones that happen.
 
 **Only humans add rows.** AI agents may edit spec files but must never add or
-change a row here (CLAUDE.md). The checker cannot tell who wrote a row; git
-history can, so each review should land in a commit without an AI
-co-author.
+change a row here (CLAUDE.md), so that a row always means a person read the
+file. The checker cannot tell who wrote a row; git history can.
 
 ## What needs review
 
@@ -28,10 +31,8 @@ Every file in a crate named:
    date, and what you reviewed it against.
 
 A row is **current** while the file's SHA-256 matches. Any edit to the file
-makes the review **stale** until someone reviews it again. Unreviewed and
-stale files do not fail the build, but they are listed on every run, shown
-in the README status table, and they stop a crate from declaring any tier
-above 0.
+makes the review **stale**. Review status is listed on every run and shown in
+the README status table. It never blocks anything.
 
 <!-- BEGIN REVIEWS: checked by `cargo xtask check` -->
 | File | SHA-256 | Reviewer | Date | Reviewed against |

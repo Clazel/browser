@@ -24,22 +24,25 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
    files keep the standard's structure, names and step numbers, and list
    every modelling choice at the top.
 6. **Never write spec reviews.** Do not add, edit or delete rows in
-   `docs/SPEC-REVIEWS.md`, and do not "refresh" a stale review's hash. Only a
-   human who has read the file against the standard may. Editing a spec is
-   fine; it simply makes the old review stale.
+   `docs/SPEC-REVIEWS.md`, and do not "refresh" a stale review's hash, so that
+   a row always means a person read the file. Reviews are optional and gate
+   nothing; never present a review as evidence a spec is right. The evidence
+   is in rule 7.
 7. **Never mark something verified that isn't.** If a proof doesn't go through,
    say so in the PR and leave the crate at its real tier. Raising `tier` in a
    crate's `Cargo.toml` requires all of the following, and `cargo xtask check`
    rejects the claim otherwise:
    - every proof and harness passing in `cargo xtask verify`;
-   - Tier 1: Kani harnesses; Tier 2: Verus enabled, and every mutation in
-     `mutations.json` expected `killed` (none `survives` or
-     `killed-incidentally`);
-   - any tier above 0: every spec file reviewed and current.
+   - Tier 1: Kani harnesses;
+   - Tier 2: Verus enabled; every mutation in `mutations.json` a `killed` with
+     a certificate that Verus checks; conformance tests
+     (`tests/conformance*.rs`) against official suites and independent
+     engines; and an independent transcription (`independent.rs`) proven
+     equivalent to the spec.
 
-   Never relabel a mutation's `expect` to get past this. `verify` catches a
-   false `killed`, and relabelling `killed-incidentally` as `killed` edits a
-   reviewed file, which makes its review stale.
+   No tier requires, or may cite, a human review. Never relabel a mutation's
+   `expect` to get past this: a `killed` needs a certificate that verifies in
+   the mutant and fails on the real spec, so a false one fails the run.
 8. **Write our own parsers.** Any code that parses untrusted bytes is ours.
    Shipped dependencies are allowed only for crypto (verified libraries), OS and
    windowing bindings, and GPU access. Proof libraries (`vstd`) and build

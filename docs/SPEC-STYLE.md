@@ -1,9 +1,10 @@
 # Writing a spec
 
-How to transcribe a web standard into a Verus `spec.rs`. The goal is a file a
-human can check against the standard **line by line, without knowing Verus
-well**, because that check (recorded in [SPEC-REVIEWS.md](SPEC-REVIEWS.md))
-is the one thing no proof can replace. The worked example is
+How to transcribe a web standard into a Verus `spec.rs`. The goal is a file that
+can be checked against the standard **line by line, without knowing Verus
+well**. Nothing requires a human to do that check (see
+[VERIFICATION.md](VERIFICATION.md#trust-without-reviewers)), but it should
+always be possible, and the transcription conventions make mistakes stand out. The worked example is
 `crates/clazel-encoding/src/utf8/spec.rs`.
 
 ## Layout of a crate
@@ -17,6 +18,12 @@ is the one thing no proof can replace. The worked example is
   ([VERIFICATION.md](VERIFICATION.md#proof-mutation-testing)).
 - `axioms.rs`: only if unavoidable; every item needs a `// AXIOM:`
   justification.
+- `independent.rs` (Tier 2): a second transcription, written without
+  reading `spec.rs`, and a lemma proving the two equal. Prefer a different
+  source document where one exists (UTF-8: Unicode Table 3-7).
+- `tests/conformance*.rs` (Tier 2): the implementation against official test
+  suites (vendored, with their license and upstream commit) and differential
+  tests against independent engines.
 
 Contracts are committed before the implementation (CLAUDE.md rule 3).
 
@@ -81,4 +88,5 @@ If the standard, read literally, says something it clearly does not mean
 - Prove at least one property of the spec that the standard states or
   asserts (UTF-8: the decoder only emits scalar values, which §4.1 asserts).
   Then seed `mutations.json` so that a spec bug which breaks that property is
-  `killed`, and record honestly which mutations it does not catch.
+  `killed`, with a certificate (a concrete input, evaluated by Verus with
+  `compute_only`), and record honestly which mutations it does not catch.

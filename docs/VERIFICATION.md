@@ -4,8 +4,11 @@ This browser is written by AI. We do not ask anyone to trust that code.
 Instead, every component carries a machine-checked guarantee, and the strength
 of that guarantee is stated, not implied.
 
-Humans review **specifications and contracts** (small). Machines check
-**implementations** (large).
+Machines check the implementations, and also the evidence that each spec
+matches its standard. **No step depends on a human approving something.** A
+reviewer can be socially engineered; a proof checker, an official test suite
+and several unrelated browser engines are much harder to fool all at once.
+See "Trust without reviewers" below.
 
 ## Tiers
 
@@ -81,12 +84,50 @@ We list this openly. Proofs are only as good as their assumptions.
 - The Rust compiler, LLVM, and the Verus and Kani tools themselves
 - The OS kernel and its sandboxing primitives (macOS Seatbelt, Linux seccomp and namespaces)
 - Cryptography, which comes from formally verified libraries (libcrux / HACL\*), not our own code
-- The contents of `spec` functions. A proof shows the code matches the spec;
-  a human must check that the spec matches the WHATWG standard. This is why spec
-  functions cite the standard step by step and are kept short. Those human
-  checks are recorded, with the file's hash, in
-  [SPEC-REVIEWS.md](SPEC-REVIEWS.md). A crate cannot declare any tier above
-  0 while one of its spec files is unreviewed or changed since review.
+- That each spec matches the standard it transcribes. No proof can check
+  this, because the standard is English. It is backed by machine-checked
+  evidence instead of a reviewer (next section), and that evidence is only as
+  good as the test suites and the independence of the transcriptions.
+
+## Trust without reviewers
+
+A proof only shows that code matches its spec. What connects the spec to the
+English standard is evidence, and Tier 2 requires all of it. Each piece is
+checked by `cargo xtask`:
+
+1. **Conformance tests through the proven implementation.** The
+   implementation is proven equal to the spec, and is tested against the
+   official suites (Web Platform Tests) and diffed against independent
+   engines (for UTF-8: Rust's `String::from_utf8_lossy` and `encoding_rs`,
+   used by Firefox). Proof plus tests means the *spec* behaves like the
+   standard on every tested input. Subverting this needs WPT and several
+   unrelated engines to agree on the same mistake.
+   *Required for Tier 2: `tests/conformance*.rs`.*
+2. **Independent transcriptions, proven equivalent.** A second transcription
+   of the same standard (`independent.rs`), written without seeing the
+   first, must be proven equal to it. A misreading shows up as a failed
+   equivalence at the exact step. Where another standard defines the same
+   thing (UTF-8 in the Unicode Standard, Table 3-7), that is the better
+   second source, because a different body wrote it.
+   *Required for Tier 2: `independent.rs`.*
+3. **Certified mutation kills.** Every mutation must be a `killed` with a
+   certificate that Verus checks: a concrete input on which the mutated spec
+   violates a proven theorem, and the real spec does not.
+   *Required for Tier 2: every mutation certified.*
+
+Limits, stated plainly:
+- For (1) and (2), `cargo xtask check` only checks that the files exist.
+  That they pass is checked by `cargo test` and Verus, as usual. That they
+  are *good* (thorough suites, truly separate transcriptions) is not
+  machine-checked.
+- Two AI transcriptions are not truly independent: they may share a
+  misreading. That is why (1), which draws on sources outside the project,
+  carries the most weight.
+- Tests cover only what they test. Each crate's README row will say which
+  suites it passes.
+
+Human reviews ([SPEC-REVIEWS.md](SPEC-REVIEWS.md)) are still welcome and still
+shown, but they gate nothing.
 
 ## Proof mutation testing
 
@@ -97,6 +138,12 @@ the proofs react as recorded: **killed** (a proven theorem is false for the
 mutant), **killed incidentally** (only the proof script breaks, so this is not
 coverage), or **survives** (a known gap, with what will close it). The report
 counts these three separately.
+
+Every `killed` carries a **certificate** that Verus checks: it evaluates the
+spec on a concrete input and proves that the result contradicts a named
+lemma. The certificate must verify with the mutation and fail without it. So
+the only label that claims coverage cannot be wrong without the run failing.
+The format is in `xtask/src/mutate.rs`.
 
 ## Honesty metrics
 

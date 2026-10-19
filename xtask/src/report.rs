@@ -124,8 +124,9 @@ pub fn render(table: &Table) -> String {
             .to_owned(),
     );
     out.push(
-        "³ Specs, contracts, axioms and mutation judgments reviewed by a person, and \
-         unchanged since. See [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md)."
+        "³ Optional human reviews of specs, contracts, axioms and mutation labels, \
+         unchanged since review. They gate nothing; see \
+         [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md)."
             .to_owned(),
     );
     out.push(END.to_owned());

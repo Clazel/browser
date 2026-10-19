@@ -123,7 +123,6 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             .iter()
             .filter(|f| f.status == reviews::Status::Current)
             .count();
-        let unreviewed = files.len().saturating_sub(current);
         let m = r.metrics.entry(c.name.clone()).or_default();
         m.tier = c.tier;
         m.target_tier = c.target_tier;
@@ -135,10 +134,14 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
                 m.kani_harnesses = s.kani_proofs;
                 violations.extend(s.violations);
                 axioms = axioms.saturating_add(s.axioms);
-                let evidence = mutate::gaps(c).map(|mutations| workspace::TierEvidence {
-                    kani_proofs: s.kani_proofs,
-                    unreviewed,
-                    mutations,
+                let evidence = mutate::gaps(c).and_then(|mutations| {
+                    let (conformance_tests, independent_spec) = workspace::evidence_files(c)?;
+                    Ok(workspace::TierEvidence {
+                        kani_proofs: s.kani_proofs,
+                        mutations,
+                        conformance_tests,
+                        independent_spec,
+                    })
                 });
                 let (bad, notes) = match evidence {
                     Ok(ev) => workspace::check_tiers(c, &ev),
@@ -249,6 +252,11 @@ fn check_pins(crates: &[Crate], pins: &Pins) -> Result<Vec<String>, String> {
         .iter()
         .map(|t| format!("kani-{kani_v}-{t}.tar.gz")),
     );
+    // The Dockerfile's rustup.
+    needed.push(format!(
+        "rustup-init-{}-x86_64-unknown-linux-gnu",
+        pins.get("RUSTUP_VERSION")?
+    ));
     let sums = std::fs::read_to_string(CHECKSUMS).map_err(|e| format!("{CHECKSUMS}: {e}"))?;
     let listed: Vec<&str> = sums
         .lines()

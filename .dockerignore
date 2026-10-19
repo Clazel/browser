@@ -1,0 +1,4 @@
+# Keep the build context to the sources (scripts/verify.sh rebuilds everything).
+target/
+.git/
+.DS_Store

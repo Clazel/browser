@@ -6,7 +6,9 @@
 # Provenance: SHA-256 digests published in the GitHub release metadata of
 # verus-lang/verus (release/0.2026.10.04.426d8b0) and model-checking/kani
 # (kani-0.68.0), fetched 2026-10-19. The arm64-macos Verus zip was also
-# downloaded and hashed independently, and matched.
+# downloaded and hashed independently, and matched. rustup-init (used only by
+# the Dockerfile): the .sha256 published next to it on static.rust-lang.org,
+# fetched 2026-10-19.
 #
 # When bumping a version in toolchains.env, add the new files' checksums here;
 # `cargo xtask check` fails if a pinned file has no entry.
@@ -17,3 +19,4 @@
 a5d39a5d5e748253a553aa62f295c6c397287927a28e5e32691d7ff2eda0c398  kani-0.68.0-aarch64-apple-darwin.tar.gz
 b1367f694c1350abcae133701f78b3be3fd6e9beb66681a22ea0bcac0cc34808  kani-0.68.0-x86_64-apple-darwin.tar.gz
 32e2b484d73ede0bbf64a2cf0879c4259422497d8aec4ee67d448de9ae7843d3  kani-0.68.0-x86_64-unknown-linux-gnu.tar.gz
+dda7234360b7f578ca8b0ddcb80145646fa61a67c1720a5abc7051b35c9fcb71  rustup-init-1.29.1-x86_64-unknown-linux-gnu

@@ -19,17 +19,37 @@
 //!
 //! `expect` is one of:
 //! - `"killed"`: the proofs must fail, *because a proven theorem is false
-//!   for the mutant*. This is real coverage.
+//!   for the mutant*. This is real coverage, and it must be **certified**
+//!   (below), so the claim is checked by Verus, not by a reviewer.
 //! - `"killed-incidentally"`: the proofs must fail, but every theorem still
 //!   holds for the mutant; only the proof script (an invariant, a case
 //!   split) breaks. Not counted as coverage. The reason says which part.
 //! - `"survives"`: a known gap. The reason says what will cover it.
 //!
-//! The tool checks killed vs. survived. Which kind of kill it is depends on
-//! whether the theorem holds for the mutant, which a human reviewing
-//! `mutations.json` must judge; the reason states the argument. A mutation
-//! whose result does not match `expect` fails the run, so the list can
-//! never overstate or understate what is covered.
+//! A mutation whose result does not match `expect` fails the run.
+//!
+//! ## Kill certificates
+//!
+//! A `killed` mutation carries a certificate: a concrete `witness` (a Verus
+//! boolean expression over a concrete input) and a `lemma` call at that
+//! input. The tool adds this function to `file`:
+//!
+//! ```text
+//! proof fn __clazel_kill_certificate() {
+//!     assert(WITNESS) by (compute_only);  // what the spec computes
+//!     LEMMA;                              // a proven theorem, instantiated
+//!     assert(false);                      // ...contradicts it
+//! }
+//! ```
+//!
+//! and requires that it **verifies in the mutant** (the theorem really is
+//! false there) and **fails on the real spec**. Verus evaluates the witness
+//! itself, so nobody has to judge it. (`by (compute)` would allow
+//! quantifiers, but it crashes Verus 0.2026.10.04 here; `compute_only`
+//! needs quantifier-free witnesses, e.g. one concrete output element.)
+//!
+//! `killed-incidentally` and `survives` need no certificate: they claim no
+//! coverage, so a wrong label can only understate it.
 
 use std::path::{Path, PathBuf};
 
@@ -47,8 +67,21 @@ enum Expect {
     Survives,
 }
 
+/// Machine-checkable evidence that a mutant violates a proven theorem.
+struct Certificate {
+    /// File (relative to the crate) that the certificate function is added to.
+    file: String,
+    /// Lemma call at the concrete input, e.g. `lemma_hooks_scalar(seq![0xEDu8])`.
+    lemma: String,
+    /// Quantifier-free fact about the concrete input that contradicts the lemma.
+    witness: String,
+}
+
+const CERTIFICATE_FN: &str = "__clazel_kill_certificate";
+
 struct Mutation {
     id: String,
+    certificate: Option<Certificate>,
     file: String,
     find: String,
     replace: String,
@@ -82,7 +115,10 @@ pub fn gaps(c: &Crate) -> Result<Option<(usize, usize)>, String> {
         return Ok(None);
     }
     let all = load(c)?;
-    let gaps = all.iter().filter(|m| m.expect != Expect::Killed).count();
+    let gaps = all
+        .iter()
+        .filter(|m| m.expect != Expect::Killed || m.certificate.is_none())
+        .count();
     Ok(Some((gaps, all.len())))
 }
 
@@ -117,7 +153,23 @@ fn load(c: &Crate) -> Result<Vec<Mutation>, String> {
                     ));
                 }
             };
+            let certificate = match m.get("certificate") {
+                None => None,
+                Some(c) => {
+                    let f = |k: &str| {
+                        c.get(k).and_then(Value::as_str).map(str::to_owned).ok_or_else(|| {
+                            format!("{}: {id}: certificate missing string field {k:?}", path.display())
+                        })
+                    };
+                    Some(Certificate {
+                        file: f("file")?,
+                        lemma: f("lemma")?,
+                        witness: f("witness")?,
+                    })
+                }
+            };
             Ok(Mutation {
+                certificate,
                 file: field("file")?,
                 find: field("find")?,
                 replace: field("replace")?,
@@ -170,12 +222,17 @@ pub fn run(c: &Crate, root: &Path) -> Result<Report, String> {
         std::fs::write(&target, &original).map_err(|e| format!("{}: {e}", target.display()))?;
         match (result?, m.expect) {
             (Run::ProofFailed(_, out), Expect::Killed) => {
-                report.killed = report.killed.saturating_add(1);
-                report.lines.push(format!(
-                    "killed     {}  (first failure: {})",
-                    m.id,
-                    first_failure(&out)
-                ));
+                match check_certificate(&crate_dir, &c.name, m, &original) {
+                    Ok(lemma) => {
+                        report.killed = report.killed.saturating_add(1);
+                        report.lines.push(format!(
+                            "killed     {}  (certified: violates {lemma}; first failure: {})",
+                            m.id,
+                            first_failure(&out)
+                        ));
+                    }
+                    Err(e) => report.problems.push(format!("{}: {e}", m.id)),
+                }
             }
             (Run::ProofFailed(_, out), Expect::KilledIncidentally) => {
                 report.incidental = report.incidental.saturating_add(1);
@@ -215,6 +272,95 @@ pub fn run(c: &Crate, root: &Path) -> Result<Report, String> {
         }
     }
     Ok(report)
+}
+
+/// Check a `killed` mutation's certificate: it must verify with the mutation
+/// applied and fail without it. Returns the lemma's name. `original` is the
+/// unmutated text of the mutated file; every file is restored before return.
+fn check_certificate(
+    crate_dir: &Path,
+    name: &str,
+    m: &Mutation,
+    original: &str,
+) -> Result<String, String> {
+    let cert = m
+        .certificate
+        .as_ref()
+        .ok_or("expect \"killed\" requires a certificate (see xtask/src/mutate.rs)")?;
+    let module = module_path(&cert.file)?;
+    let target = crate_dir.join(&m.file);
+    let cert_path = crate_dir.join(&cert.file);
+    let cert_original =
+        std::fs::read_to_string(&cert_path).map_err(|e| format!("{}: {e}", cert_path.display()))?;
+    let code = format!(
+        "\n\nverus! {{\nproof fn {CERTIFICATE_FN}() {{\n    assert({}) by (compute_only);\n    {};\n    assert(false);\n}}\n}} // verus!\n",
+        cert.witness, cert.lemma
+    );
+    let mutated = original.replacen(&m.find, &m.replace, 1);
+    let same_file = target == cert_path;
+    // Run the certificate against one version of the mutated file.
+    let attempt = |spec_text: &str| -> Result<Run, String> {
+        std::fs::write(&target, spec_text).map_err(|e| e.to_string())?;
+        let base = if same_file {
+            spec_text
+        } else {
+            cert_original.as_str()
+        };
+        std::fs::write(&cert_path, format!("{base}{code}")).map_err(|e| e.to_string())?;
+        verus::focus(crate_dir, name, &module, CERTIFICATE_FN)
+    };
+    let in_mutant = attempt(&mutated);
+    let in_original = attempt(original);
+    // Restore both files before judging anything.
+    std::fs::write(&target, original).map_err(|e| e.to_string())?;
+    if !same_file {
+        std::fs::write(&cert_path, &cert_original).map_err(|e| e.to_string())?;
+    }
+    match in_mutant? {
+        Run::Verified(_) => {}
+        Run::ProofFailed(s, _) => {
+            return Err(format!(
+                "certificate does not verify in the mutant ({s}): either the witness \
+                 is wrong or the theorem still holds (then it is killed-incidentally)"
+            ));
+        }
+        Run::BuildFailed(out) => return Err(format!("certificate does not build:\n{out}")),
+    }
+    match in_original? {
+        Run::ProofFailed(..) => {}
+        Run::Verified(_) => {
+            return Err(
+                "certificate also verifies on the real spec, so it proves nothing \
+                        about the mutation"
+                    .into(),
+            );
+        }
+        Run::BuildFailed(out) => {
+            return Err(format!(
+                "certificate does not build on the real spec:\n{out}"
+            ));
+        }
+    }
+    Ok(cert
+        .lemma
+        .split('(')
+        .next()
+        .unwrap_or(&cert.lemma)
+        .trim()
+        .to_owned())
+}
+
+/// `src/utf8/lemmas.rs` -> `utf8::lemmas`.
+fn module_path(file: &str) -> Result<String, String> {
+    let inner = file
+        .strip_prefix("src/")
+        .and_then(|f| f.strip_suffix(".rs"))
+        .ok_or_else(|| format!("certificate file {file:?} must be src/<module>.rs"))?;
+    let inner = inner.strip_suffix("/mod").unwrap_or(inner);
+    if inner == "lib" || inner.is_empty() {
+        return Err("certificate file must be a module, not the crate root".into());
+    }
+    Ok(inner.replace('/', "::"))
 }
 
 /// The first error message and its location in Verus output, e.g.

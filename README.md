@@ -21,7 +21,7 @@ Status: Phase 1 (verified primitives). The UTF-8 decoder spec and contracts are 
 
 ¹ From Verus's `line_count`; only code inside `verus!` is counted, and type definitions count as exec.
 ² Only the first number is coverage: a proven theorem is false for that many deliberately broken specs. See [docs/VERIFICATION.md](docs/VERIFICATION.md#proof-mutation-testing).
-³ Specs, contracts, axioms and mutation judgments reviewed by a person, and unchanged since. See [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md).
+³ Optional human reviews of specs, contracts, axioms and mutation labels, unchanged since review. They gate nothing; see [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md).
 <!-- END STATUS -->
 
 Formalizing the standards has already found one spec bug: see

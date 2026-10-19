@@ -6,7 +6,12 @@
       "find": "if byte == 0xED { 0x9F }",
       "replace": "if byte == 0xED { 0xBF }",
       "expect": "killed",
-      "reason": "Admits ED A0..BF, i.e. surrogates U+D800..DFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemmas.rs, lemma_handler_byte)."
+      "reason": "Admits ED A0..BF, i.e. surrogates U+D800..DFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemmas.rs, lemma_handler_byte).",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_hooks_scalar(seq![0xEDu8, 0xA0u8, 0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0xEDu8, 0xA0u8, 0x80u8]).len() == 1 && !is_scalar_value(utf8_decode_without_bom(seq![0xEDu8, 0xA0u8, 0x80u8])[0])"
+      }
     },
     {
       "id": "f4-upper-boundary",
@@ -14,7 +19,12 @@
       "find": "if byte == 0xF4 { 0x8F }",
       "replace": "if byte == 0xF4 { 0xBF }",
       "expect": "killed",
-      "reason": "Admits code points above U+10FFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemma_handler_byte)."
+      "reason": "Admits code points above U+10FFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemma_handler_byte).",
+      "certificate": {
+        "file": "src/utf8/lemmas.rs",
+        "lemma": "lemma_hooks_scalar(seq![0xF4u8, 0x90u8, 0x80u8, 0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0xF4u8, 0x90u8, 0x80u8, 0x80u8]).len() == 1 && !is_scalar_value(utf8_decode_without_bom(seq![0xF4u8, 0x90u8, 0x80u8, 0x80u8])[0])"
+      }
     },
     {
       "id": "e0-lower-boundary",
