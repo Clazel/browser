@@ -7,6 +7,7 @@
 //!
 //! - [`spec`]: a step-by-step transcription of the standard.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`encode`] and [`decode`]: the executable functions, and their proofs.
 //! - [`independent`]: a second transcription, from RFC 3986, proven equal
 //!   to [`spec`] where the two standards agree.
 //!
@@ -14,5 +15,7 @@
 //! `clazel-encoding` decodes to and encodes from.
 
 pub mod contract;
+pub mod decode;
+pub mod encode;
 pub mod independent;
 pub mod spec;
