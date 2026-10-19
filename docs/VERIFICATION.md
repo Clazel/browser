@@ -58,10 +58,16 @@ harnesses), and it reports every crate whose `tier` is below its
 Pinned versions (proofs must be reproducible). The source of truth is
 `scripts/toolchains.env`; `verify.sh` fails if installed tools differ.
 
-| Tool | Version | Install |
-|------|---------|---------|
-| Verus | `0.2026.10.04.426d8b0` (needs Rust `1.98.1`) | GitHub release zip, `verus` on `PATH` |
-| Kani | `0.68.0` (CBMC 6.11.0) | `cargo install --locked kani-verifier --version 0.68.0 && cargo kani setup` |
+| Tool | Version |
+|------|---------|
+| Rust | `1.98.1` (stable; the toolchain Verus is built with) |
+| Verus | `0.2026.10.04.426d8b0` |
+| Kani | `0.68.0` (CBMC 6.11.0) |
+| Miri | on `nightly-2026-08-21` (the nightly Kani uses) |
+
+`scripts/setup.sh` installs all of them on macOS (arm64, x86-64) and Linux
+(x86-64). It checks every download against `scripts/checksums.txt` and
+installs nothing if a checksum differs.
 
 ## Trusted computing base (what we do *not* prove)
 

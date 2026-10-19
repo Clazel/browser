@@ -42,6 +42,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.12 Verus output noise | done |
 | 0.4 `xtask` checker (token scanner, tier truth, pins, runner; `verify.sh` wraps it) | done |
 | 0.6 Proof mutation testing (`cargo xtask mutate`, part of `verify`) | done: 10 UTF-8 mutations, 2 killed by a theorem |
+| 0.2 `scripts/setup.sh` with checksums | done on macOS arm64; Linux x86-64 untested until 0.11 |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -77,6 +78,13 @@ Ordered by dependency. Size: S is under a day, M is a few days.
   Building Verus from source there is a later task.
 - Installs into a user-local prefix (`~/.local/share/clazel-tools/`) and
   never needs `sudo`.
+- **As built:** Kani's bundle is downloaded and checksummed by `setup.sh`,
+  then installed with `cargo kani setup --use-local-bundle`. Plain
+  `cargo kani setup` downloads without checking. Tested on macOS arm64:
+  (1) a fresh install from a `CARGO_HOME` containing only rustup, followed by
+  a passing `verify.sh` using only the fresh tools; (2) an immediate re-run
+  skips everything (2 s); (3) a tampered checksum aborts with nothing
+  installed. The macOS x86-64 and Linux x86-64 paths have not been run.
 - **Done when:** on a machine with only rustup, `scripts/setup.sh &&
   scripts/verify.sh` passes.
 
@@ -267,7 +275,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.3, 0.4, 0.6 and 0.12 are done. Next: 0.5, 0.7, 0.8 and 0.2.
+0.1, 0.2, 0.3, 0.4, 0.6 and 0.12 are done. Next: 0.5, 0.7, 0.8.
 
 ## Explicitly out of scope for Phase 0
 

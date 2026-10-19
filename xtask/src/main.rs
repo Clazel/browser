@@ -138,6 +138,8 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     r.step("pinned versions", from_result(check_pins(crates, pins)));
 }
 
+const CHECKSUMS: &str = "scripts/checksums.txt";
+
 fn check_pins(crates: &[Crate], pins: &Pins) -> Result<Vec<String>, String> {
     let rust = pins.get("RUST_TOOLCHAIN")?;
     let toolchain = std::fs::read_to_string("rust-toolchain.toml")
@@ -164,7 +166,46 @@ fn check_pins(crates: &[Crate], pins: &Pins) -> Result<Vec<String>, String> {
             ));
         }
     }
-    Ok(vec![format!("rust {rust}, vstd {vstd}")])
+    // Every file setup.sh downloads for the pinned versions has a checksum.
+    let verus_v = pins.get("VERUS_VERSION")?;
+    let kani_v = pins.get("KANI_VERSION")?;
+    let mut needed: Vec<String> = ["arm64-macos", "x86-macos", "x86-linux"]
+        .iter()
+        .map(|p| format!("verus-{verus_v}-{p}.zip"))
+        .collect();
+    needed.extend(
+        [
+            "aarch64-apple-darwin",
+            "x86_64-apple-darwin",
+            "x86_64-unknown-linux-gnu",
+        ]
+        .iter()
+        .map(|t| format!("kani-{kani_v}-{t}.tar.gz")),
+    );
+    let sums = std::fs::read_to_string(CHECKSUMS).map_err(|e| format!("{CHECKSUMS}: {e}"))?;
+    let listed: Vec<&str> = sums
+        .lines()
+        .filter(|l| !l.trim_start().starts_with('#'))
+        .filter_map(
+            |l| match l.split_whitespace().collect::<Vec<_>>().as_slice() {
+                [sum, name] if sum.len() == 64 && sum.chars().all(|c| c.is_ascii_hexdigit()) => {
+                    Some(*name)
+                }
+                _ => None,
+            },
+        )
+        .collect();
+    let missing: Vec<&String> = needed
+        .iter()
+        .filter(|n| !listed.contains(&n.as_str()))
+        .collect();
+    if !missing.is_empty() {
+        return Err(format!("{CHECKSUMS}: no SHA-256 for {missing:?}"));
+    }
+    Ok(vec![format!(
+        "rust {rust}, vstd {vstd}, checksums for {} downloads",
+        needed.len()
+    )])
 }
 
 fn build_checks(r: &mut Runner) {

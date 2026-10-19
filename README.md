@@ -23,6 +23,7 @@ Formalizing the standards has already found one spec bug: see
 ## Building
 
 ```sh
+scripts/setup.sh         # install the pinned, checksummed toolchain (needs rustup)
 scripts/verify.sh        # every check, fresh proof runs (same as `cargo xtask verify`)
 cargo xtask check        # fast static checks only
 ```

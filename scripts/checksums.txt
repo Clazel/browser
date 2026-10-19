@@ -1,0 +1,19 @@
+# SHA-256 of every file scripts/setup.sh downloads, in `sha256sum` format.
+# setup.sh refuses to install anything that does not match. The proof tools
+# are part of the trusted computing base (docs/VERIFICATION.md), so a
+# swapped binary would silently undermine every proof.
+#
+# Provenance: SHA-256 digests published in the GitHub release metadata of
+# verus-lang/verus (release/0.2026.10.04.426d8b0) and model-checking/kani
+# (kani-0.68.0), fetched 2026-10-19. The arm64-macos Verus zip was also
+# downloaded and hashed independently, and matched.
+#
+# When bumping a version in toolchains.env, add the new files' checksums here;
+# `cargo xtask check` fails if a pinned file has no entry.
+
+83cafc50284caea07fa8762df04b00cc0af441f25cdf1631d6c30987c65af446  verus-0.2026.10.04.426d8b0-arm64-macos.zip
+9b00357ee298a3b052038abc85c0be3129ab2821762fe8be5eb8dcbe37349f9c  verus-0.2026.10.04.426d8b0-x86-macos.zip
+624018662868563a7bec0dd07be5e4dd0c3d61124b4b55105765884bf2d4d1a0  verus-0.2026.10.04.426d8b0-x86-linux.zip
+a5d39a5d5e748253a553aa62f295c6c397287927a28e5e32691d7ff2eda0c398  kani-0.68.0-aarch64-apple-darwin.tar.gz
+b1367f694c1350abcae133701f78b3be3fd6e9beb66681a22ea0bcac0cc34808  kani-0.68.0-x86_64-apple-darwin.tar.gz
+32e2b484d73ede0bbf64a2cf0879c4259422497d8aec4ee67d448de9ae7843d3  kani-0.68.0-x86_64-unknown-linux-gnu.tar.gz
