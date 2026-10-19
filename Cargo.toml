@@ -1,0 +1,30 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+publish = false
+
+# Tier 0 of docs/VERIFICATION.md: these apply to every crate. A crate may not
+# loosen them; the single exception for `unsafe` is the audited `sys` crate
+# (not yet created), which overrides `unsafe_code` locally and nothing else.
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+# Code that parses untrusted input must never panic. Kani proves the absence
+# of panics in Tier 1+ crates; these lints stop the obvious sources up front.
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
+
+[profile.release]
+overflow-checks = true
