@@ -16,4 +16,5 @@ it evidently means. Each entry records what we specified instead.
   instead of bytes 0–2.
 - **We specify:** the first `number` items (`ioQueue[0..number]`). See
   `starts_with_bom` in `crates/clazel-encoding/src/utf8/spec.rs`.
-- **Reported upstream:** not yet.
+- **Reported upstream:** [whatwg/encoding#367](https://github.com/whatwg/encoding/issues/367),
+  19 October 2026.
