@@ -220,7 +220,7 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.1 UTF-8 decoder implementation and proof | done: 25 verified, 0 errors; contract changed to `u32` output (below) |
 | 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
 | 1.3 UTF-8 conformance | done: 57 WPT `encoding/` cases pass; differential test against std and `encoding_rs` 0.8.35 agrees on all inputs tried (exhaustive up to 3 bytes) |
-| 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; tier not raised yet |
+| 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; encode conformance added to `conformance_utf8.rs`; **`clazel-encoding` raised to tier 2** |
 | 1.5–1.12 | not started |
 
 ## Risks
