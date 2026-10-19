@@ -39,13 +39,23 @@ else
 fi
 
 # Tier 2
-if command -v verus >/dev/null 2>&1; then
-  for lib in crates/*/src/lib.rs; do
-    grep -q 'verus!' "$lib" || continue
-    step "verus $(basename "$(dirname "$(dirname "$lib")")")" verus --crate-type=lib "$lib"
+if command -v cargo-verus >/dev/null 2>&1; then
+  verus_crate() {
+    local out result
+    # Cargo would otherwise replay a cached result; force a fresh proof run.
+    (cd "$1" && cargo clean --quiet -p "$(basename "$1")")
+    out=$(cd "$1" && cargo verus verify 2>&1) || { printf '%s\n' "$out"; return 1; }
+    result=$(printf '%s\n' "$out" | grep 'verification results' | tail -1)
+    [ -n "$result" ] || { echo "    no verification results reported"; return 1; }
+    printf '    %s\n' "$result"
+  }
+  for manifest in crates/*/Cargo.toml; do
+    grep -q '^\[package.metadata.verus\]' "$manifest" || continue
+    dir=$(dirname "$manifest")
+    step "verus $(basename "$dir")" verus_crate "$dir"
   done
 else
-  skip "verus" "verus not installed"
+  skip "verus" "cargo-verus not installed"
 fi
 
 if [ $failed -ne 0 ]; then echo "RESULT: FAILED"; exit 1; fi

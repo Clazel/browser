@@ -1,10 +1,16 @@
 [package]
-name = "encoding"
+name = "clazel-encoding"
 version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
 description = "WHATWG Encoding Standard: UTF-8 decode/encode (Tier 2, verified)."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+
+[package.metadata.verus]
+verify = true
 
 [lints]
 workspace = true

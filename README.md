@@ -1,4 +1,4 @@
-# browser (working name)
+# Clazel
 
 A web browser built from the bottom up by AI, using formal verification
 instead of trust.
@@ -9,13 +9,16 @@ instead of trust.
 - **Honest about it:** each crate declares its verification tier, and the
   trusted computing base is listed in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-Status: Phase 0 (foundations). See [docs/ROADMAP.md](docs/ROADMAP.md).
+Status: Phase 1 (verified primitives). The UTF-8 decoder spec and contracts are proven; the implementation is next. See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Verification status
 
 | Crate | Tier (target) | Tier (actual) | Proven fns | Axioms | WPT |
 |-------|---------------|---------------|------------|--------|-----|
-| encoding | 2 | n/a | 0 | 0 | n/a |
+| clazel-encoding | 2 | spec only | 16 | 0 | n/a |
+
+Formalizing the standards has already found one spec bug: see
+[docs/ERRATA.md](docs/ERRATA.md).
 
 ## Building
 
