@@ -17,8 +17,8 @@ Humans review **specifications and contracts** (small). Machines check
 | 3 | Empirically tested | Web Platform Tests, fuzzing, differential testing against other engines |
 
 Every crate declares its tier in its `Cargo.toml` `description` and in the
-crate-level doc comment. CI enforces the tier, so a crate cannot quietly
-drop to a lower one.
+crate-level doc comment. Machine-readable tiers, enforced by `verify.sh`, are
+planned (Phase 0 item 0.3) but not implemented yet.
 
 ## What must be at which tier
 

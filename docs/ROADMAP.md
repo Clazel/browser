@@ -11,9 +11,9 @@ written by AI, and checked by machines.
 Each phase ends in something you can run.
 
 ## Phase 0: Foundations
-Workspace, lints, CI gate that rejects unproven code in Tier 2 crates,
+Workspace, lints, a local verification gate that rejects unproven code in Tier 2 crates,
 contributor rules for AI agents (`CLAUDE.md`), and honesty metrics script.
-*Exit:* `scripts/verify.sh` runs green with Verus and Kani installed.
+*Exit:* see the detailed plan in [phases/phase-0.md](phases/phase-0.md).
 
 ## Phase 1: Verified primitives
 UTF-8 encoding, percent-encoding, base64, MIME sniffing, WHATWG URL parser.
