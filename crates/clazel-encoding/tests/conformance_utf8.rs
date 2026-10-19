@@ -1,4 +1,5 @@
-//! UTF-8 decode conformance (docs/phases/phase-1.md item 1.3).
+//! UTF-8 decode and encode conformance (docs/phases/phase-1.md items 1.3
+//! and 1.4).
 //!
 //! The proofs show the decoder equals `utf8/spec.rs`, and `independent.rs`
 //! shows the spec equals the Unicode Standard. This file checks both
@@ -12,10 +13,17 @@
 //!    input up to 3 bytes, a structured and a random sample of 4-byte
 //!    inputs, and random longer ones. Under Miri the samples are smaller.
 //!
-//! Encoding §4.1 and §8.1: "UTF-8 decode", "UTF-8 decode without BOM" and
-//! "UTF-8 decode without BOM or fail".
+//! 3. "UTF-8 encode": every WPT case above whose input is well-formed UTF-8
+//!    without a BOM, run in reverse (WPT `encoding/` has no UTF-8 encoder
+//!    cases that do not go through a JavaScript string), and a differential
+//!    test against `char::encode_utf8` and `encoding_rs` on every scalar
+//!    value and on random scalar sequences.
+//!
+//! Encoding §4.1 and §8.1: "UTF-8 decode", "UTF-8 decode without BOM",
+//! "UTF-8 decode without BOM or fail", and "UTF-8 encode".
 
 use clazel_encoding::utf8::decode::{decode, decode_without_bom, decode_without_bom_or_fail};
+use clazel_encoding::utf8::encode::encode;
 use encoding_rs::UTF_8;
 
 /// Which of the Encoding Standard's UTF-8 hooks a case runs.
@@ -347,4 +355,95 @@ fn differential_longer() {
             bytes
         }),
     );
+}
+
+// ---------------------------------------------------------------------------
+// 3. Encode
+// ---------------------------------------------------------------------------
+
+/// WPT decode cases read backwards: when the bytes are well-formed UTF-8
+/// with no BOM, "UTF-8 encode" of the decoded scalar values must give the
+/// bytes back.
+#[test]
+fn wpt_encoding_utf8_encode() {
+    let mut count = 0usize;
+    let mut failures = Vec::new();
+    for c in WPT {
+        let Some(expected) = c.expected else { continue };
+        if std::str::from_utf8(c.input).is_err() || c.input.starts_with(&BOM) {
+            continue;
+        }
+        count = count.saturating_add(1);
+        let ours = encode(expected);
+        if ours != c.input {
+            failures.push(format!(
+                "{}:{} {}: ours {ours:02X?}, expected {:02X?}",
+                c.file, c.line, c.name, c.input
+            ));
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    assert!(count >= 8, "WPT encode cases shrank to {count}");
+}
+
+/// `encoding_rs`'s and the standard library's encodings of `s`.
+fn reference_encodings(s: &str) -> [(&'static str, Vec<u8>); 2] {
+    [
+        ("std", s.as_bytes().to_vec()),
+        ("encoding_rs", UTF_8.encode(s).0.into_owned()),
+    ]
+}
+
+/// Every scalar value on its own. Under Miri, a stride through them.
+#[test]
+fn differential_encode_every_scalar_value() {
+    let step = if cfg!(miri) { 4099 } else { 1 };
+    let mut failures = Vec::new();
+    for c in ('\u{0}'..=char::MAX).step_by(step) {
+        let mut buf = [0u8; 4];
+        let ours = encode(&[u32::from(c)]);
+        if ours != c.encode_utf8(&mut buf).as_bytes() {
+            failures.push(format!("U+{:04X}: ours {ours:02X?}", u32::from(c)));
+        }
+        for (engine, theirs) in reference_encodings(c.encode_utf8(&mut buf)) {
+            if ours != theirs {
+                failures.push(format!(
+                    "U+{:04X}: ours {ours:02X?}, {engine} {theirs:02X?}",
+                    u32::from(c)
+                ));
+            }
+        }
+        if failures.len() >= 10 {
+            break;
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Random scalar sequences, weighted to the four UTF-8 lengths.
+#[test]
+fn differential_encode_sequences() {
+    let n = if cfg!(miri) { 20 } else { 100_000 };
+    let mut rng = Rng(7);
+    for _ in 0..n {
+        let len = rng.below(64);
+        let text: String = (0..len)
+            .map(|_| {
+                let limit = match rng.below(4) {
+                    0 => 0x80,
+                    1 => 0x800,
+                    2 => 0x1_0000,
+                    _ => 0x11_0000,
+                };
+                u32::try_from(rng.below(limit))
+                    .ok()
+                    .and_then(char::from_u32)
+                    .unwrap_or('\u{FFFD}')
+            })
+            .collect();
+        let ours = encode(&scalars(&text));
+        for (engine, theirs) in reference_encodings(&text) {
+            assert_eq!(ours, theirs, "{engine} on {text:?}");
+        }
+    }
 }
