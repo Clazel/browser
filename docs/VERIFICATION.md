@@ -53,7 +53,12 @@ harnesses), and it reports every crate whose `tier` is below its
   shipped code are the same artifact, so no extraction step can go wrong.
 - **Kani**: bit-precise bounded model checking of ordinary Rust. Used for
   panic-freedom and for cross-checking Verus specs on small inputs.
-- **Miri**: catches UB in the one audited `unsafe` crate, and in dependencies.
+- **Miri**: `cargo xtask verify` runs every test under Miri, which reports
+  undefined behaviour. Our code has no `unsafe`, so today it checks the
+  dependency code our tests execute; later it will check the audited `sys`
+  crate. Miri sees only code paths the tests run, so it is evidence, not
+  proof. (Smoke test: an out-of-bounds read and a use-after-free that plain
+  `cargo test` passes are both reported.)
 
 Pinned versions (proofs must be reproducible). The source of truth is
 `scripts/toolchains.env`; `verify.sh` fails if installed tools differ.

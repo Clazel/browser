@@ -297,6 +297,49 @@ fn build_checks(r: &mut Runner) {
     );
 }
 
+/// Run every test under Miri, which reports undefined behaviour (Tier 0).
+/// Our code has no `unsafe`, so this mostly checks dependency code that the
+/// tests execute, and it will check the audited `sys` crate once it exists.
+fn miri(r: &mut Runner, pins: &Pins) {
+    const NAME: &str = "tests under Miri";
+    let nightly = match pins.get("MIRI_NIGHTLY") {
+        Ok(n) => format!("+{n}"),
+        Err(e) => {
+            r.step(NAME, Outcome::Fail(vec![e]));
+            return;
+        }
+    };
+    if run(Command::new("cargo").args([nightly.as_str(), "miri", "--version"])).is_err() {
+        r.step(
+            NAME,
+            Outcome::Skip(format!(
+                "Miri not installed on {}; run scripts/setup.sh",
+                nightly.trim_start_matches('+')
+            )),
+        );
+        return;
+    }
+    let res = run(Command::new("cargo").args([
+        nightly.as_str(),
+        "miri",
+        "test",
+        "--workspace",
+        "--locked",
+    ]))
+    .map(|out| {
+        let passed: u64 = out
+            .lines()
+            .filter_map(|l| l.strip_prefix("test result: ok. "))
+            .filter_map(|l| l.split(' ').next()?.parse::<u64>().ok())
+            .sum();
+        vec![format!(
+            "{passed} tests passed under Miri ({})",
+            nightly.trim_start_matches('+')
+        )]
+    });
+    r.step(NAME, from_result(res));
+}
+
 fn kani(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     if !on_path("cargo-kani") {
         r.step("kani", Outcome::Skip("cargo-kani not installed".into()));
@@ -550,6 +593,7 @@ fn main() -> ExitCode {
     }
     if full {
         build_checks(&mut r);
+        miri(&mut r, &pins);
     }
     if full || report_mode {
         kani(&mut r, &crates, &pins);

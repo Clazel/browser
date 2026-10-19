@@ -47,6 +47,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.7 Dependency allowlist (`docs/DEPENDENCIES.md` table, checked by `cargo xtask check`) | done: 23 packages, 0 shipped |
 | 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | tooling done; **0 of 3 files reviewed: needs a human** |
 | 0.9 CLAUDE.md additions (tier rule enforced, `docs/SPEC-STYLE.md`, errata rule) | done |
+| 0.10 Miri (every test, in `verify`) | done: 14 tests |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -306,7 +307,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1–0.9 and 0.12 are done (0.8 needs its first human review). Next: 0.10, 0.11.
+0.1–0.10 and 0.12 are done (0.8 needs its first human review). Next: 0.11.
 
 ## Explicitly out of scope for Phase 0
 
