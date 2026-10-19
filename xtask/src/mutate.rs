@@ -381,7 +381,8 @@ fn first_failure(out: &str) -> String {
     "no error message found".into()
 }
 
-/// A one-crate copy of the workspace under `target/xtask-mutate/<crate>/`.
+/// A one-crate copy of the workspace under `target/xtask-mutate/<crate>/`,
+/// plus the workspace crates it depends on.
 /// Its own target directory keeps dependency builds warm between runs.
 fn make_sandbox(c: &Crate, root: &Path) -> Result<PathBuf, String> {
     let sandbox = root.join("target").join("xtask-mutate").join(&c.name);
@@ -391,6 +392,20 @@ fn make_sandbox(c: &Crate, root: &Path) -> Result<PathBuf, String> {
             .map_err(|e| format!("{}: {e}", crate_copy.display()))?;
     }
     copy_dir(&c.dir, &crate_copy)?;
+    // Workspace crates it depends on (e.g. `clazel-percent` on
+    // `clazel-encoding`), so path dependencies resolve. They are only
+    // built, never mutated; Cargo makes them members implicitly.
+    for (dep, _) in &c.deps {
+        let from = root.join("crates").join(dep);
+        if !from.join("Cargo.toml").is_file() {
+            continue;
+        }
+        let to = sandbox.join("crates").join(dep);
+        if to.exists() {
+            std::fs::remove_dir_all(&to).map_err(|e| format!("{}: {e}", to.display()))?;
+        }
+        copy_dir(&from, &to)?;
+    }
     for f in ["Cargo.lock", "rust-toolchain.toml"] {
         std::fs::copy(root.join(f), sandbox.join(f)).map_err(|e| format!("copy {f}: {e}"))?;
     }

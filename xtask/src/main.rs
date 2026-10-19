@@ -471,7 +471,8 @@ fn verus_crate(dir: &Path, name: &str) -> Result<Vec<String>, String> {
     }
 }
 
-fn mutations(r: &mut Runner, crates: &[Crate], root: &Path) {
+/// Mutation tests for every Verus crate, or only the one named `only`.
+fn mutations(r: &mut Runner, crates: &[Crate], root: &Path, only: Option<&str>) {
     if !on_path("cargo-verus") || !on_path("verus") {
         r.step(
             "proof mutation tests",
@@ -479,7 +480,10 @@ fn mutations(r: &mut Runner, crates: &[Crate], root: &Path) {
         );
         return;
     }
-    for c in crates.iter().filter(|c| c.verus) {
+    for c in crates
+        .iter()
+        .filter(|c| c.verus && only.is_none_or(|n| n == c.name))
+    {
         let name = format!("proof mutation tests {}", c.name);
         if !mutate::has_mutations(c) {
             // A Verus crate with no mutations has unchecked proofs.
@@ -602,15 +606,21 @@ fn generate_testdata() -> ExitCode {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    // `mutate <crate>` runs one crate's mutations, for iterating on them.
+    let mut only_crate: Option<&str> = None;
     let (full, only_mutate, report_mode, write) = match args.as_slice() {
         ["testdata"] => return generate_testdata(),
         ["verify"] => (true, false, false, false),
         ["check"] => (false, false, false, false),
         ["mutate"] => (false, true, false, false),
+        ["mutate", name] => {
+            only_crate = Some(name);
+            (false, true, false, false)
+        }
         ["report"] => (false, false, true, false),
         ["report", "--write"] => (false, false, true, true),
         _ => {
-            eprintln!("usage: cargo xtask <verify|check|mutate|testdata|report [--write]>");
+            eprintln!("usage: cargo xtask <verify|check|mutate [crate]|testdata|report [--write]>");
             return ExitCode::from(64);
         }
     };
@@ -637,7 +647,13 @@ fn main() -> ExitCode {
         }
     };
     if only_mutate {
-        mutations(&mut r, &crates, &root);
+        if only_crate.is_some_and(|n| !crates.iter().any(|c| c.name == n)) {
+            r.step(
+                "select crate",
+                Outcome::Fail(vec![format!("no workspace crate named {only_crate:?}")]),
+            );
+        }
+        mutations(&mut r, &crates, &root, only_crate);
     } else {
         static_checks(&mut r, &crates, &pins);
     }
@@ -648,7 +664,7 @@ fn main() -> ExitCode {
     if full || report_mode {
         kani(&mut r, &crates, &pins);
         verus(&mut r, &crates, &pins);
-        mutations(&mut r, &crates, &root);
+        mutations(&mut r, &crates, &root, None);
         readme_table(&mut r, write);
     }
     if r.failed {
