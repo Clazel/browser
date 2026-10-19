@@ -56,6 +56,17 @@ dev-dependencies (`encoding_rs`, used by Firefox). Dev-only packages never
 ship, so they get a fourth allowlist class, `test`: reachable from browser
 crates only through `[dev-dependencies]`. `deps.rs` must check the edge kind.
 
+**As built:** WPT keeps the `encoding/` cases as JavaScript, not JSON, so
+the first converter (`xtask/src/testdata/wpt_encoding.rs`) reads a strict
+subset of JS literals from fixed places in each vendored file, and fails if
+one moves. The static checks (so `check` as well as `verify`) also reject a
+missing table, a generated file with no suite, a suite file the converter
+does not read, and a `SOURCE.md` without an https upstream, a full commit
+and a license. Browser crates' dev-dependencies must be pinned with `=`.
+Planted violations: a stale table (one byte changed) and `encoding_rs`
+moved to `[dependencies]` both fail `cargo xtask check`; unit tests in
+`deps.rs` keep the second one planted.
+
 ### 1.1 UTF-8 decoder: implementation and proof (M)
 
 **As built:** the contract promised `Vec<char>`, but no safe `u32` to `char`
@@ -96,6 +107,16 @@ examples (D92, Tables 3-8 to 3-11, §3.9.5) on the transcription.
 `tests/conformance_utf8.rs`: WPT `encoding/` UTF-8 decode cases, and a
 differential test against `String::from_utf8_lossy` and `encoding_rs` over
 exhaustive inputs up to 4 bytes plus random longer inputs.
+
+**As built:** exhaustive up to 3 bytes (16.8 million inputs), not 4 (4.3
+billion would take hours in the debug test build). 4-byte inputs are
+covered by every combination of 29 boundary bytes from Table 3-7 plus 2^20
+random ones; longer inputs by 200,000 random and corrupted-text cases. All
+three hooks are compared, the fatal one against `str::from_utf8` and
+`encoding_rs`'s no-replacement decode. 57 WPT cases (`SOURCE.md` lists what
+is not converted and why: streaming and decoder state, other encodings).
+`encoding_rs` is pinned to 0.8.35, the last release whose only dependency
+is `cfg-if`.
 
 ### 1.4 UTF-8 encode (S)
 
@@ -195,11 +216,11 @@ per suite; `xtask report` adds a "Conformance" column.
 
 | Item | State |
 |------|-------|
-| 1.0 Test-data plumbing | not started |
+| 1.0 Test-data plumbing | done: `cargo xtask testdata`, staleness and `SOURCE.md` checks, `test` dependency class with edge kinds; both planted violations caught |
 | 1.1 UTF-8 decoder implementation and proof | done: 25 verified, 0 errors; contract changed to `u32` output (below) |
 | 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
-| 1.3 UTF-8 conformance | not started |
-| 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; tier not raised (waits for 1.3) |
+| 1.3 UTF-8 conformance | done: 57 WPT `encoding/` cases pass; differential test against std and `encoding_rs` 0.8.35 agrees on all inputs tried (exhaustive up to 3 bytes) |
+| 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; tier not raised yet |
 | 1.5–1.12 | not started |
 
 ## Risks

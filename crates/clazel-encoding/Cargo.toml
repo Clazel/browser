@@ -9,12 +9,17 @@ description = "WHATWG Encoding Standard: UTF-8 decode/encode."
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only engines for the differential test in tests/conformance_utf8.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped).
+[dev-dependencies]
+encoding_rs = "=0.8.35"
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. The UTF-8
 # decoder and encoder are proven to meet their contracts, each has a
 # proven-equivalent independent transcription, and every mutation is
-# certified killed, but Tier 2 also needs conformance tests
-# (docs/phases/phase-1.md item 1.3), so it stays at Tier 0 until then.
+# certified killed, and the conformance tests (docs/phases/phase-1.md item
+# 1.3) have landed. Raising the tier is a separate step, so it is 0 for now.
 [package.metadata.clazel]
 tier = 0
 target-tier = 2
