@@ -198,7 +198,7 @@ pub fn inherits_workspace_lints(c: &Crate) -> Result<bool, String> {
 /// Check declared tiers are present, in range, and backed by tooling.
 /// Returns (violations, notes); notes are shortfalls that are allowed but
 /// must be visible.
-pub fn check_tiers(c: &Crate, kani_proofs: usize) -> (Vec<String>, Vec<String>) {
+pub fn check_tiers(c: &Crate, kani_proofs: usize, unreviewed: usize) -> (Vec<String>, Vec<String>) {
     let mut bad = Vec::new();
     let mut notes = Vec::new();
     let m = relative(&c.manifest);
@@ -214,6 +214,14 @@ pub fn check_tiers(c: &Crate, kani_proofs: usize) -> (Vec<String>, Vec<String>) 
             if t == 1 && kani_proofs == 0 {
                 bad.push(format!(
                     "{m}: tier {t} requires Kani harnesses (#[kani::proof]); found none"
+                ));
+            }
+            // A tier is a claim about code checked against human-reviewed
+            // specs; with unreviewed specs there is nothing to claim yet.
+            if t >= 1 && unreviewed > 0 {
+                bad.push(format!(
+                    "{m}: tier {t} requires every spec file reviewed and current \
+                     ({unreviewed} not; see docs/SPEC-REVIEWS.md)"
                 ));
             }
             if t < target {

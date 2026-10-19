@@ -52,6 +52,8 @@ pub struct Metrics {
     pub kani: Option<String>,
     pub lines: Option<Lines>,
     pub mutations: Option<Mutations>,
+    /// Spec files reviewed and current, out of all reviewable files.
+    pub reviews: Option<(usize, usize)>,
 }
 
 impl Metrics {
@@ -60,7 +62,7 @@ impl Metrics {
         let verus_ok = !self.is_verus
             || (self.verus.is_some() && self.lines.is_some() && self.mutations.is_some());
         let kani_ok = self.kani_harnesses == 0 || self.kani.is_some();
-        verus_ok && kani_ok
+        verus_ok && kani_ok && self.reviews.is_some()
     }
 }
 
@@ -72,8 +74,8 @@ pub fn render(table: &Table) -> String {
     let dash = || "—".to_owned();
     let mut out = vec![
         BEGIN.to_owned(),
-        "| Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² |".to_owned(),
-        "|-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|".to_owned(),
+        "| Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Spec review³ |".to_owned(),
+        "|-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|".to_owned(),
     ];
     for (name, m) in table {
         let tier = match (m.tier, m.target_tier) {
@@ -100,8 +102,13 @@ pub fn render(table: &Table) -> String {
                 x.killed, x.incidental, x.survived, x.total
             )
         });
+        let review = match m.reviews {
+            Some((_, 0)) => "no spec files".to_owned(),
+            Some((current, total)) => format!("{current} of {total} files current"),
+            None => dash(),
+        };
         out.push(format!(
-            "| {name} | {tier} | {verus} | {kani} | {} | {lines} | {mutations} |",
+            "| {name} | {tier} | {verus} | {kani} | {} | {lines} | {mutations} | {review} |",
             m.axioms
         ));
     }
@@ -114,6 +121,11 @@ pub fn render(table: &Table) -> String {
     out.push(
         "² Only the first number is coverage: a proven theorem is false for that many \
          deliberately broken specs. See [docs/VERIFICATION.md](docs/VERIFICATION.md#proof-mutation-testing)."
+            .to_owned(),
+    );
+    out.push(
+        "³ Specs, contracts, axioms and mutation judgments reviewed by a person, and \
+         unchanged since. See [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md)."
             .to_owned(),
     );
     out.push(END.to_owned());
@@ -183,6 +195,7 @@ mod tests {
             Metrics {
                 tier: Some(0),
                 target_tier: Some(0),
+                reviews: Some((0, 0)),
                 ..Metrics::default()
             },
         );
@@ -190,7 +203,9 @@ mod tests {
         let new = splice(&readme, &block)?;
         assert!(new.starts_with("intro\n") && new.ends_with("\noutro\n"));
         assert_eq!(current(&new), Some(block.as_str()));
-        assert!(new.contains("| a | 0 (0) | not used | no harnesses | 0 | — | — |"));
+        assert!(
+            new.contains("| a | 0 (0) | not used | no harnesses | 0 | — | — | no spec files |")
+        );
         Ok(())
     }
 
@@ -201,6 +216,10 @@ mod tests {
             ..Metrics::default()
         };
         assert!(!m.complete());
-        assert!(Metrics::default().complete());
+        let plain = Metrics {
+            reviews: Some((0, 0)),
+            ..Metrics::default()
+        };
+        assert!(plain.complete());
     }
 }

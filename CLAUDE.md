@@ -19,9 +19,13 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 5. **Cite the spec.** Every function implementing a standard links to the
    exact algorithm and quotes the step numbers it covers, e.g.
    `// URL §4.4 basic URL parser, step 3.2`.
-6. **Never mark something verified that isn't.** If a proof doesn't go through,
+6. **Never write spec reviews.** Do not add, edit or delete rows in
+   `docs/SPEC-REVIEWS.md`, and do not "refresh" a stale review's hash. Only a
+   human who has read the file against the standard may. Editing a spec is
+   fine; it simply makes the old review stale.
+7. **Never mark something verified that isn't.** If a proof doesn't go through,
    say so in the PR and leave the crate at its real tier.
-7. **Write our own parsers.** Any code that parses untrusted bytes is ours.
+8. **Write our own parsers.** Any code that parses untrusted bytes is ours.
    Shipped dependencies are allowed only for crypto (verified libraries), OS and
    windowing bindings, and GPU access. Proof libraries (`vstd`) and build
    tooling that never ships (`xtask`) may use others. Every resolved package,

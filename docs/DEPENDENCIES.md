@@ -1,7 +1,7 @@
 # Dependencies
 
 Every third-party package in the resolved dependency graph (`Cargo.lock`)
-needs a row in the allowlist below (see CLAUDE.md rule 7). `cargo xtask check`
+needs a row in the allowlist below (see CLAUDE.md rule 8). `cargo xtask check`
 enforces it:
 
 1. Every resolved third-party package has a row with its **exact** version,

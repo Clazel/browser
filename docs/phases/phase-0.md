@@ -45,6 +45,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.2 `scripts/setup.sh` with checksums | done on macOS arm64; Linux x86-64 untested until 0.11 |
 | 0.5 Generated README status table | done; spec review column waits for 0.8 |
 | 0.7 Dependency allowlist (`docs/DEPENDENCIES.md` table, checked by `cargo xtask check`) | done: 23 packages, 0 shipped |
+| 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | tooling done; **0 of 3 files reviewed: needs a human** |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -232,7 +233,16 @@ The spec is the trust anchor: a proof only shows code matches the spec, and a
 human has to check that the spec matches the standard. Make that review a
 recorded artifact.
 
-- `docs/spec-reviews.toml` holds, per spec file: reviewer, date, the standard's
+- **As built:** the log is a table in `docs/SPEC-REVIEWS.md` (same pattern
+  as the dependency allowlist), checked by `cargo xtask check`. Reviewable
+  files are `spec.rs`, `contract.rs`, `axioms.rs`, and `mutations.json`,
+  since its killed vs. incidental calls are human judgments too. Hashes come
+  from the system `sha256sum`/`shasum`. Status is a README table column, and
+  any tier above 0 requires every file current. Limitation: the checker
+  cannot tell who wrote a row; git history (commits without an AI
+  co-author) is the evidence. Tested: current, stale-after-edit, tier
+  claim blocked, row for a missing file.
+- (Original plan) `docs/spec-reviews.toml` holds, per spec file: reviewer, date, the standard's
   commit reviewed against, and the SHA-256 of the spec file at review time.
 - `xtask report` marks a spec file **stale** if its current hash differs,
   and **missing** if it was never reviewed. Stale or missing reviews do not
@@ -243,7 +253,7 @@ recorded artifact.
 
 ### 0.9 `CLAUDE.md` additions (S)
 
-- Rule: never write or edit `spec-reviews.toml`.
+- ~~Rule: never write or edit `spec-reviews.toml`.~~ Done with 0.8 (CLAUDE.md rule 6).
 - Rule: raising a crate's `tier` requires the report showing all its proofs
   pass, no surviving mutations, and up-to-date spec reviews.
 - How to write a Verus spec in this repo: the transcription conventions
@@ -292,7 +302,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1–0.7 and 0.12 are done. Next: 0.8, then 0.9–0.11.
+0.1–0.8 and 0.12 are done (0.8 needs its first human review). Next: 0.9–0.11.
 
 ## Explicitly out of scope for Phase 0
 

@@ -14,6 +14,7 @@ mod deps;
 mod mutate;
 mod pins;
 mod report;
+mod reviews;
 mod scan;
 mod verus;
 mod workspace;
@@ -112,18 +113,29 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     let mut decl_problems = Vec::new();
     let mut decl_notes = Vec::new();
     let mut axioms = 0usize;
+    let (review_status, review_problems) = match reviews::status(crates) {
+        Ok(s) => s,
+        Err(e) => (std::collections::BTreeMap::new(), vec![e]),
+    };
     for c in crates {
+        let files = review_status.get(&c.name).map_or(&[][..], Vec::as_slice);
+        let current = files
+            .iter()
+            .filter(|f| f.status == reviews::Status::Current)
+            .count();
+        let unreviewed = files.len().saturating_sub(current);
         let m = r.metrics.entry(c.name.clone()).or_default();
         m.tier = c.tier;
         m.target_tier = c.target_tier;
         m.is_verus = c.verus;
+        m.reviews = Some((current, files.len()));
         match workspace::scan_crate(c) {
             Ok(s) => {
                 m.axioms = s.axioms;
                 m.kani_harnesses = s.kani_proofs;
                 violations.extend(s.violations);
                 axioms = axioms.saturating_add(s.axioms);
-                let (bad, notes) = workspace::check_tiers(c, s.kani_proofs);
+                let (bad, notes) = workspace::check_tiers(c, s.kani_proofs, unreviewed);
                 decl_problems.extend(bad);
                 decl_notes.extend(notes);
             }
@@ -148,6 +160,28 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
         "crate tier declarations",
         outcome(decl_problems, decl_notes),
     );
+    // Unreviewed specs are not a failure (agents must be able to edit
+    // them), but every run lists them.
+    let review_notes: Vec<String> = review_status
+        .values()
+        .flatten()
+        .filter(|f| f.status != reviews::Status::Current)
+        .map(|f| {
+            let what = if f.status == reviews::Status::Stale {
+                "stale     "
+            } else {
+                "unreviewed"
+            };
+            format!("{what} {}  sha256 {}", f.file, f.sha256)
+        })
+        .collect();
+    let total: usize = review_status.values().map(Vec::len).sum();
+    let mut notes = vec![format!(
+        "{} of {total} spec files reviewed and current",
+        total.saturating_sub(review_notes.len())
+    )];
+    notes.extend(review_notes);
+    r.step("spec reviews", outcome(review_problems, notes));
     r.step("pinned versions", from_result(check_pins(crates, pins)));
     let tooling = crates
         .iter()

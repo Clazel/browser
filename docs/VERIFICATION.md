@@ -78,7 +78,10 @@ We list this openly. Proofs are only as good as their assumptions.
 - Cryptography, which comes from formally verified libraries (libcrux / HACL\*), not our own code
 - The contents of `spec` functions. A proof shows the code matches the spec;
   a human must check that the spec matches the WHATWG standard. This is why spec
-  functions cite the standard step by step and are kept short.
+  functions cite the standard step by step and are kept short. Those human
+  checks are recorded, with the file's hash, in
+  [SPEC-REVIEWS.md](SPEC-REVIEWS.md). A crate cannot declare any tier above
+  0 while one of its spec files is unreviewed or changed since review.
 
 ## Proof mutation testing
 
@@ -99,5 +102,5 @@ exec line counts, and the three-way mutation result. `cargo xtask verify` fails
 if the committed table differs from what that run measured, and `cargo xtask
 report --write` refuses to update it while any check is failing.
 
-Not yet in the table: spec review status (Phase 0 item 0.8) and WPT pass
-rates (added when a crate first runs a test suite).
+Not yet in the table: WPT pass rates (added when a crate first runs a test
+suite).
