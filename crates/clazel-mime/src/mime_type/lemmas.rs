@@ -868,4 +868,83 @@ pub proof fn lemma_parse_serializable(mime_type: MimeTypeRecord)
     lemma_serialize_parameters(mime_type.parameters, 0, t + seq![0x2Fu32] + st);
 }
 
+// ===========================================================================
+// More working facts, used by the proof in `independent.rs`.
+// ===========================================================================
+
+/// Where the content of `s` ends once trailing HTTP whitespace is removed.
+pub open spec fn content_end(s: Seq<u32>) -> nat
+    decreases s.len()
+{
+    if s.len() > 0 && is_http_whitespace(s.last()) {
+        content_end(s.drop_last())
+    } else {
+        s.len()
+    }
+}
+
+/// Removing trailing HTTP whitespace keeps exactly the prefix up to
+/// [`content_end`].
+pub proof fn lemma_remove_trailing_shape(s: Seq<u32>)
+    ensures
+        content_end(s) <= s.len(),
+        remove_trailing_http_whitespace(s) == s.subrange(0, content_end(s) as int),
+        forall|k: int| content_end(s) <= k < s.len() ==> is_http_whitespace(#[trigger] s[k]),
+        content_end(s) > 0 ==> !is_http_whitespace(s[content_end(s) - 1]),
+    decreases s.len()
+{
+    if s.len() > 0 && is_http_whitespace(s.last()) {
+        let d = s.drop_last();
+        lemma_remove_trailing_shape(d);
+        assert(d.subrange(0, content_end(d) as int) =~= s.subrange(0, content_end(d) as int));
+        assert forall|k: int| content_end(s) <= k < s.len() implies is_http_whitespace(#[trigger] s[k]) by {
+            if k < d.len() {
+                assert(s[k] == d[k]);
+            }
+        }
+        if content_end(d) > 0 {
+            assert(s[content_end(d) - 1] == d[content_end(d) - 1]);
+        }
+    } else {
+        assert(s.subrange(0, s.len() as int) =~= s);
+    }
+}
+
+/// Trailing HTTP whitespace after `a` is removed with `a`'s own.
+pub proof fn lemma_remove_trailing_ws_suffix(a: Seq<u32>, b: Seq<u32>)
+    requires
+        forall|k: int| 0 <= k < b.len() ==> is_http_whitespace(#[trigger] b[k]),
+    ensures
+        remove_trailing_http_whitespace(a + b) == remove_trailing_http_whitespace(a),
+    decreases b.len()
+{
+    if b.len() == 0 {
+        assert(a + b =~= a);
+    } else {
+        assert((a + b).last() == b.last());
+        assert((a + b).drop_last() =~= a + b.drop_last());
+        assert forall|k: int| 0 <= k < b.drop_last().len() implies is_http_whitespace(#[trigger] b.drop_last()[k]) by {
+            assert(b.drop_last()[k] == b[k]);
+        }
+        lemma_remove_trailing_ws_suffix(a, b.drop_last());
+    }
+}
+
+/// One code point of a quoted string's content that is neither U+0022 (")
+/// nor U+005C (\) is collected and the loop goes on from the next one.
+pub proof fn lemma_quoted_string_loop_step(input: Seq<u32>, position: nat, value: Seq<u32>)
+    requires
+        position < input.len(),
+        meets(Condition::NotQuotationMarkOrReverseSolidus, input[position as int]),
+    ensures
+        quoted_string_loop(input, position, value) == quoted_string_loop(input, position + 1, value.push(input[position as int])),
+{
+    let nq = Condition::NotQuotationMarkOrReverseSolidus;
+    lemma_collect(nq, input, position + 1);
+    let q = collect(nq, input, position + 1).1;
+    lemma_collect_exact(nq, input, position, q);
+    assert(value + input.subrange(position as int, q as int)
+        =~= value.push(input[position as int]) + input.subrange(position as int + 1, q as int));
+}
+
 } // verus!

@@ -221,7 +221,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
 | 1.3 UTF-8 conformance | done: 57 WPT `encoding/` cases pass; differential test against std and `encoding_rs` 0.8.35 agrees on all inputs tried (exhaustive up to 3 bytes) |
 | 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; encode conformance added to `conformance_utf8.rs`; **`clazel-encoding` raised to tier 2** |
-| 1.5–1.12 | not started |
+| 1.7 MIME types and sniffing | in progress (tier 0): stage A spec/contract, implementation (parse, serialize, to/from bytes, §4.6 groups) proven against the contract, lemmas (parsed form, round trip `lemma_parse_serialize`) all verified. Not done: RFC 9110 independent transcription (written, 2 assertions unproven, not committed), `mutations.json`, WPT conformance + `testdata` converter + differential test, README report, stage B (sniffing). One erratum (Fetch quoted string, not reported) |
+| 1.5, 1.6, 1.8–1.12 | not started |
 
 ## Risks
 
