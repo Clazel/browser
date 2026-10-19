@@ -13,9 +13,9 @@ Status: Phase 1 (verified primitives). The UTF-8 decoder spec and contracts are 
 
 ## Verification status
 
-| Crate | Tier (target) | Tier (actual) | Proven fns | Axioms | WPT |
-|-------|---------------|---------------|------------|--------|-----|
-| clazel-encoding | 2 | 0 (spec proven, no implementation yet) | 16 | 0 | n/a |
+| Crate | Tier (target) | Tier (actual) | Proven fns | Axioms | Spec mutations killed by a theorem | WPT |
+|-------|---------------|---------------|------------|--------|-------------------------------------|-----|
+| clazel-encoding | 2 | 0 (spec proven, no implementation yet) | 16 | 0 | 2 of 10 | n/a |
 
 Formalizing the standards has already found one spec bug: see
 [docs/ERRATA.md](docs/ERRATA.md).

@@ -74,6 +74,16 @@ We list this openly. Proofs are only as good as their assumptions.
   a human must check that the spec matches the WHATWG standard. This is why spec
   functions cite the standard step by step and are kept short.
 
+## Proof mutation testing
+
+A proof can pass for the wrong reason, for example because its spec is too weak
+to rule anything out. `cargo xtask mutate` (also run by `verify`) applies small,
+deliberate bugs to each spec, listed in the crate's `mutations.json`, and checks
+the proofs react as recorded: **killed** (a proven theorem is false for the
+mutant), **killed incidentally** (only the proof script breaks, so this is not
+coverage), or **survives** (a known gap, with what will close it). The report
+counts these three separately.
+
 ## Honesty metrics
 
 `scripts/verify.sh` reports, per crate: tier, number of proven functions,

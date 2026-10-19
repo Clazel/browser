@@ -1,0 +1,84 @@
+{
+  "mutations": [
+    {
+      "id": "ed-upper-boundary",
+      "file": "src/utf8/spec.rs",
+      "find": "if byte == 0xED { 0x9F }",
+      "replace": "if byte == 0xED { 0xBF }",
+      "expect": "killed",
+      "reason": "Admits ED A0..BF, i.e. surrogates U+D800..DFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemmas.rs, lemma_handler_byte)."
+    },
+    {
+      "id": "f4-upper-boundary",
+      "file": "src/utf8/spec.rs",
+      "find": "if byte == 0xF4 { 0x8F }",
+      "replace": "if byte == 0xF4 { 0xBF }",
+      "expect": "killed",
+      "reason": "Admits code points above U+10FFFF, so lemma_output_scalar_values is false for the mutant. Fails first at the reachable invariant (lemma_handler_byte)."
+    },
+    {
+      "id": "e0-lower-boundary",
+      "file": "src/utf8/spec.rs",
+      "find": "if byte == 0xE0 { 0xA0 }",
+      "replace": "if byte == 0xE0 { 0x80 }",
+      "expect": "killed-incidentally",
+      "reason": "Admits overlong three-byte forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+    },
+    {
+      "id": "f0-lower-boundary",
+      "file": "src/utf8/spec.rs",
+      "find": "if byte == 0xF0 { 0x90 }",
+      "replace": "if byte == 0xF0 { 0x80 }",
+      "expect": "killed-incidentally",
+      "reason": "Admits overlong four-byte forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+    },
+    {
+      "id": "c0-c1-lead-bytes",
+      "file": "src/utf8/spec.rs",
+      "find": "0xC2 <= byte <= 0xDF",
+      "replace": "0xC0 <= byte <= 0xDF",
+      "expect": "killed-incidentally",
+      "reason": "Admits overlong two-byte (C0, C1) forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+    },
+    {
+      "id": "drop-restore",
+      "file": "src/utf8/spec.rs",
+      "find": "result: HandlerResult::Error, restored: true }",
+      "replace": "result: HandlerResult::Error, restored: false }",
+      "expect": "survives",
+      "reason": "Swallows the byte after a truncated sequence. No lemma covers it; the implementation's refinement proof will, and so would the planned equivalence with Unicode Table 3-7."
+    },
+    {
+      "id": "drop-replacement-character",
+      "file": "src/utf8/spec.rs",
+      "find": "ErrorMode::Replacement => cons(0xFFFD, process_queue(mode, s.decoder, input, j)),",
+      "replace": "ErrorMode::Replacement => process_queue(mode, s.decoder, input, j),",
+      "expect": "survives",
+      "reason": "Errors silently vanish instead of becoming U+FFFD. No lemma covers it; the implementation's refinement proof will."
+    },
+    {
+      "id": "ascii-range",
+      "file": "src/utf8/spec.rs",
+      "find": "if byte <= 0x7F {",
+      "replace": "if byte <= 0x80 {",
+      "expect": "survives",
+      "reason": "Decodes a lone 0x80 as U+0080 instead of an error. No lemma covers it; the implementation's refinement proof will, and so would the planned Table 3-7 equivalence."
+    },
+    {
+      "id": "fatal-never-fails",
+      "file": "src/utf8/spec.rs",
+      "find": "ErrorMode::Fatal => None,",
+      "replace": "ErrorMode::Fatal => cons(0xFFFD, process_queue(mode, s.decoder, input, j)),",
+      "expect": "killed-incidentally",
+      "reason": "\"fatal\" mode behaves like \"replacement\". Every theorem still holds (the output is still scalar values); only the proof script breaks, because lemma_process_queue_scalar recurses on errors in replacement mode alone. Real coverage comes from the implementation's refinement proof."
+    },
+    {
+      "id": "bom-third-byte",
+      "file": "src/utf8/spec.rs",
+      "find": "input[2] == 0xBF",
+      "replace": "input[2] == 0xBE",
+      "expect": "survives",
+      "reason": "Recognises the wrong byte-order mark. No lemma covers it; the implementation's refinement proof will."
+    }
+  ]
+}

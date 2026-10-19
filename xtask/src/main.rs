@@ -4,9 +4,13 @@
 //!   every check ran and passed; 1 if any failed; 2 if none failed but some
 //!   were skipped because a tool is missing (never report that as verified).
 //! - `cargo xtask check`: only the fast static checks (no build, no proofs).
+//! - `cargo xtask mutate`: only the proof mutation tests (also part of
+//!   `verify`).
 
+mod mutate;
 mod pins;
 mod scan;
+mod verus;
 mod workspace;
 
 use std::path::Path;
@@ -261,42 +265,74 @@ fn verus(r: &mut Runner, crates: &[Crate], pins: &Pins) {
 }
 
 fn verus_crate(dir: &Path, name: &str) -> Result<Vec<String>, String> {
-    // Cargo would otherwise replay a cached result; force a fresh proof run.
-    run(Command::new("cargo")
-        .current_dir(dir)
-        .args(["clean", "--quiet", "-p", name]))?;
-    // `-A missing_docs` reaches only Verus, silencing accessors it generates
-    // (is_Byte, ...). Clippy still enforces missing_docs on our code.
-    let out = run(Command::new("cargo").current_dir(dir).args([
-        "verus",
-        "verify",
-        "--locked",
-        "--",
-        "-A",
-        "missing_docs",
-    ]))?;
-    let results: Vec<&str> = out
-        .lines()
-        .filter(|l| l.starts_with("verification results::"))
-        .collect();
-    match results.last() {
-        Some(last) if last.ends_with(" 0 errors") => Ok(vec![(*last).to_owned()]),
-        Some(last) => Err(format!("{last}\n{out}")),
-        None => Err(format!("no verification results reported:\n{out}")),
+    match verus::run(dir, name, true)? {
+        verus::Run::Verified(s) => Ok(vec![s]),
+        verus::Run::ProofFailed(s, out) => Err(format!("{s}\n{out}")),
+        verus::Run::BuildFailed(out) => Err(format!("no verification results reported:\n{out}")),
+    }
+}
+
+fn mutations(r: &mut Runner, crates: &[Crate], root: &Path) {
+    if !on_path("cargo-verus") || !on_path("verus") {
+        r.step(
+            "proof mutation tests",
+            Outcome::Skip("verus / cargo-verus not installed".into()),
+        );
+        return;
+    }
+    for c in crates.iter().filter(|c| c.verus) {
+        let name = format!("proof mutation tests {}", c.name);
+        if !mutate::has_mutations(c) {
+            // A Verus crate with no mutations has unchecked proofs.
+            r.step(
+                &name,
+                Outcome::Fail(vec![format!(
+                    "{}: Verus crate has no {}",
+                    c.name,
+                    mutate::FILE
+                )]),
+            );
+            continue;
+        }
+        let outcome = match mutate::run(c, root) {
+            Ok(rep) => {
+                let mut lines = rep.lines;
+                lines.push(format!(
+                    "{} mutations: {} killed by a theorem, {} killed incidentally (not coverage), {} survived (known gaps)",
+                    rep.total, rep.killed, rep.incidental, rep.survived
+                ));
+                outcome(rep.problems, lines)
+            }
+            Err(e) => Outcome::Fail(vec![e]),
+        };
+        r.step(&name, outcome);
     }
 }
 
 fn main() -> ExitCode {
     let mode = std::env::args().nth(1);
-    let full = match mode.as_deref() {
-        Some("verify") => true,
-        Some("check") => false,
+    let (full, only_mutate) = match mode.as_deref() {
+        Some("verify") => (true, false),
+        Some("check") => (false, false),
+        Some("mutate") => (false, true),
         _ => {
-            eprintln!("usage: cargo xtask <verify|check>");
+            eprintln!("usage: cargo xtask <verify|check|mutate>");
             return ExitCode::from(64);
         }
     };
     let mut r = Runner::default();
+    // Always work from the repository root, wherever cargo was invoked.
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .map(Path::to_path_buf);
+    let Some(root) = root.filter(|p| std::env::set_current_dir(p).is_ok()) else {
+        r.step(
+            "find repository root",
+            Outcome::Fail(vec!["cannot enter the repository root".into()]),
+        );
+        println!("RESULT: FAILED");
+        return ExitCode::from(1);
+    };
     let setup = workspace::load().and_then(|crates| Ok((crates, Pins::load()?)));
     let (crates, pins) = match setup {
         Ok(s) => s,
@@ -306,11 +342,16 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    static_checks(&mut r, &crates, &pins);
+    if only_mutate {
+        mutations(&mut r, &crates, &root);
+    } else {
+        static_checks(&mut r, &crates, &pins);
+    }
     if full {
         build_checks(&mut r);
         kani(&mut r, &crates, &pins);
         verus(&mut r, &crates, &pins);
+        mutations(&mut r, &crates, &root);
     }
     if r.failed {
         println!("RESULT: FAILED");
@@ -320,6 +361,9 @@ fn main() -> ExitCode {
         ExitCode::from(2)
     } else if full {
         println!("RESULT: ALL CHECKS PASSED");
+        ExitCode::SUCCESS
+    } else if only_mutate {
+        println!("RESULT: MUTATION TESTS PASSED (other checks not run)");
         ExitCode::SUCCESS
     } else {
         println!(

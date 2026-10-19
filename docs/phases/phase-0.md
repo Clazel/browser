@@ -41,6 +41,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.3 Machine-readable tiers (declared and checked present; truth checked in 0.4) | done |
 | 0.12 Verus output noise | done |
 | 0.4 `xtask` checker (token scanner, tier truth, pins, runner; `verify.sh` wraps it) | done |
+| 0.6 Proof mutation testing (`cargo xtask mutate`, part of `verify`) | done: 10 UTF-8 mutations, 2 killed by a theorem |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -148,16 +149,22 @@ is typed by hand.)
 
 ### 0.6 Proof mutation testing (M)
 
-A proof that passes no matter what the spec says proves nothing. Each Tier
-2 crate gets a `mutations.toml`:
+A proof that passes no matter what the spec says proves nothing. Each Verus
+crate gets a `mutations.json` (JSON rather than TOML, because `xtask`
+already depends on `serde_json`). The format is documented in
+`xtask/src/mutate.rs`.
 
-```toml
-[[mutation]]
-file = "src/utf8/spec.rs"
-find = "if byte == 0xED { 0x9F }"
-replace = "if byte == 0xED { 0xBF }"
-reason = "admits surrogates; lemma_output_scalar_values must fail"
-```
+**As built:** `expect` has three values, not two. While seeding the UTF-8
+mutations, most "kills" turned out to break only the proof *script* (an
+invariant that restates the spec's boundaries, or a case split), not a
+theorem: the mutant still satisfied every proven property. Counting those as
+coverage would overstate what is proven. So:
+- `killed`: a proven theorem is false for the mutant (real coverage);
+- `killed-incidentally`: the proofs fail, but every theorem still holds;
+- `survives`: a known gap.
+
+The report names the first failing proof for each kill, so the
+classification can be checked.
 
 `cargo xtask mutate` applies each mutation to a scratch copy of the
 crate, runs Verus, and **requires a failure**. A surviving mutation fails
@@ -260,7 +267,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.3, 0.4 and 0.12 are done. Next: 0.5–0.8 (all unblocked by 0.4), and 0.2.
+0.1, 0.3, 0.4, 0.6 and 0.12 are done. Next: 0.5, 0.7, 0.8 and 0.2.
 
 ## Explicitly out of scope for Phase 0
 
