@@ -25,3 +25,7 @@ Formalizing the standards has already found one spec bug: see
 ```sh
 scripts/verify.sh
 ```
+
+## License
+
+MIT. See [LICENSE](LICENSE).

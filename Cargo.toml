@@ -4,7 +4,7 @@ members = ["crates/*"]
 
 [workspace.package]
 edition = "2024"
-license = "MIT OR Apache-2.0"
+license = "MIT"
 publish = false
 
 # Tier 0 of docs/VERIFICATION.md: these apply to every crate. A crate may not
