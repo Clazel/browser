@@ -19,6 +19,8 @@ contributor rules for AI agents (`CLAUDE.md`), and honesty metrics script.
 ## Phase 1: Verified primitives
 UTF-8 encoding, percent-encoding, base64, MIME sniffing, WHATWG URL parser.
 *Exit:* WPT `url/` tests pass and the parsers are proven against spec functions.
+Detailed plan: [phases/phase-1.md](phases/phase-1.md).
+**Status: in progress.**
 
 ## Phase 2: Kernel and IPC
 Quark-style process model. A small kernel process owns all network, cookie
