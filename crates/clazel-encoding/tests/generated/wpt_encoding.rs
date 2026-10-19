@@ -2,7 +2,7 @@
 // Do not edit: `cargo xtask verify` fails if this differs from what the
 // converter (xtask/src/testdata/wpt_encoding.rs) produces.
 // Source, commit and license: tests/data/wpt-encoding/SOURCE.md.
-&[
+const WPT: &[Case] = &[
     Case { file: "api-basics.any.js", line: 30, name: "Encode/decode round trip: utf-8", hook: Hook::Decode, input: &[0x7A, 0xC2, 0xA2, 0xE6, 0xB0, 0xB4, 0xF0, 0x9D, 0x84, 0x9E, 0xEF, 0xA3, 0xBF, 0xF4, 0x8F, 0xBF, 0xBD, 0xEF, 0xBF, 0xBE], expected: Some(&[0x007A, 0x00A2, 0x6C34, 0x1D11E, 0xF8FF, 0x10FFFD, 0xFFFE]) },
     Case { file: "api-surrogates-utf8.any.js", line: 5, name: "Invalid surrogates encoded into UTF-8: Sanity check", hook: Hook::Decode, input: &[0x61, 0x62, 0x63, 0x31, 0x32, 0x33], expected: Some(&[0x0061, 0x0062, 0x0063, 0x0031, 0x0032, 0x0033]) },
     Case { file: "api-surrogates-utf8.any.js", line: 11, name: "Invalid surrogates encoded into UTF-8: Surrogate half (low)", hook: Hook::Decode, input: &[0xEF, 0xBF, 0xBD], expected: Some(&[0xFFFD]) },
@@ -60,4 +60,4 @@
     Case { file: "textdecoder-mistakes.any.js", line: 9, name: "Invalid Unicode input is replaced: utf-8", hook: Hook::Decode, input: &[0x80], expected: Some(&[0xFFFD]) },
     Case { file: "textdecoder-mistakes.any.js", line: 10, name: "Invalid Unicode input is replaced: utf-8", hook: Hook::Decode, input: &[0xF0, 0x90, 0x80], expected: Some(&[0xFFFD]) },
     Case { file: "textdecoder-mistakes.any.js", line: 11, name: "Invalid Unicode input is replaced: utf-8", hook: Hook::Decode, input: &[0xF0, 0x80, 0x80], expected: Some(&[0xFFFD, 0xFFFD, 0xFFFD]) },
-]
+];

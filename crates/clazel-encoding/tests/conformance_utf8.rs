@@ -37,7 +37,8 @@ struct Case {
     expected: Option<&'static [u32]>,
 }
 
-const WPT: &[Case] = include!("generated/wpt_encoding.rs");
+// `const WPT: &[Case]`, generated from the vendored WPT files.
+include!("generated/wpt_encoding.rs");
 
 const BOM: [u8; 3] = [0xEF, 0xBB, 0xBF];
 

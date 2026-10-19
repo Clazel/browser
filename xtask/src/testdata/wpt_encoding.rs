@@ -369,7 +369,7 @@ fn render(cases: &[Case]) -> Result<String, String> {
         &mut out,
         "// Source, commit and license: tests/data/wpt-encoding/SOURCE.md.\n".into(),
     );
-    w(&mut out, "&[\n".into());
+    w(&mut out, "const WPT: &[Case] = &[\n".into());
     for c in cases {
         let input: Vec<String> = c.input.iter().map(|b| format!("0x{b:02X}")).collect();
         let expected = match &c.expected {
@@ -390,6 +390,6 @@ fn render(cases: &[Case]) -> Result<String, String> {
         )
         .map_err(|e| e.to_string())?;
     }
-    out.push_str("]\n");
+    out.push_str("];\n");
     Ok(out)
 }
