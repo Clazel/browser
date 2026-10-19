@@ -82,6 +82,15 @@ for every input. This is what kills the mutations that survive today
 (overlong forms, dropped restore, dropped U+FFFD, the ASCII range, BOM):
 each gets a certificate that evaluates both on a concrete input.
 
+**As built:** the transcription covers all three hooks, not just
+"UTF-8 decode without BOM": substitution of maximal subparts (§3.9.6)
+equals `utf8_decode_without_bom`, C10's error condition equals
+`utf8_decode_without_bom_or_fail`, and the BOM step equals `utf8_decode`.
+Unicode does not say what a decoder does with a BOM, so that one step is
+transcribed from Encoding §6 again; it is independent in transcription
+only. `lemma_unicode_examples` also evaluates the Unicode Standard's own
+examples (D92, Tables 3-8 to 3-11, §3.9.5) on the transcription.
+
 ### 1.3 UTF-8: conformance (S)
 
 `tests/conformance_utf8.rs`: WPT `encoding/` UTF-8 decode cases, and a
@@ -177,7 +186,8 @@ per suite; `xtask report` adds a "Conformance" column.
 |------|-------|
 | 1.0 Test-data plumbing | not started |
 | 1.1 UTF-8 decoder implementation and proof | done: 25 verified, 0 errors; contract changed to `u32` output (below) |
-| 1.2–1.12 | not started |
+| 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
+| 1.3–1.12 | not started |
 
 ## Risks
 

@@ -31,64 +31,104 @@
       "file": "src/utf8/spec.rs",
       "find": "if byte == 0xE0 { 0xA0 }",
       "replace": "if byte == 0xE0 { 0x80 }",
-      "expect": "killed-incidentally",
-      "reason": "Admits overlong three-byte forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+      "expect": "killed",
+      "reason": "Admits overlong three-byte forms: the mutant decodes E0 80 80 to one code point, where Unicode Table 3-7 (independent.rs) makes it three U+FFFD, so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0xE0u8, 0x80u8, 0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0xE0u8, 0x80u8, 0x80u8]).len() == 1 && unicode_decode_with_substitution(seq![0xE0u8, 0x80u8, 0x80u8]).len() == 3"
+      }
     },
     {
       "id": "f0-lower-boundary",
       "file": "src/utf8/spec.rs",
       "find": "if byte == 0xF0 { 0x90 }",
       "replace": "if byte == 0xF0 { 0x80 }",
-      "expect": "killed-incidentally",
-      "reason": "Admits overlong four-byte forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+      "expect": "killed",
+      "reason": "Admits overlong four-byte forms: the mutant decodes F0 80 80 80 to one code point, where Unicode Table 3-7 (independent.rs) makes it four U+FFFD, so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0xF0u8, 0x80u8, 0x80u8, 0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0xF0u8, 0x80u8, 0x80u8, 0x80u8]).len() == 1 && unicode_decode_with_substitution(seq![0xF0u8, 0x80u8, 0x80u8, 0x80u8]).len() == 4"
+      }
     },
     {
       "id": "c0-c1-lead-bytes",
       "file": "src/utf8/spec.rs",
       "find": "0xC2 <= byte <= 0xDF",
       "replace": "0xC0 <= byte <= 0xDF",
-      "expect": "killed-incidentally",
-      "reason": "Admits overlong two-byte (C0, C1) forms. Overlongs still decode to scalar values, so every theorem holds; only the reachable invariant, which restates the boundaries, breaks. Real coverage needs a 'no overlong forms' lemma (e.g. equivalence with Unicode Table 3-7)."
+      "expect": "killed",
+      "reason": "Admits overlong two-byte (C0, C1) forms: the mutant decodes C0 80 to one code point, where Unicode Table 3-7 (independent.rs) makes it two U+FFFD, so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0xC0u8, 0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0xC0u8, 0x80u8]).len() == 1 && unicode_decode_with_substitution(seq![0xC0u8, 0x80u8]).len() == 2"
+      }
     },
     {
       "id": "drop-restore",
       "file": "src/utf8/spec.rs",
       "find": "result: HandlerResult::Error, restored: true }",
       "replace": "result: HandlerResult::Error, restored: false }",
-      "expect": "killed-incidentally",
-      "reason": "Swallows the byte after a truncated sequence. The implementation, which restores the byte, no longer meets its contract (run_handler's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
+      "expect": "killed",
+      "reason": "Swallows the byte after a truncated sequence: the mutant decodes C2 41 to U+FFFD alone, where Unicode §3.9.6 (independent.rs) gives U+FFFD U+0041, so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0xC2u8, 0x41u8])",
+        "witness": "utf8_decode_without_bom(seq![0xC2u8, 0x41u8]).len() == 1 && unicode_decode_with_substitution(seq![0xC2u8, 0x41u8]).len() == 2"
+      }
     },
     {
       "id": "drop-replacement-character",
       "file": "src/utf8/spec.rs",
       "find": "ErrorMode::Replacement => cons(0xFFFD, process_queue(mode, s.decoder, input, j)),",
       "replace": "ErrorMode::Replacement => process_queue(mode, s.decoder, input, j),",
-      "expect": "killed-incidentally",
-      "reason": "Errors silently vanish instead of becoming U+FFFD. The implementation no longer meets its contract (process_queue_exec's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
+      "expect": "killed",
+      "reason": "Errors silently vanish: the mutant decodes a lone 80 to nothing, where Unicode §3.9.6 (independent.rs) gives U+FFFD, so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0x80u8]).len() == 0 && unicode_decode_with_substitution(seq![0x80u8]).len() == 1"
+      }
     },
     {
       "id": "ascii-range",
       "file": "src/utf8/spec.rs",
       "find": "if byte <= 0x7F {",
       "replace": "if byte <= 0x80 {",
-      "expect": "killed-incidentally",
-      "reason": "Decodes a lone 0x80 as U+0080 instead of an error. The implementation no longer meets its contract (run_handler's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
+      "expect": "killed",
+      "reason": "Decodes a lone 0x80 as U+0080, where Unicode Table 3-7 (independent.rs) makes it ill-formed (U+FFFD), so lemma_equals_utf8_decode_without_bom is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom(seq![0x80u8])",
+        "witness": "utf8_decode_without_bom(seq![0x80u8]).len() == 1 && utf8_decode_without_bom(seq![0x80u8])[0] == 0x80u32 && unicode_decode_with_substitution(seq![0x80u8]).len() == 1 && unicode_decode_with_substitution(seq![0x80u8])[0] == 0xFFFDu32"
+      }
     },
     {
       "id": "fatal-never-fails",
       "file": "src/utf8/spec.rs",
       "find": "ErrorMode::Fatal => None,",
       "replace": "ErrorMode::Fatal => cons(0xFFFD, process_queue(mode, s.decoder, input, j)),",
-      "expect": "killed-incidentally",
-      "reason": "\"fatal\" mode behaves like \"replacement\". Every theorem still holds (the output is still scalar values); only the proof script breaks, because lemma_process_queue_scalar recurses on errors in replacement mode alone. Real coverage comes from the implementation's refinement proof."
+      "expect": "killed",
+      "reason": "\"fatal\" mode behaves like \"replacement\": the mutant returns output for a lone 80, where Unicode C10 (independent.rs) makes it an error, so lemma_equals_utf8_decode_without_bom_or_fail is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode_without_bom_or_fail(seq![0x80u8])",
+        "witness": "utf8_decode_without_bom_or_fail(seq![0x80u8]).is_some() && unicode_decode_or_error(seq![0x80u8]).is_none()"
+      }
     },
     {
       "id": "bom-third-byte",
       "file": "src/utf8/spec.rs",
       "find": "input[2] == 0xBF",
       "replace": "input[2] == 0xBE",
-      "expect": "killed-incidentally",
-      "reason": "Recognises the wrong byte-order mark. The implementation no longer meets its contract (decode's postcondition), but no theorem about the spec is false. A certified kill needs a lemma about the BOM, or an independent transcription of UTF-8 decode (Phase 1 item 1.2)."
+      "expect": "killed",
+      "reason": "Recognises the wrong byte-order mark: the mutant decodes EF BB BF to U+FEFF instead of removing it, so lemma_equals_utf8_decode (independent.rs) is false.",
+      "certificate": {
+        "file": "src/utf8/independent.rs",
+        "lemma": "lemma_equals_utf8_decode(seq![0xEFu8, 0xBBu8, 0xBFu8])",
+        "witness": "utf8_decode(seq![0xEFu8, 0xBBu8, 0xBFu8]).len() == 1 && unicode_decode_with_bom_removed(seq![0xEFu8, 0xBBu8, 0xBFu8]).len() == 0"
+      }
     }
   ]
 }
