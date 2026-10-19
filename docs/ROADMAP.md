@@ -14,6 +14,7 @@ Each phase ends in something you can run.
 Workspace, lints, a local verification gate that rejects unproven code in Tier 2 crates,
 contributor rules for AI agents (`CLAUDE.md`), and honesty metrics script.
 *Exit:* see the detailed plan in [phases/phase-0.md](phases/phase-0.md).
+**Status: complete (2026-10-19).**
 
 ## Phase 1: Verified primitives
 UTF-8 encoding, percent-encoding, base64, MIME sniffing, WHATWG URL parser.

@@ -9,7 +9,14 @@ instead of trust.
 - **Honest about it:** each crate declares its verification tier, and the
   trusted computing base is listed in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-Status: Phase 1 (verified primitives). The UTF-8 decoder spec and contracts are proven; the implementation is next. See [docs/ROADMAP.md](docs/ROADMAP.md).
+Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
+started: the UTF-8 decoder spec and contracts are proven; the implementation
+is next. Recheck every proof yourself, on Linux x86-64, with:
+
+```sh
+docker build --platform linux/amd64 -t clazel-verify .
+docker run --rm --platform linux/amd64 clazel-verify
+``` See [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Verification status
 

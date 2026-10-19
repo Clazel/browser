@@ -51,6 +51,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.8 Spec review log (`docs/SPEC-REVIEWS.md`) | done; reviews made optional (see below) |
 | 0.9 CLAUDE.md additions (tier rule enforced, `docs/SPEC-STYLE.md`, errata rule) | done |
 | 0.10 Miri (every test, in `verify`) | done: 14 tests |
+| 0.11 Linux parity (`Dockerfile`, Linux x86-64) | done: full `verify` passes in the container |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -289,6 +290,17 @@ Without CI, Linux support has to be checkable locally.
   for an occasional parity check.
 - Fix whatever breaks: BSD vs GNU `sed`, `mktemp` and `grep` differences in
   scripts. Moving checks into `xtask` (0.4) removes most of them.
+- **As built:** Debian 13 pinned by digest; rustup downloaded at a pinned
+  version and checksummed. On Apple Silicon this runs under Rosetta. What
+  broke: a Miri sysroot built into the image layer is judged stale in a later
+  container and cannot be replaced ("detected a concurrent sysroot build with
+  different settings"), so the image drops it and each run builds its own. On
+  Linux x86-64 both setup.sh downloads matched their checksums, and the full
+  `verify` passes. Timing under Rosetta: building `vstd` takes 115 s, each
+  mutation re-verify 7 s, and the mutation step about 5 minutes. One earlier
+  run stalled for over an hour in the mutation step, on an image built from a
+  stale tree while other containers competed for CPU. It did not recur on a
+  clean image, and its cause is unknown.
 
 ### 0.12 Clean up Verus output noise (S)
 
@@ -310,7 +322,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1–0.10 and 0.12 are done. Next: 0.11.
+All items are done. **Phase 0 is complete** (see "Outcome" below).
 
 ## Decision: no human gate (2026-10-19)
 
@@ -327,6 +339,22 @@ recorded in [VERIFICATION.md](../VERIFICATION.md#trust-without-reviewers):
   the first implementation (Phase 1).
 - **Reviews:** optional, still recorded (0.8), never a gate. Agents still may
   not write them.
+
+## Outcome (2026-10-19)
+
+Phase 0 is complete. Against the exit criteria:
+
+1. `setup.sh` installs every pinned tool, with checksums: **met** on macOS
+   arm64 (fresh install tested) and Linux x86-64 (Docker). macOS x86-64 has
+   not been run.
+2. `verify.sh` runs every check from scratch and exits 0: **met** on macOS
+   arm64 and Linux x86-64.
+3. Machine-readable, enforced tiers: **met.**
+4. Generated README table, stale numbers rejected: **met.**
+5. Proof mutation tests with certified kills: **met** (2 of 10 UTF-8
+   mutations killed by a theorem; the rest are reported honestly).
+6. Dependency allowlist: **met** (23 packages, 0 shipped).
+7. Human spec reviews: **dropped** (see "Decision: no human gate").
 
 ## Explicitly out of scope for Phase 0
 
