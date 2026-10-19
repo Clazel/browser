@@ -22,6 +22,8 @@ pub struct Crate {
     pub target_tier: Option<u64>,
     /// `[package.metadata.verus] verify = true`.
     pub verus: bool,
+    /// `[package.metadata.clazel] tooling = true`: build tooling, not browser.
+    pub tooling: bool,
     /// Direct dependencies as (name, version requirement).
     pub deps: Vec<(String, String)>,
 }
@@ -79,6 +81,10 @@ fn parse_package(p: &Value) -> Result<Crate, String> {
         .unwrap_or_default();
     Ok(Crate {
         tier: clazel.and_then(|c| c.get("tier")).and_then(Value::as_u64),
+        tooling: clazel
+            .and_then(|c| c.get("tooling"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false),
         target_tier: clazel
             .and_then(|c| c.get("target-tier"))
             .and_then(Value::as_u64),

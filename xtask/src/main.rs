@@ -10,6 +10,7 @@
 //!   status table, print it, and with `--write` update README.md. `verify`
 //!   fails if README.md's table differs from what it measured.
 
+mod deps;
 mod mutate;
 mod pins;
 mod report;
@@ -148,6 +149,18 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
         outcome(decl_problems, decl_notes),
     );
     r.step("pinned versions", from_result(check_pins(crates, pins)));
+    let tooling = crates
+        .iter()
+        .filter(|c| c.tooling)
+        .map(|c| c.name.clone())
+        .collect();
+    r.step(
+        "dependency allowlist",
+        match deps::check(&tooling) {
+            Ok(summary) => Outcome::Pass(vec![summary]),
+            Err(problems) => Outcome::Fail(problems),
+        },
+    );
 }
 
 const CHECKSUMS: &str = "scripts/checksums.txt";

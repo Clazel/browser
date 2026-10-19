@@ -24,8 +24,10 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 7. **Write our own parsers.** Any code that parses untrusted bytes is ours.
    Shipped dependencies are allowed only for crypto (verified libraries), OS and
    windowing bindings, and GPU access. Proof libraries (`vstd`) and build
-   tooling that never ships (`xtask`) may use others. Every dependency needs a
-   line in `docs/DEPENDENCIES.md`.
+   tooling that never ships (`xtask`) may use others. Every resolved package,
+   transitive ones included, needs a row in the allowlist table in
+   `docs/DEPENDENCIES.md`, with its exact version and class. `cargo xtask check`
+   enforces this.
 
 ## Workflow
 - Run `scripts/verify.sh` (same as `cargo xtask verify`) before calling any

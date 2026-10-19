@@ -1,29 +1,56 @@
 # Dependencies
 
-Every third-party crate needs an entry here (see CLAUDE.md rule 7).
-Checking the resolved graph against this list automatically is Phase 0
-item 0.7; until then this list is maintained by hand.
+Every third-party package in the resolved dependency graph (`Cargo.lock`)
+needs a row in the allowlist below (see CLAUDE.md rule 7). `cargo xtask check`
+enforces it:
 
-## Shipped (compiled into the browser)
+1. Every resolved third-party package has a row with its **exact** version,
+   and comes from crates.io. Git and path dependencies outside the workspace
+   are rejected.
+2. Every row is used. Stale rows fail, so the table never lists more than
+   is really there.
+3. The class matches how the package is reached:
+   - `shipped`: may be reached directly from browser crates (every
+     workspace crate except tooling). Allowed only for crypto (verified
+     libraries), OS and windowing bindings, and GPU access.
+   - `proof`: reached from browser crates only through `vstd`. This is
+     Verus's proof library and its macro chain; ghost code is erased from
+     normal builds.
+   - `tooling`: must be unreachable from browser crates. Used by `xtask`,
+     which never ships.
 
-None yet.
+A package used by both proof and tooling code takes the stricter class
+(`proof`).
 
-## Proof libraries
+Changing a row is a reviewable act. Adding one means saying why below.
 
-| Crate | Version | Used by | Why |
-|-------|---------|---------|-----|
-| `vstd` | `=0.0.0-2026-10-04-0306` | Tier 2 crates | Verus standard library. Proof-only (`Seq`, `spec fn`s); ghost code is erased from normal builds. Pinned to match the installed Verus release. |
+<!-- BEGIN ALLOWLIST: checked by `cargo xtask check` -->
+| Package | Version | Class | Why |
+|---------|---------|-------|-----|
+| vstd | 0.0.0-2026-10-04-0306 | proof | Verus standard library (`Seq`, `spec fn`s). Pinned to the installed Verus release. |
+| verus_builtin | 0.0.0-2026-09-16-0054 | proof | Verus built-in items, required by `vstd`. |
+| verus_builtin_macros | 0.0.0-2026-09-20-0158 | proof | The `verus!` macro (proc-macro). |
+| verus_state_machines_macros | 0.0.0-2026-09-06-0133 | proof | Verus state-machine macros (proc-macro), required by `vstd`. |
+| verus_syn | 0.0.0-2026-09-06-0133 | proof | Verus's fork of `syn`, used by its macros. |
+| verus_prettyplease | 0.0.0-2026-09-06-0133 | proof | Verus macro output formatting. |
+| syn | 2.0.119 | proof | Rust parser, used by Verus's macros. |
+| synstructure | 0.13.2 | proof | Derive helper, used by Verus's macros. |
+| convert_case | 0.4.0 | proof | Identifier case conversion, used by Verus's macros. |
+| indexmap | 2.14.2 | proof | Ordered map, used by Verus's macros. |
+| hashbrown | 0.17.1 | proof | Hash table, used by `indexmap`. |
+| equivalent | 1.0.3 | proof | Key comparison trait, used by `indexmap`. |
+| proc-macro2 | 1.0.107 | proof | Token streams for Verus's macros. Also used by `xtask` (with `span-locations`) to lex source files. |
+| quote | 1.0.47 | proof | Token generation for Verus's macros. Also locked under `serde_derive` (tooling). |
+| unicode-ident | 1.0.27 | proof | Identifier rules for `proc-macro2`. |
+| serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
+| serde_core | 1.0.229 | tooling | Required by `serde_json`. |
+| itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |
+| memchr | 2.8.3 | tooling | Byte search, required by `serde_json`. |
+| zmij | 1.0.23 | tooling | Float formatting, required by `serde_json`. |
+| serde | 1.0.229 | tooling | Locked but never compiled: `serde_json` names it under the always-false `cfg(any())` to pin versions. |
+| serde_derive | 1.0.229 | tooling | Locked but never compiled: `serde_core` names it under `cfg(any())`. |
+| syn | 3.0.9 | tooling | Locked but never compiled: dependency of `serde_derive`. |
+<!-- END ALLOWLIST -->
 
-`vstd` pulls in the Verus macro chain: `verus_builtin`, `verus_builtin_macros`,
-`verus_syn`, `verus_prettyplease`, `verus_state_machines_macros`, `syn`,
-`quote`, `proc-macro2`, `unicode-ident`, `synstructure`, `convert_case`,
-`indexmap`, `hashbrown`, `equivalent`.
-
-## Tooling (never shipped)
-
-| Crate | Version | Used by | Why |
-|-------|---------|---------|-----|
-| `proc-macro2` | `1` (with `span-locations`) | `xtask` | Lexes Rust source into tokens with line numbers, so the checker cannot be fooled by comments or strings and can see inside `verus!` bodies. |
-| `serde_json` | `1` | `xtask` | Parses `cargo metadata` output. |
-
-Transitive: `unicode-ident`, `serde_core`, `itoa`, `memchr`, `zmij`.
+There are no `shipped` packages yet: everything that runs in the browser is
+our own code.

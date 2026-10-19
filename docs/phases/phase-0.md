@@ -44,6 +44,7 @@ Phase 0 is done when all of these hold on both macOS and Linux:
 | 0.6 Proof mutation testing (`cargo xtask mutate`, part of `verify`) | done: 10 UTF-8 mutations, 2 killed by a theorem |
 | 0.2 `scripts/setup.sh` with checksums | done on macOS arm64; Linux x86-64 untested until 0.11 |
 | 0.5 Generated README status table | done; spec review column waits for 0.8 |
+| 0.7 Dependency allowlist (`docs/DEPENDENCIES.md` table, checked by `cargo xtask check`) | done: 23 packages, 0 shipped |
 | Reproducible setup, tier enforcement, metrics, mutation tests, Miri, dependency allowlist, spec reviews, Linux | **not started** |
 | GitHub Actions CI | **deferred** (by decision, 2026-10-19) |
 
@@ -201,7 +202,16 @@ The same harness gives `xtask` self-tests: plant an `admit()` and an
 
 ### 0.7 Dependency allowlist (S)
 
-- Turn `docs/DEPENDENCIES.md` into a generated view of
+- **As built:** no separate `deps-allowlist.toml`. The table in
+  `docs/DEPENDENCIES.md` *is* the allowlist, parsed by `cargo xtask check`, so
+  there's one source of truth that reads well on GitHub. Browser vs. tooling
+  crates are declared with `[package.metadata.clazel] tooling = true`.
+  Building it found the hand-kept list was incomplete: `serde`, `serde_derive`,
+  `quote` and `syn` 3 are locked (via never-true `cfg(any())` edges) but
+  were not listed. Tested: tooling and proof dependencies added to a browser
+  crate (including transitive ones), a stale row, and a wrong version were
+  all caught.
+- (Original plan) Turn `docs/DEPENDENCIES.md` into a generated view of
   `deps-allowlist.toml`, which has two sections: `[shipped]` (code in the
   browser binary) and `[tooling]` (xtask, proof libraries).
 - `xtask verify` resolves the full dependency graph and fails on any crate
@@ -282,7 +292,7 @@ anything.
 0.9 CLAUDE.md (after 0.3, 0.8)        0.10 Miri (after 0.1)
 ```
 
-0.1, 0.2, 0.3, 0.4, 0.5, 0.6 and 0.12 are done. Next: 0.7, 0.8.
+0.1–0.7 and 0.12 are done. Next: 0.8, then 0.9–0.11.
 
 ## Explicitly out of scope for Phase 0
 

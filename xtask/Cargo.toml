@@ -14,6 +14,8 @@ serde_json = "1"
 [package.metadata.clazel]
 tier = 0
 target-tier = 0
+# Never part of the browser: may use `tooling` dependencies (docs/DEPENDENCIES.md).
+tooling = true
 
 [lints]
 workspace = true
