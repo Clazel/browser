@@ -55,24 +55,24 @@
       "file": "src/utf8/spec.rs",
       "find": "result: HandlerResult::Error, restored: true }",
       "replace": "result: HandlerResult::Error, restored: false }",
-      "expect": "survives",
-      "reason": "Swallows the byte after a truncated sequence. No lemma covers it; the implementation's refinement proof will, and so would the planned equivalence with Unicode Table 3-7."
+      "expect": "killed-incidentally",
+      "reason": "Swallows the byte after a truncated sequence. The implementation, which restores the byte, no longer meets its contract (run_handler's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
     },
     {
       "id": "drop-replacement-character",
       "file": "src/utf8/spec.rs",
       "find": "ErrorMode::Replacement => cons(0xFFFD, process_queue(mode, s.decoder, input, j)),",
       "replace": "ErrorMode::Replacement => process_queue(mode, s.decoder, input, j),",
-      "expect": "survives",
-      "reason": "Errors silently vanish instead of becoming U+FFFD. No lemma covers it; the implementation's refinement proof will."
+      "expect": "killed-incidentally",
+      "reason": "Errors silently vanish instead of becoming U+FFFD. The implementation no longer meets its contract (process_queue_exec's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
     },
     {
       "id": "ascii-range",
       "file": "src/utf8/spec.rs",
       "find": "if byte <= 0x7F {",
       "replace": "if byte <= 0x80 {",
-      "expect": "survives",
-      "reason": "Decodes a lone 0x80 as U+0080 instead of an error. No lemma covers it; the implementation's refinement proof will, and so would the planned Table 3-7 equivalence."
+      "expect": "killed-incidentally",
+      "reason": "Decodes a lone 0x80 as U+0080 instead of an error. The implementation no longer meets its contract (run_handler's postcondition), but no theorem about the spec is false. A certified kill needs the planned equivalence with Unicode Table 3-7 (Phase 1 item 1.2)."
     },
     {
       "id": "fatal-never-fails",
@@ -87,8 +87,8 @@
       "file": "src/utf8/spec.rs",
       "find": "input[2] == 0xBF",
       "replace": "input[2] == 0xBE",
-      "expect": "survives",
-      "reason": "Recognises the wrong byte-order mark. No lemma covers it; the implementation's refinement proof will."
+      "expect": "killed-incidentally",
+      "reason": "Recognises the wrong byte-order mark. The implementation no longer meets its contract (decode's postcondition), but no theorem about the spec is false. A certified kill needs a lemma about the BOM, or an independent transcription of UTF-8 decode (Phase 1 item 1.2)."
     }
   ]
 }

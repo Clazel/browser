@@ -11,8 +11,9 @@ vstd = "=0.0.0-2026-10-04-0306"
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. The UTF-8
-# spec and its lemmas are proven, but there is no implementation yet, so
-# nothing that runs is proven: Tier 0.
+# decoder is proven to meet its contract, but Tier 2 also needs conformance
+# tests, an independent transcription, and every mutation certified killed
+# (docs/phases/phase-1.md items 1.2-1.4), so it stays at Tier 0 until then.
 [package.metadata.clazel]
 tier = 0
 target-tier = 2

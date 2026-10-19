@@ -58,6 +58,14 @@ crates only through `[dev-dependencies]`. `deps.rs` must check the edge kind.
 
 ### 1.1 UTF-8 decoder: implementation and proof (M)
 
+**As built:** the contract promised `Vec<char>`, but no safe `u32` to `char`
+conversion has a vstd specification, and providing one needs
+`assume_specification`, which expands to `unsafe` code (rules 1 and 4). The
+contract now outputs scalar values as `u32` (`lemma_hooks_scalar` proves
+they all are), committed on its own before the implementation. Four
+mutations that used to survive now break the refinement proof; they are
+`killed-incidentally` until 1.2 certifies them.
+
 Contracts are already committed (`utf8/contract.rs`). Write
 `decode`, `decode_without_bom` and `decode_without_bom_or_fail` as one loop
 over `&[u8]` that mirrors `process_queue`, with the loop invariant "the
@@ -168,7 +176,7 @@ per suite; `xtask report` adds a "Conformance" column.
 | Item | State |
 |------|-------|
 | 1.0 Test-data plumbing | not started |
-| 1.1 UTF-8 decoder implementation and proof | in progress |
+| 1.1 UTF-8 decoder implementation and proof | done: 25 verified, 0 errors; contract changed to `u32` output (below) |
 | 1.2–1.12 | not started |
 
 ## Risks
