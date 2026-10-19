@@ -15,6 +15,7 @@ const CRATES_IO: &str = "registry+https://github.com/rust-lang/crates.io-index";
 pub enum Class {
     Shipped,
     Proof,
+    Test,
     Tooling,
 }
 
@@ -51,6 +52,7 @@ pub fn parse_allowlist(text: &str) -> Result<Vec<Row>, String> {
         let class = match *class {
             "shipped" => Class::Shipped,
             "proof" => Class::Proof,
+            "test" => Class::Test,
             "tooling" => Class::Tooling,
             other => return Err(format!("{PATH}: {name}: unknown class {other:?}")),
         };
@@ -72,10 +74,18 @@ struct Package {
     source: Option<String>,
 }
 
+/// One resolved dependency edge.
+struct Edge {
+    to: String,
+    /// Every way this edge is declared is `[dev-dependencies]`, so the code
+    /// it reaches is compiled only into tests.
+    dev_only: bool,
+}
+
 /// The resolved graph from `cargo metadata`.
 struct Graph {
     packages: BTreeMap<String, Package>,
-    edges: BTreeMap<String, Vec<String>>,
+    edges: BTreeMap<String, Vec<Edge>>,
     members: BTreeSet<String>,
 }
 
@@ -118,11 +128,25 @@ fn load_graph() -> Result<Graph, String> {
     {
         let id = str_of(n, "id").ok_or("node without id")?;
         // Every edge counts, whatever its kind or platform: a package that
-        // is locked is code we have agreed to depend on.
+        // is locked is code we have agreed to depend on. The kind decides
+        // only which class it may have (rule 3).
         let deps = n
             .get("deps")
             .and_then(Value::as_array)
-            .map(|ds| ds.iter().filter_map(|d| str_of(d, "pkg")).collect())
+            .map(|ds| {
+                ds.iter()
+                    .filter_map(|d| {
+                        let kinds = d.get("dep_kinds").and_then(Value::as_array)?;
+                        Some(Edge {
+                            to: str_of(d, "pkg")?,
+                            dev_only: !kinds.is_empty()
+                                && kinds
+                                    .iter()
+                                    .all(|k| k.get("kind").and_then(Value::as_str) == Some("dev")),
+                        })
+                    })
+                    .collect()
+            })
             .unwrap_or_default();
         edges.insert(id, deps);
     }
@@ -191,9 +215,46 @@ pub fn check(tooling: &BTreeSet<String>) -> Result<String, Vec<String>> {
         }
     }
 
-    // Rule 3: walk from browser crates. Outside vstd only `shipped` is
-    // allowed; inside vstd's subtree `proof` is allowed too.
-    let roots = graph
+    problems.extend(reach_problems(&graph, &allowed, tooling));
+
+    if problems.is_empty() {
+        let count = |c: Class| rows.iter().filter(|r| r.class == c).count();
+        Ok(format!(
+            "{} third-party packages: {} shipped, {} proof, {} test, {} tooling",
+            rows.len(),
+            count(Class::Shipped),
+            count(Class::Proof),
+            count(Class::Test),
+            count(Class::Tooling)
+        ))
+    } else {
+        Err(problems)
+    }
+}
+
+/// How a package was reached from a browser crate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct Via {
+    /// Through `vstd`.
+    proof: bool,
+    /// Through a `[dev-dependencies]` edge of a workspace crate.
+    test: bool,
+}
+
+/// Rule 3: walk from browser crates and check each package's class against
+/// how it is reached. `proof` is allowed inside vstd's subtree, `test` only
+/// below a dev-only edge out of a workspace crate, `shipped` anywhere.
+fn reach_problems(
+    graph: &Graph,
+    allowed: &BTreeMap<(&str, &str), Class>,
+    tooling: &BTreeSet<String>,
+) -> Vec<String> {
+    let mut problems = Vec::new();
+    let start = Via {
+        proof: false,
+        test: false,
+    };
+    let mut pending: Vec<(String, Via)> = graph
         .members
         .iter()
         .filter(|id| {
@@ -202,62 +263,137 @@ pub fn check(tooling: &BTreeSet<String>) -> Result<String, Vec<String>> {
                 .get(*id)
                 .is_some_and(|p| !tooling.contains(&p.name))
         })
-        .map(|id| (id.clone(), false));
-    let mut pending: Vec<(String, bool)> = roots.collect();
-    let mut seen: BTreeSet<(String, bool)> = BTreeSet::new();
-    while let Some((id, in_proof)) = pending.pop() {
-        if !seen.insert((id.clone(), in_proof)) {
+        .map(|id| (id.clone(), start))
+        .collect();
+    let mut seen: BTreeSet<(String, Via)> = BTreeSet::new();
+    while let Some((id, via)) = pending.pop() {
+        if !seen.insert((id.clone(), via)) {
             continue;
         }
         let Some(p) = graph.packages.get(&id) else {
             continue;
         };
-        let mut in_proof = in_proof;
-        if !graph.members.contains(&id) {
-            in_proof = in_proof || p.name == "vstd";
+        let member = graph.members.contains(&id);
+        let mut via = via;
+        if !member {
+            via.proof = via.proof || p.name == "vstd";
             let class = allowed.get(&(p.name.as_str(), p.version.as_str()));
             let ok = match class {
-                Some(Class::Shipped) => true,
-                Some(Class::Proof) => in_proof,
+                Some(Class::Shipped) | None => true, // None: reported under rule 1
+                Some(Class::Proof) => via.proof,
+                Some(Class::Test) => via.test,
                 Some(Class::Tooling) => false,
-                None => true, // already reported under rule 1
             };
             if !ok {
+                let route = match (via.proof, via.test) {
+                    (false, false) => "through normal dependencies",
+                    (true, false) => "inside vstd",
+                    (false, true) => "through dev-dependencies",
+                    (true, true) => "inside vstd, through dev-dependencies",
+                };
                 problems.push(format!(
-                    "{} {}: class {:?} but reachable from browser crates{}",
+                    "{} {}: class {:?} but reachable from browser crates {route}",
                     p.name,
                     p.version,
                     class.copied().unwrap_or(Class::Shipped),
-                    if in_proof {
-                        " (inside vstd)"
-                    } else {
-                        " outside vstd"
-                    }
                 ));
             }
         }
-        for dep in graph.edges.get(&id).into_iter().flatten() {
-            pending.push((dep.clone(), in_proof));
+        for e in graph.edges.get(&id).into_iter().flatten() {
+            // Only a workspace crate's own dev-dependencies are test-only;
+            // cargo never resolves a third-party package's dev-dependencies.
+            let test = via.test || (member && e.dev_only);
+            pending.push((e.to.clone(), Via { test, ..via }));
         }
     }
-
-    if problems.is_empty() {
-        let count = |c: Class| rows.iter().filter(|r| r.class == c).count();
-        Ok(format!(
-            "{} third-party packages: {} shipped, {} proof, {} tooling",
-            rows.len(),
-            count(Class::Shipped),
-            count(Class::Proof),
-            count(Class::Tooling)
-        ))
-    } else {
-        Err(problems)
-    }
+    problems
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Class, parse_allowlist};
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use super::{Class, Edge, Graph, Package, parse_allowlist, reach_problems};
+
+    /// A browser crate `app` and a tooling crate `xtask`, with `edges` as
+    /// (from, to, dev_only); every other name is a third-party package.
+    fn graph(edges: &[(&str, &str, bool)]) -> Graph {
+        let mut packages = BTreeMap::new();
+        let mut map: BTreeMap<String, Vec<Edge>> = BTreeMap::new();
+        for (from, to, dev_only) in edges {
+            for n in [from, to] {
+                packages.insert(
+                    (*n).to_owned(),
+                    Package {
+                        name: (*n).to_owned(),
+                        version: "1.0.0".to_owned(),
+                        source: None,
+                    },
+                );
+            }
+            map.entry((*from).to_owned()).or_default().push(Edge {
+                to: (*to).to_owned(),
+                dev_only: *dev_only,
+            });
+        }
+        Graph {
+            packages,
+            edges: map,
+            members: ["app".to_owned(), "xtask".to_owned()].into(),
+        }
+    }
+
+    fn allow<'a>(rows: &[(&'a str, Class)]) -> BTreeMap<(&'a str, &'a str), Class> {
+        rows.iter().map(|(n, c)| ((*n, "1.0.0"), *c)).collect()
+    }
+
+    fn tooling() -> BTreeSet<String> {
+        ["xtask".to_owned()].into()
+    }
+
+    #[test]
+    fn test_class_allowed_only_below_dev_edges() {
+        let rows = allow(&[("diff", Class::Test), ("cfg", Class::Test)]);
+        // app -[dev]-> diff -> cfg: fine, the whole subtree is test-only.
+        let dev = graph(&[("app", "diff", true), ("diff", "cfg", false)]);
+        assert!(reach_problems(&dev, &rows, &tooling()).is_empty());
+        // Planted violation: the same package through a normal edge.
+        let normal = graph(&[("app", "diff", false), ("diff", "cfg", false)]);
+        let problems = reach_problems(&normal, &rows, &tooling());
+        assert_eq!(problems.len(), 2, "{problems:?}");
+        assert!(
+            problems
+                .iter()
+                .all(|p| p.contains("through normal dependencies"))
+        );
+        // Reached both ways: the normal edge still fails.
+        let both = graph(&[("app", "diff", true), ("app", "cfg", false)]);
+        assert_eq!(reach_problems(&both, &rows, &tooling()).len(), 1);
+    }
+
+    #[test]
+    fn dev_edges_of_third_party_packages_do_not_count() {
+        let rows = allow(&[("lib", Class::Shipped), ("cfg", Class::Test)]);
+        let g = graph(&[("app", "lib", false), ("lib", "cfg", true)]);
+        assert_eq!(reach_problems(&g, &rows, &tooling()).len(), 1);
+    }
+
+    #[test]
+    fn tooling_and_proof_rules_unchanged() {
+        let rows = allow(&[
+            ("vstd", Class::Proof),
+            ("syn", Class::Proof),
+            ("json", Class::Tooling),
+        ]);
+        let ok = graph(&[
+            ("app", "vstd", false),
+            ("vstd", "syn", false),
+            ("xtask", "json", false),
+        ]);
+        assert!(reach_problems(&ok, &rows, &tooling()).is_empty());
+        let bad = graph(&[("app", "syn", false), ("app", "json", true)]);
+        assert_eq!(reach_problems(&bad, &rows, &tooling()).len(), 2);
+    }
 
     #[test]
     fn parses_rows_between_markers() -> Result<(), String> {

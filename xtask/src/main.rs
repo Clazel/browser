@@ -236,6 +236,16 @@ fn check_pins(crates: &[Crate], pins: &Pins) -> Result<Vec<String>, String> {
             ));
         }
     }
+    // Test-only engines are pinned exactly too, so a differential test
+    // always compares against the version on the allowlist.
+    for c in crates.iter().filter(|c| !c.tooling) {
+        if let Some((n, req)) = c.dev_deps.iter().find(|(_, r)| !r.starts_with('=')) {
+            return Err(format!(
+                "{}: dev-dependency {n} must be pinned to an exact version (\"=x.y.z\"), found {req:?}",
+                c.name
+            ));
+        }
+    }
     // Every file setup.sh downloads for the pinned versions has a checksum.
     let verus_v = pins.get("VERUS_VERSION")?;
     let kani_v = pins.get("KANI_VERSION")?;

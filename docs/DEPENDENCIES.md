@@ -16,11 +16,21 @@ enforces it:
    - `proof`: reached from browser crates only through `vstd`. This is
      Verus's proof library and its macro chain; ghost code is erased from
      normal builds.
+   - `test`: reached from browser crates only through their
+     `[dev-dependencies]`, so it is compiled into test binaries and never
+     into the browser. Used for differential testing against other engines.
+     The checker follows the edge kind in `cargo metadata`: a package that a
+     browser crate also reaches through `[dependencies]` or
+     `[build-dependencies]` fails, whatever its row says.
    - `tooling`: must be unreachable from browser crates. Used by `xtask`,
      which never ships.
 
-A package used by both proof and tooling code takes the stricter class
-(`proof`).
+A package used in more than one way takes the strictest class that covers
+all of them, in the order `shipped`, `proof`, `test`, `tooling` (e.g. one
+used by both proof and tooling code is `proof`).
+
+Dev-dependencies of browser crates are pinned to an exact version
+(`=x.y.z`) like everything else.
 
 Changing a row is a reviewable act. Adding one means saying why below.
 

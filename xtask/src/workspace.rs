@@ -26,6 +26,8 @@ pub struct Crate {
     pub tooling: bool,
     /// Direct dependencies as (name, version requirement).
     pub deps: Vec<(String, String)>,
+    /// The subset of `deps` declared under `[dev-dependencies]`.
+    pub dev_deps: Vec<(String, String)>,
 }
 
 /// Load every workspace member via `cargo metadata`.
@@ -66,19 +68,23 @@ fn parse_package(p: &Value) -> Result<Crate, String> {
         .to_path_buf();
     let meta = p.get("metadata");
     let clazel = meta.and_then(|m| m.get("clazel"));
-    let deps = p
-        .get("dependencies")
-        .and_then(Value::as_array)
-        .map(|ds| {
-            ds.iter()
-                .filter_map(|d| {
-                    let n = d.get("name")?.as_str()?;
-                    let r = d.get("req")?.as_str()?;
-                    Some((n.to_owned(), r.to_owned()))
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    let deps_where = |dev_only: bool| -> Vec<(String, String)> {
+        p.get("dependencies")
+            .and_then(Value::as_array)
+            .map(|ds| {
+                ds.iter()
+                    .filter(|d| !dev_only || d.get("kind").and_then(Value::as_str) == Some("dev"))
+                    .filter_map(|d| {
+                        let n = d.get("name")?.as_str()?;
+                        let r = d.get("req")?.as_str()?;
+                        Some((n.to_owned(), r.to_owned()))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let deps = deps_where(false);
+    let dev_deps = deps_where(true);
     Ok(Crate {
         tier: clazel.and_then(|c| c.get("tier")).and_then(Value::as_u64),
         tooling: clazel
@@ -97,6 +103,7 @@ fn parse_package(p: &Value) -> Result<Crate, String> {
         dir,
         manifest,
         deps,
+        dev_deps,
     })
 }
 
