@@ -52,6 +52,8 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | proc-macro2 | 1.0.107 | proof | Token streams for Verus's macros. Also used by `xtask` (with `span-locations`) to lex source files. |
 | quote | 1.0.47 | proof | Token generation for Verus's macros. Also locked under `serde_derive` (tooling). |
 | unicode-ident | 1.0.27 | proof | Identifier rules for `proc-macro2`. |
+| encoding_rs | 0.8.35 | test | Firefox's Encoding Standard implementation: the reference engine in `clazel-encoding`'s differential test (`tests/conformance_utf8.rs`). Pinned to 0.8.35, whose only dependency is `cfg-if`; later releases add five more. |
+| cfg-if | 1.0.5 | test | `#[cfg]` helper macro, required by `encoding_rs`. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | tooling | Required by `serde_json`. |
 | itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |
@@ -63,4 +65,4 @@ Changing a row is a reviewable act. Adding one means saying why below.
 <!-- END ALLOWLIST -->
 
 There are no `shipped` packages yet: everything that runs in the browser is
-our own code.
+our own code. The `test` packages are compiled only into test binaries.

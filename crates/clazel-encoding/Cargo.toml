@@ -9,6 +9,11 @@ description = "WHATWG Encoding Standard: UTF-8 decode/encode."
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only engines for the differential test in tests/conformance_utf8.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped).
+[dev-dependencies]
+encoding_rs = "=0.8.35"
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. The UTF-8
 # decoder is proven to meet its contract, has a proven-equivalent independent
