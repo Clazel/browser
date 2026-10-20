@@ -10,11 +10,14 @@
 //! - [`lemmas`] and [`round_trip`]: facts proven about the spec itself,
 //!   including that decoding inverts encoding; [`examples`]: the
 //!   RFC's samples, evaluated.
+//! - [`independent`]: a second transcription, from the RFC's sample C
+//!   implementation (Appendix C), proven equal to [`spec`].
 
 pub mod contract;
 pub mod decode;
 pub mod encode;
 pub mod examples;
+pub mod independent;
 pub mod lemmas;
 pub mod round_trip;
 pub mod shared;
