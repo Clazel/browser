@@ -1,0 +1,420 @@
+{
+  "mutations": [
+    {
+      "id": "base-35",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn base() -> nat {\n    36\n}",
+      "replace": "pub open spec fn base() -> nat {\n    35\n}",
+      "expect": "killed",
+      "reason": "§5's base 36 becomes 35: \"\\u{E9}\" no longer encodes as \"9ca\". The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32]) != c_punycode_encode(seq![0xE9u32]) && c_punycode_encode(seq![0xE9u32]) == Some(seq![0x39u32, 0x63u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "tmin-0",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn tmin() -> nat {\n    1\n}",
+      "replace": "pub open spec fn tmin() -> nat {\n    0\n}",
+      "expect": "killed",
+      "reason": "tmin 1 becomes 0: \"a\" (digit 0) no longer ends an integer, so it fails instead of decoding to U+0080. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32]) != c_punycode_decode(seq![0x61u32]) && c_punycode_decode(seq![0x61u32]) == Some(seq![0x80u32])"
+      }
+    },
+    {
+      "id": "tmax-25",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn tmax() -> nat {\n    26\n}",
+      "replace": "pub open spec fn tmax() -> nat {\n    25\n}",
+      "expect": "killed",
+      "reason": "tmax 26 becomes 25: U+10FFFF encodes differently. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x10FFFFu32])",
+        "witness": "super::spec::punycode_encode(seq![0x10FFFFu32]) != c_punycode_encode(seq![0x10FFFFu32]) && c_punycode_encode(seq![0x10FFFFu32]) == Some(seq![0x64u32, 0x6Eu32, 0x33u32, 0x32u32, 0x67u32])"
+      }
+    },
+    {
+      "id": "skew-37",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn skew() -> nat {\n    38\n}",
+      "replace": "pub open spec fn skew() -> nat {\n    37\n}",
+      "expect": "killed",
+      "reason": "skew 38 becomes 37: bias adaptation changes the encoding of U+0080 U+00E9 U+00FC. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x80u32, 0xE9u32, 0xFCu32])",
+        "witness": "super::spec::punycode_encode(seq![0x80u32, 0xE9u32, 0xFCu32]) != c_punycode_encode(seq![0x80u32, 0xE9u32, 0xFCu32]) && c_punycode_encode(seq![0x80u32, 0xE9u32, 0xFCu32]) == Some(seq![0x61u32, 0x34u32, 0x73u32, 0x33u32, 0x62u32])"
+      }
+    },
+    {
+      "id": "damp-2",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn damp() -> nat {\n    700\n}",
+      "replace": "pub open spec fn damp() -> nat {\n    2\n}",
+      "expect": "killed",
+      "reason": "damp 700 becomes 2: the first adaptation changes, and so does the second integer of \"\\u{E9}\\u{FC}\". The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32, 0xFCu32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32, 0xFCu32]) != c_punycode_encode(seq![0xE9u32, 0xFCu32]) && c_punycode_encode(seq![0xE9u32, 0xFCu32]) == Some(seq![0x39u32, 0x63u32, 0x61u32, 0x32u32, 0x62u32])"
+      }
+    },
+    {
+      "id": "initial-bias-36",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn initial_bias() -> nat {\n    72\n}",
+      "replace": "pub open spec fn initial_bias() -> nat {\n    36\n}",
+      "expect": "killed",
+      "reason": "initial_bias 72 becomes 36: the first integer's thresholds change. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32]) != c_punycode_encode(seq![0xE9u32]) && c_punycode_encode(seq![0xE9u32]) == Some(seq![0x39u32, 0x63u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "initial-n-127",
+      "file": "src/punycode/spec.rs",
+      "find": "pub open spec fn initial_n() -> nat {\n    128\n}",
+      "replace": "pub open spec fn initial_n() -> nat {\n    127\n}",
+      "expect": "killed",
+      "reason": "initial_n 0x80 becomes 0x7F: U+0080's delta becomes 1. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x80u32])",
+        "witness": "super::spec::punycode_encode(seq![0x80u32]) != c_punycode_encode(seq![0x80u32]) && c_punycode_encode(seq![0x80u32]) == Some(seq![0x61u32])"
+      }
+    },
+    {
+      "id": "maxint-31-bits",
+      "file": "src/punycode/spec.rs",
+      "find": "    0xFFFF_FFFF\n}",
+      "replace": "    0x7FFF_FFFF\n}",
+      "expect": "killed",
+      "reason": "maxint becomes 2^31 - 1: encoding 0xFFFFFFFF overflows. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xFFFFFFFFu32])",
+        "witness": "super::spec::punycode_encode(seq![0xFFFFFFFFu32]) != c_punycode_encode(seq![0xFFFFFFFFu32]) && c_punycode_encode(seq![0xFFFFFFFFu32]) == Some(seq![0x77u32, 0x77u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "basic-excludes-7f",
+      "file": "src/punycode/spec.rs",
+      "find": "    c < 0x80\n}",
+      "replace": "    c < 0x7F\n}",
+      "expect": "killed",
+      "reason": "U+007F is no longer basic: it is never handled, so encoding fails. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x7Fu32])",
+        "witness": "super::spec::punycode_encode(seq![0x7Fu32]) != c_punycode_encode(seq![0x7Fu32]) && c_punycode_encode(seq![0x7Fu32]) == Some(seq![0x7Fu32, 0x2Du32])"
+      }
+    },
+    {
+      "id": "digit-no-uppercase",
+      "file": "src/punycode/spec.rs",
+      "find": "    if 0x41 <= c <= 0x5A {\n        Some((c - 0x41) as nat)",
+      "replace": "    if false {\n        Some((c - 0x41) as nat)",
+      "expect": "killed",
+      "reason": "Uppercase letters lose their digit-values, which §5 says a decoder MUST recognize: \"A\" fails. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x41u32])",
+        "witness": "super::spec::punycode_decode(seq![0x41u32]) != c_punycode_decode(seq![0x41u32]) && c_punycode_decode(seq![0x41u32]) == Some(seq![0x80u32])"
+      }
+    },
+    {
+      "id": "digit-value-0-is-25",
+      "file": "src/punycode/spec.rs",
+      "find": "Some((c - 0x30 + 26) as nat)",
+      "replace": "Some((c - 0x30 + 25) as nat)",
+      "expect": "killed",
+      "reason": "\"0\" gets digit-value 25 instead of 26: \"a0\" decodes instead of failing. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32, 0x30u32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32, 0x30u32]) != c_punycode_decode(seq![0x61u32, 0x30u32]) && c_punycode_decode(seq![0x61u32, 0x30u32]) is None"
+      }
+    },
+    {
+      "id": "digit-code-point-shift",
+      "file": "src/punycode/spec.rs",
+      "find": "(0x30 + (d - 26)) as u32",
+      "replace": "(0x31 + (d - 26)) as u32",
+      "expect": "killed",
+      "reason": "Digit 35 is output as \":\" instead of \"9\". The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32]) != c_punycode_encode(seq![0xE9u32]) && c_punycode_encode(seq![0xE9u32]) == Some(seq![0x39u32, 0x63u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "threshold-strict",
+      "file": "src/punycode/spec.rs",
+      "find": "    if k <= bias {\n        tmin()",
+      "replace": "    if k < bias {\n        tmin()",
+      "expect": "killed",
+      "reason": "t = tmin only while k < bias: U+4E2D encodes differently. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x4E2Du32])",
+        "witness": "super::spec::punycode_encode(seq![0x4E2Du32]) != c_punycode_encode(seq![0x4E2Du32]) && c_punycode_encode(seq![0x4E2Du32]) == Some(seq![0x66u32, 0x69u32, 0x71u32])"
+      }
+    },
+    {
+      "id": "adapt-loop-ge",
+      "file": "src/punycode/spec.rs",
+      "find": "if delta > ((base() - tmin()) * tmax()) as nat / 2 {",
+      "replace": "if delta >= ((base() - tmin()) * tmax()) as nat / 2 {",
+      "expect": "killed",
+      "reason": "The adaptation loop also runs at delta = 455, which this input reaches. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xFCu32, 0x1F6u32, 0x667u32, 0xFCu32, 0x1B2u32, 0x61u32, 0x7CCu32])",
+        "witness": "super::spec::punycode_encode(seq![0xFCu32, 0x1F6u32, 0x667u32, 0xFCu32, 0x1B2u32, 0x61u32, 0x7CCu32]) != c_punycode_encode(seq![0xFCu32, 0x1F6u32, 0x667u32, 0xFCu32, 0x1B2u32, 0x61u32, 0x7CCu32]) && c_punycode_encode(seq![0xFCu32, 0x1F6u32, 0x667u32, 0xFCu32, 0x1B2u32, 0x61u32, 0x7CCu32]) == Some(seq![0x61u32, 0x2Du32, 0x64u32, 0x68u32, 0x61u32, 0x61u32, 0x32u32, 0x34u32, 0x65u32, 0x69u32, 0x6Bu32, 0x6Du32, 0x31u32, 0x75u32, 0x72u32, 0x74u32, 0x63u32])"
+      }
+    },
+    {
+      "id": "adapt-firsttime-swapped",
+      "file": "src/punycode/spec.rs",
+      "find": "let delta = if firsttime {",
+      "replace": "let delta = if !firsttime {",
+      "expect": "killed",
+      "reason": "damp and 2 swap roles: the second integer of \"\\u{E9}\\u{FC}\" changes. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32, 0xFCu32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32, 0xFCu32]) != c_punycode_encode(seq![0xE9u32, 0xFCu32]) && c_punycode_encode(seq![0xE9u32, 0xFCu32]) == Some(seq![0x39u32, 0x63u32, 0x61u32, 0x32u32, 0x62u32])"
+      }
+    },
+    {
+      "id": "adapt-numpoints-plus-one",
+      "file": "src/punycode/spec.rs",
+      "find": "let delta = delta + delta / numpoints;",
+      "replace": "let delta = delta + delta / (numpoints + 1);",
+      "expect": "killed",
+      "reason": "adapt divides by numpoints + 1. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x4E2Du32, 0x10FFFFu32])",
+        "witness": "super::spec::punycode_encode(seq![0x4E2Du32, 0x10FFFFu32]) != c_punycode_encode(seq![0x4E2Du32, 0x10FFFFu32]) && c_punycode_encode(seq![0x4E2Du32, 0x10FFFFu32]) == Some(seq![0x66u32, 0x69u32, 0x71u32, 0x72u32, 0x33u32, 0x31u32, 0x33u32, 0x35u32, 0x68u32])"
+      }
+    },
+    {
+      "id": "first-delimiter",
+      "file": "src/punycode/spec.rs",
+      "find": "        Some((end - 1) as nat)\n    } else {\n        last_delimiter",
+      "replace": "        match last_delimiter(input, (end - 1) as nat) {\n            Some(d) => Some(d),\n            None => Some((end - 1) as nat),\n        }\n    } else {\n        last_delimiter",
+      "expect": "killed",
+      "reason": "The decoder splits at the first delimiter instead of the last: \"--\" fails instead of decoding to \"-\". The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x2Du32, 0x2Du32])",
+        "witness": "super::spec::punycode_decode(seq![0x2Du32, 0x2Du32]) != c_punycode_decode(seq![0x2Du32, 0x2Du32]) && c_punycode_decode(seq![0x2Du32, 0x2Du32]) == Some(seq![0x2Du32])"
+      }
+    },
+    {
+      "id": "i-overflow-at-maxint",
+      "file": "src/punycode/spec.rs",
+      "find": "if i > maxint() {",
+      "replace": "if i >= maxint() {",
+      "expect": "killed",
+      "reason": "i = maxint counts as overflow: \"a-k0902716a\" reaches exactly maxint. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32, 0x2Du32, 0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32, 0x2Du32, 0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) != c_punycode_decode(seq![0x61u32, 0x2Du32, 0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) && c_punycode_decode(seq![0x61u32, 0x2Du32, 0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) == Some(seq![0x61u32, 0x8000007Fu32])"
+      }
+    },
+    {
+      "id": "digit-break-le",
+      "file": "src/punycode/spec.rs",
+      "find": "if digit < t {",
+      "replace": "if digit <= t {",
+      "expect": "killed",
+      "reason": "An integer ends at digit = t: \"b\" decodes instead of failing at end of input. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x62u32])",
+        "witness": "super::spec::punycode_decode(seq![0x62u32]) != c_punycode_decode(seq![0x62u32]) && c_punycode_decode(seq![0x62u32]) is None"
+      }
+    },
+    {
+      "id": "always-skip-delimiter",
+      "file": "src/punycode/spec.rs",
+      "find": "if d > 0 { d + 1 } else { 0nat }",
+      "replace": "d + 1",
+      "expect": "killed",
+      "reason": "The delimiter is consumed even when no code point was copied: \"-\" decodes to the empty string instead of failing. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x2Du32])",
+        "witness": "super::spec::punycode_decode(seq![0x2Du32]) != c_punycode_decode(seq![0x2Du32]) && c_punycode_decode(seq![0x2Du32]) is None"
+      }
+    },
+    {
+      "id": "no-basic-check",
+      "file": "src/punycode/spec.rs",
+      "find": "    if contains_non_basic(output) {\n        None",
+      "replace": "    if false {\n        None",
+      "expect": "killed",
+      "reason": "Non-basic code points before the delimiter are copied instead of failing. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0xE9u32, 0x2Du32, 0x61u32])",
+        "witness": "super::spec::punycode_decode(seq![0xE9u32, 0x2Du32, 0x61u32]) != c_punycode_decode(seq![0xE9u32, 0x2Du32, 0x61u32]) && c_punycode_decode(seq![0xE9u32, 0x2Du32, 0x61u32]) is None"
+      }
+    },
+    {
+      "id": "decode-numpoints-plus-two",
+      "file": "src/punycode/spec.rs",
+      "find": "let bias = adapt((i - oldi) as nat, output.len() + 1, oldi == 0);",
+      "replace": "let bias = adapt((i - oldi) as nat, output.len() + 2, oldi == 0);",
+      "expect": "killed",
+      "reason": "The decoder adapts with length(output) + 2. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32, 0x7Au32, 0x7Au32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) != c_punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) && c_punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) is None"
+      }
+    },
+    {
+      "id": "decode-firsttime-oldi-1",
+      "file": "src/punycode/spec.rs",
+      "find": "let bias = adapt((i - oldi) as nat, output.len() + 1, oldi == 0);",
+      "replace": "let bias = adapt((i - oldi) as nat, output.len() + 1, oldi == 1);",
+      "expect": "killed",
+      "reason": "The decoder's first-time test is oldi = 1. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32, 0x7Au32, 0x7Au32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) != c_punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) && c_punycode_decode(seq![0x61u32, 0x7Au32, 0x7Au32]) is None"
+      }
+    },
+    {
+      "id": "decode-n-overflow-unchecked",
+      "file": "src/punycode/spec.rs",
+      "find": "                if n > maxint() {",
+      "replace": "                if false {",
+      "expect": "killed",
+      "reason": "n's overflow goes unchecked: \"k0902716a\" makes n exceed maxint. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32])",
+        "witness": "super::spec::punycode_decode(seq![0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) != c_punycode_decode(seq![0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) && c_punycode_decode(seq![0x6Bu32, 0x30u32, 0x39u32, 0x30u32, 0x32u32, 0x37u32, 0x31u32, 0x36u32, 0x61u32]) is None"
+      }
+    },
+    {
+      "id": "decode-no-increment-i",
+      "file": "src/punycode/spec.rs",
+      "find": "decode_loop(input, position, n, i + 1, bias, output)",
+      "replace": "decode_loop(input, position, n, i, bias, output)",
+      "expect": "killed",
+      "reason": "i is not incremented after an insertion. The §6 spec then differs from the Appendix C transcription on this input, so lemma_decode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_decode_equal(seq![0x61u32, 0x62u32])",
+        "witness": "super::spec::punycode_decode(seq![0x61u32, 0x62u32]) != c_punycode_decode(seq![0x61u32, 0x62u32]) && c_punycode_decode(seq![0x61u32, 0x62u32]) == Some(seq![0x81u32, 0x80u32])"
+      }
+    },
+    {
+      "id": "encode-digit-drops-t",
+      "file": "src/punycode/spec.rs",
+      "find": "seq![digit_code_point(t + (q - t) as nat % (base() - t) as nat)]",
+      "replace": "seq![digit_code_point((q - t) as nat % (base() - t) as nat)]",
+      "expect": "killed",
+      "reason": "The encoder outputs (q - t) mod (base - t) without adding t. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32]) != c_punycode_encode(seq![0xE9u32]) && c_punycode_encode(seq![0xE9u32]) == Some(seq![0x39u32, 0x63u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "always-delimiter",
+      "file": "src/punycode/spec.rs",
+      "find": "    let output = if b > 0 {\n        basic.push(delimiter())",
+      "replace": "    let output = if b >= 0 {\n        basic.push(delimiter())",
+      "expect": "killed",
+      "reason": "A delimiter is output even with no basic code points. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x80u32])",
+        "witness": "super::spec::punycode_encode(seq![0x80u32]) != c_punycode_encode(seq![0x80u32]) && c_punycode_encode(seq![0x80u32]) == Some(seq![0x61u32])"
+      }
+    },
+    {
+      "id": "min-strictly-greater",
+      "file": "src/punycode/spec.rs",
+      "find": "        if c >= n {\n            match rest",
+      "replace": "        if c > n {\n            match rest",
+      "expect": "killed",
+      "reason": "m is the minimum code point > n: U+0080 is never handled. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x80u32])",
+        "witness": "super::spec::punycode_encode(seq![0x80u32]) != c_punycode_encode(seq![0x80u32]) && c_punycode_encode(seq![0x80u32]) == Some(seq![0x61u32])"
+      }
+    },
+    {
+      "id": "delta-times-h",
+      "file": "src/punycode/spec.rs",
+      "find": "let delta = state.delta + (m - n) as nat * (state.h + 1);",
+      "replace": "let delta = state.delta + (m - n) as nat * state.h;",
+      "expect": "killed",
+      "reason": "delta grows by (m - n) * h instead of (h + 1). The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0xE9u32])",
+        "witness": "super::spec::punycode_encode(seq![0xE9u32]) != c_punycode_encode(seq![0xE9u32]) && c_punycode_encode(seq![0xE9u32]) == Some(seq![0x39u32, 0x63u32, 0x61u32])"
+      }
+    },
+    {
+      "id": "increment-delta-at-n",
+      "file": "src/punycode/spec.rs",
+      "find": "            let delta = if c < n {\n                state.delta + 1",
+      "replace": "            let delta = if c <= n {\n                state.delta + 1",
+      "expect": "killed",
+      "reason": "delta is also incremented for c = n. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x80u32])",
+        "witness": "super::spec::punycode_encode(seq![0x80u32]) != c_punycode_encode(seq![0x80u32]) && c_punycode_encode(seq![0x80u32]) == Some(seq![0x61u32])"
+      }
+    },
+    {
+      "id": "delta-overflow-late",
+      "file": "src/punycode/spec.rs",
+      "find": "if c < n && state.delta + 1 > maxint() {",
+      "replace": "if c < n && state.delta > maxint() {",
+      "expect": "killed",
+      "reason": "The increment of delta is let through at delta = maxint: in \"a\", 0x5555_55D5, \"a\", the jump to m makes delta exactly maxint, and the first \"a\" then overflows it. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x61u32, 0x555555D5u32, 0x61u32])",
+        "witness": "super::spec::punycode_encode(seq![0x61u32, 0x555555D5u32, 0x61u32]) != c_punycode_encode(seq![0x61u32, 0x555555D5u32, 0x61u32]) && c_punycode_encode(seq![0x61u32, 0x555555D5u32, 0x61u32]) is None"
+      }
+    },
+    {
+      "id": "encode-firsttime-h-0",
+      "file": "src/punycode/spec.rs",
+      "find": "let bias = adapt(delta, state.h + 1, state.h == b);",
+      "replace": "let bias = adapt(delta, state.h + 1, state.h == 0);",
+      "expect": "killed",
+      "reason": "The encoder's first-time test is h = 0 instead of h = b. The §6 spec then differs from the Appendix C transcription on this input, so lemma_encode_equal is false.",
+      "certificate": {
+        "file": "src/punycode/independent.rs",
+        "lemma": "lemma_encode_equal(seq![0x61u32, 0xE9u32, 0xFCu32])",
+        "witness": "super::spec::punycode_encode(seq![0x61u32, 0xE9u32, 0xFCu32]) != c_punycode_encode(seq![0x61u32, 0xE9u32, 0xFCu32]) && c_punycode_encode(seq![0x61u32, 0xE9u32, 0xFCu32]) == Some(seq![0x61u32, 0x2Du32, 0x62u32, 0x67u32, 0x61u32, 0x31u32, 0x64u32])"
+      }
+    }
+  ]
+}

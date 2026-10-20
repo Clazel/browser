@@ -9,6 +9,14 @@ description = "RFC 3492 Punycode and UTS #46 Unicode IDNA Compatibility Processi
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only engine for the differential test in tests/conformance_punycode.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped). idna_adapter
+# 1.0.0 is idna's back end without Unicode tables, enough for its Punycode
+# module.
+[dev-dependencies]
+idna = "=1.1.0"
+idna_adapter = "=1.0.0"
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires.
 [package.metadata.clazel]
