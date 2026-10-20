@@ -155,4 +155,47 @@ pub proof fn lemma_to_ascii_labels_none(labels: Seq<Seq<u32>>, k: int)
     }
 }
 
+// ---------------------------------------------------------------------------
+// Evidence: facts the standards state or imply.
+// ---------------------------------------------------------------------------
+
+/// Breaking a string at U+002E and joining the labels with U+002E gives
+/// the string back (§4 step 3 and §4.2 step 6 are inverse).
+pub proof fn lemma_join_break(s: Seq<u32>)
+    ensures
+        break_labels(s).len() >= 1,
+        join_labels(break_labels(s)) == s,
+    decreases s.len()
+{
+    if s.len() == 0 {
+        assert(join_labels(seq![seq![]]) =~= Seq::<u32>::empty());
+    } else {
+        let d = s.drop_last();
+        lemma_join_break(d);
+        let labels = break_labels(d);
+        let n = labels.len();
+        if s.last() == full_stop() {
+            let next = labels.push(seq![]);
+            assert(next.drop_last() =~= labels);
+            assert(join_labels(next) =~= d.push(full_stop()));
+            assert(d.push(full_stop()) =~= s);
+        } else {
+            let next = labels.update(n - 1, labels.last().push(s.last()));
+            if n == 1 {
+                assert(join_labels(next) == next[0]);
+                assert(next[0] =~= labels[0].push(s.last()));
+                assert(join_labels(labels) == labels[0]);
+            } else {
+                assert(next.drop_last() =~= labels.drop_last());
+                assert(join_labels(next) =~= join_labels(labels.drop_last()).push(full_stop()) + labels.last().push(
+                    s.last(),
+                ));
+                assert(join_labels(labels) == join_labels(labels.drop_last()).push(full_stop()) + labels.last());
+            }
+            assert(join_labels(next) =~= d.push(s.last()));
+            assert(d.push(s.last()) =~= s);
+        }
+    }
+}
+
 } // verus!

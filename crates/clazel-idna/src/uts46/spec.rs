@@ -723,7 +723,7 @@ pub open spec fn context_j_at(label: Seq<u32>, i: int) -> bool {
     if label[i] == 0x200C {
         // A.1 ZERO WIDTH NON-JOINER: "If Canonical_Combining_Class(Before(cp))
         // .eq. Virama Then True; If RegExpMatch((Joining_Type:{L,D})
-        // (Joining_Type:T)*‌(Joining_Type:T)*(Joining_Type:{R,D})) Then
+        // (Joining_Type:T)*\u200C(Joining_Type:T)*(Joining_Type:{R,D})) Then
         // True;" and otherwise false.
         virama_before(label, i) || (joins_left(label, i - 1) && joins_right(label, i + 1))
     } else if label[i] == 0x200D {

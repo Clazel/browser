@@ -47,6 +47,23 @@ pub fn focus(dir: &Path, name: &str, module: &str, function: &str) -> Result<Run
     )
 }
 
+/// Verify only `module` (e.g. `uts46::process`), from scratch.
+pub fn module(dir: &Path, name: &str, module: &str) -> Result<Run, String> {
+    invoke(
+        dir,
+        name,
+        &[
+            "verus",
+            "focus",
+            "--",
+            "-A",
+            "missing_docs",
+            "--verify-only-module",
+            module,
+        ],
+    )
+}
+
 fn invoke(dir: &Path, name: &str, args: &[&str]) -> Result<Run, String> {
     // Cargo would otherwise replay a cached result; force a fresh proof run.
     let clean = Command::new("cargo")

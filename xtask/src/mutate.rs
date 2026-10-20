@@ -54,6 +54,12 @@
 //! Each becomes `reveal(PATH);` before the witness. Only paths are
 //! accepted, so a certificate cannot add an assumption this way.
 //!
+//! A mutation may name a `module` (e.g. `"uts46::process"`): the run that
+//! must fail for `killed` and `killed-incidentally` (or pass for
+//! `survives`) then verifies only that module, instead of the whole
+//! crate. Use it for crates whose full run is slow; the certificate is
+//! checked exactly as without it.
+//!
 //! `killed-incidentally` and `survives` need no certificate: they claim no
 //! coverage, so a wrong label can only understate it.
 
@@ -101,6 +107,8 @@ const CERTIFICATE_FN: &str = "__clazel_kill_certificate";
 
 struct Mutation {
     id: String,
+    /// Verify only this module in the mutant's run (see the module docs).
+    module: Option<String>,
     certificate: Option<Certificate>,
     file: String,
     find: String,
@@ -203,7 +211,20 @@ fn load(c: &Crate) -> Result<Vec<Mutation>, String> {
                     })
                 }
             };
+            let module = match m.get("module") {
+                None => None,
+                Some(v) => match v.as_str() {
+                    Some(p) if is_path(p) => Some(p.to_owned()),
+                    _ => {
+                        return Err(format!(
+                            "{}: {id}: module must be a module path",
+                            path.display()
+                        ));
+                    }
+                },
+            };
             Ok(Mutation {
+                module,
                 certificate,
                 file: field("file")?,
                 find: field("find")?,
@@ -253,7 +274,10 @@ pub fn run(c: &Crate, root: &Path) -> Result<Report, String> {
         }
         let mutated = original.replacen(&m.find, &m.replace, 1);
         std::fs::write(&target, mutated).map_err(|e| format!("{}: {e}", target.display()))?;
-        let result = verus::run(&crate_dir, &c.name, false);
+        let result = match &m.module {
+            Some(module) => verus::module(&crate_dir, &c.name, module),
+            None => verus::run(&crate_dir, &c.name, false),
+        };
         std::fs::write(&target, &original).map_err(|e| format!("{}: {e}", target.display()))?;
         match (result?, m.expect) {
             (Run::ProofFailed(_, out), Expect::Killed) => {
