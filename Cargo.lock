@@ -63,6 +63,7 @@ name = "clazel-url"
 version = "0.0.0"
 dependencies = [
  "clazel-encoding",
+ "clazel-idna",
  "clazel-percent",
  "vstd",
 ]

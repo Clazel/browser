@@ -12,6 +12,9 @@ vstd = "=0.0.0-2026-10-04-0306"
 # and 5) and the opaque-host parser UTF-8 percent-encodes (§3.5 step 4),
 # with these proven implementations rather than second copies.
 clazel-encoding = { path = "../clazel-encoding" }
+# The host parser's step 6 runs the URL §3.3 domain parser (UTS #46
+# ToASCII).
+clazel-idna = { path = "../clazel-idna" }
 clazel-percent = { path = "../clazel-percent" }
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
