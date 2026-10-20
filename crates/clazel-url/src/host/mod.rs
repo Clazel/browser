@@ -18,6 +18,7 @@ pub mod examples;
 pub mod independent;
 pub mod ipv4;
 pub mod ipv6;
+pub mod ipv6_text;
 pub mod lemmas;
 pub mod parse;
 pub mod record;
