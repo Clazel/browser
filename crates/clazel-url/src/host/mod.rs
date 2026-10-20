@@ -1,8 +1,20 @@
 //! Hosts (URL §3): the host record, the host, IPv4, IPv6 and opaque-host
 //! parsers (§3.5), and the host serializers (§3.6).
 //!
+//! - [`spec`]: a step-by-step transcription of the standard (with the URL
+//!   §1 and Infra definitions it uses).
+//! - [`termination`]: why the spec's loops terminate.
+//! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`examples`]: the standard's examples, evaluated on the spec.
 //! - [`independent`]: a second transcription, from RFC 3986 §3.2.2, RFC
 //!   4291 §2.2 and RFC 5952 §4, and what it and the spec are proven to
 //!   agree on.
+//!
+//! The domain parser (URL §3.3) comes from item 1.8; see [`contract`] for
+//! how the host parser is split around it.
 
+pub mod contract;
+pub mod examples;
 pub mod independent;
+pub mod spec;
+pub mod termination;
