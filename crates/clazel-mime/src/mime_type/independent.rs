@@ -334,7 +334,8 @@ pub proof fn lemma_quoted_string_rest_position(s: Seq<u32>, i: nat, value: Seq<u
 /// RFC 9110 §8.3.1's own examples: the first three are equal; the fourth
 /// differs only in the charset value's case, which RFC 2046 makes
 /// insignificant for charset but which this grammar keeps (see the
-/// modelling choices). Then three strings that are not media types.
+/// modelling choices). Then three strings that are not media types, and
+/// one whose repeated parameter is kept.
 pub proof fn lemma_rfc_examples() {
     // text/html;charset=utf-8
     assert(media_type(seq![0x74u32, 0x65u32, 0x78u32, 0x74u32, 0x2Fu32, 0x68u32, 0x74u32, 0x6Du32, 0x6Cu32, 0x3Bu32, 0x63u32, 0x68u32, 0x61u32, 0x72u32, 0x73u32, 0x65u32, 0x74u32, 0x3Du32, 0x75u32, 0x74u32, 0x66u32, 0x2Du32, 0x38u32]) is Some
@@ -801,6 +802,240 @@ pub proof fn lemma_equals_parse_a_mime_type(s: Seq<u32>)
     // Step 11.
     let m0 = MimeTypeRecord { type_: fold_case(type_), subtype: fold_case(subtype), parameters: seq![] };
     lemma_loop(s, l, q, seq![], mt.parameters, m0);
+}
+
+
+/// A run of `tchar`s that ends at `q` is where [`tchars_end`] stops.
+proof fn lemma_tchars_end_exact(s: Seq<u32>, i: nat, q: nat)
+    requires
+        i <= q <= s.len(),
+        forall|k: int| i <= k < q ==> is_tchar(#[trigger] s[k]),
+        q < s.len() ==> !is_tchar(s[q as int]),
+    ensures
+        tchars_end(s, i) == q,
+    decreases q - i
+{
+    if i < q {
+        lemma_tchars_end_exact(s, i + 1, q);
+    }
+}
+
+/// `OWS` that is empty.
+proof fn lemma_ows_end_none(s: Seq<u32>, i: nat)
+    requires
+        i < s.len() ==> !is_sp_or_htab(s[i as int]),
+    ensures
+        ows_end(s, i) == i,
+{
+}
+
+/// The grammar's quoted string over an escaped value reads the value back.
+proof fn lemma_quoted_string_rest_escaped(s: Seq<u32>, a: nat, acc: Seq<u32>, v: Seq<u32>)
+    requires
+        super::lemmas::holds_at(s, a as int, precede_quotes_and_backslashes(v) + seq![0x22u32]),
+        solely_http_quoted_string_token_code_points(v),
+    ensures
+        quoted_string_rest(s, a, acc) == Some((acc + v, a + precede_quotes_and_backslashes(v).len() + 1)),
+    decreases v.len()
+{
+    let esc = precede_quotes_and_backslashes(v);
+    super::lemmas::lemma_holds_at_split(s, a as int, esc, seq![0x22u32]);
+    super::lemmas::lemma_holds_at(s, a as int, esc);
+    super::lemmas::lemma_holds_at(s, a + esc.len() as int, seq![0x22u32]);
+    super::lemmas::lemma_solely_quoted_string_token(v);
+    if v.len() == 0 {
+        assert(seq![0x22u32][0] == 0x22);
+        assert(acc + v =~= acc);
+    } else {
+        let c = v[0];
+        let rest = v.drop_first();
+        let esc_rest = precede_quotes_and_backslashes(rest);
+        assert forall|k: int| 0 <= k < rest.len() implies is_http_quoted_string_token_code_point(#[trigger] rest[k]) by {
+            assert(rest[k] == v[k + 1]);
+        }
+        super::lemmas::lemma_solely_quoted_string_token(rest);
+        assert(is_http_quoted_string_token_code_point(v[0]));
+        if c == 0x22 || c == 0x5C {
+            assert(esc == seq![0x5Cu32, c] + esc_rest);
+            assert(esc[0] == 0x5C && esc[1] == c);
+            assert(esc + seq![0x22u32] =~= seq![0x5Cu32, c] + (esc_rest + seq![0x22u32]));
+            super::lemmas::lemma_holds_at_split(s, a as int, seq![0x5Cu32, c], esc_rest + seq![0x22u32]);
+            lemma_quoted_string_rest_escaped(s, a + 2, acc.push(c), rest);
+        } else {
+            assert(esc == seq![c] + esc_rest);
+            assert(esc[0] == c);
+            assert(esc + seq![0x22u32] =~= seq![c] + (esc_rest + seq![0x22u32]));
+            super::lemmas::lemma_holds_at_split(s, a as int, seq![c], esc_rest + seq![0x22u32]);
+            lemma_quoted_string_rest_escaped(s, a + 1, acc.push(c), rest);
+        }
+        assert(acc.push(c) + rest =~= acc + v);
+    }
+}
+
+/// The grammar's `parameters` over serialized parameters from entry `i` on
+/// reads exactly those parameters.
+proof fn lemma_parameters_segments(s: Seq<u32>, ps: OrderedMap, i: nat)
+    requires
+        super::lemmas::parsed_parameters(ps),
+        i <= ps.len(),
+        super::lemmas::holds_at(s, s.len() - super::lemmas::segments(ps, i).len(), super::lemmas::segments(ps, i)),
+    ensures
+        parameters(s, (s.len() - super::lemmas::segments(ps, i).len()) as nat, ps.subrange(0, i as int)) == Some(ps),
+    decreases ps.len() - i
+{
+    let segs = super::lemmas::segments(ps, i);
+    let p = (s.len() - segs.len()) as nat;
+    super::lemmas::lemma_segments_ends(ps, i);
+    if i == ps.len() {
+        assert(ps.subrange(0, i as int) =~= ps);
+        return;
+    }
+    let (name, value) = ps[i as int];
+    assert(super::lemmas::is_lowercase_token(ps[i as int].0));
+    assert(solely_http_quoted_string_token_code_points(ps[i as int].1));
+    let sv = serialize_value(value);
+    let rest = super::lemmas::segments(ps, i + 1);
+    let p_next = (s.len() - rest.len()) as nat;
+    super::lemmas::lemma_segments_ends(ps, i + 1);
+    super::lemmas::lemma_serialize_value_ends(value);
+    super::lemmas::lemma_solely_token(name);
+    let e = p + 1 + name.len();
+    assert(segs == seq![0x3Bu32] + name + seq![0x3Du32] + sv + rest);
+    super::lemmas::lemma_holds_at_split(s, p as int, seq![0x3Bu32] + name + seq![0x3Du32] + sv, rest);
+    super::lemmas::lemma_holds_at_split(s, p as int, seq![0x3Bu32] + name + seq![0x3Du32], sv);
+    super::lemmas::lemma_holds_at_split(s, p as int, seq![0x3Bu32] + name, seq![0x3Du32]);
+    super::lemmas::lemma_holds_at_split(s, p as int, seq![0x3Bu32], name);
+    super::lemmas::lemma_holds_at(s, p as int, seq![0x3Bu32]);
+    super::lemmas::lemma_holds_at(s, p as int + 1, name);
+    super::lemmas::lemma_holds_at(s, e as int, seq![0x3Du32]);
+    super::lemmas::lemma_holds_at(s, e as int + 1, sv);
+    assert(seq![0x3Bu32][0] == 0x3B && seq![0x3Du32][0] == 0x3D);
+    assert(s[p as int] == 0x3B && s[e as int] == 0x3D);
+    assert(p_next == e + 1 + sv.len());
+    if rest.len() > 0 {
+        super::lemmas::lemma_holds_at(s, p_next as int, rest);
+        assert(s[p_next as int] == 0x3B);
+    }
+    // OWS ";" OWS, both OWS empty.
+    lemma_ows_end_none(s, p);
+    lemma_tchar(name[0]);
+    assert(s[p as int + 1] == name[0]);
+    lemma_ows_end_none(s, p + 1);
+    // parameter-name
+    assert forall|k: int| p + 1 <= k < e implies is_tchar(#[trigger] s[k]) by {
+        assert(s[k] == name[k - p - 1]);
+        lemma_tchar(name[k - p - 1]);
+    }
+    lemma_tchar(s[e as int]);
+    lemma_tchars_end_exact(s, p + 1, e);
+    assert(s.subrange(p as int + 1, e as int) =~= name);
+    lemma_fold_case(name);
+    let acc2 = ps.subrange(0, i as int + 1);
+    assert(ps.subrange(0, i as int).push((name, value)) =~= acc2);
+    if solely_http_token_code_points(value) && value.len() != 0 {
+        // A token value.
+        super::lemmas::lemma_solely_token(value);
+        assert(sv == value);
+        lemma_tchar(value[0]);
+        assert(s[e as int + 1] == value[0]);
+        assert forall|k: int| e + 1 <= k < p_next implies is_tchar(#[trigger] s[k]) by {
+            assert(s[k] == value[k - e - 1]);
+            lemma_tchar(value[k - e - 1]);
+        }
+        if p_next < s.len() {
+            lemma_tchar(s[p_next as int]);
+        }
+        lemma_tchars_end_exact(s, e + 1, p_next);
+        assert(s.subrange(e as int + 1, p_next as int) =~= value);
+    } else {
+        // A quoted value.
+        let esc = precede_quotes_and_backslashes(value);
+        assert(sv == seq![0x22u32] + (esc + seq![0x22u32]));
+        super::lemmas::lemma_holds_at_split(s, e as int + 1, seq![0x22u32], esc + seq![0x22u32]);
+        super::lemmas::lemma_holds_at(s, e as int + 1, seq![0x22u32]);
+        assert(seq![0x22u32][0] == 0x22);
+        assert(s[e as int + 1] == 0x22);
+        lemma_quoted_string_rest_escaped(s, e + 2, seq![], value);
+        assert(seq![] + value =~= value);
+    }
+    lemma_parameters_segments(s, ps, i + 1);
+}
+
+/// The grammar's `type "/" subtype` on a serialization reads back the
+/// type and subtype, and leaves `parameters` at the parameters.
+proof fn lemma_media_type_head(s: Seq<u32>, t: Seq<u32>, st: Seq<u32>, segs: Seq<u32>)
+    requires
+        s == t + seq![0x2Fu32] + st + segs,
+        super::lemmas::is_lowercase_token(t),
+        super::lemmas::is_lowercase_token(st),
+        segs.len() > 0 ==> segs[0] == 0x3B,
+    ensures
+        media_type(s) == match parameters(s, (t.len() + 1 + st.len()) as nat, seq![]) {
+            Some(ps) => Some(MediaType { type_: t, subtype: st, parameters: ps }),
+            None => None,
+        },
+{
+    let head = t + seq![0x2Fu32] + st;
+    let h = head.len();
+    super::lemmas::lemma_solely_token(t);
+    super::lemmas::lemma_solely_token(st);
+    assert(super::lemmas::holds_at(s, 0, head + segs)) by {
+        assert(s.subrange(0, s.len() as int) =~= s);
+    }
+    super::lemmas::lemma_holds_at_split(s, 0, head, segs);
+    super::lemmas::lemma_holds_at_split(s, 0, t + seq![0x2Fu32], st);
+    super::lemmas::lemma_holds_at_split(s, 0, t, seq![0x2Fu32]);
+    super::lemmas::lemma_holds_at(s, 0, t);
+    super::lemmas::lemma_holds_at(s, t.len() as int, seq![0x2Fu32]);
+    super::lemmas::lemma_holds_at(s, t.len() as int + 1, st);
+    assert(seq![0x2Fu32][0] == 0x2F);
+    assert(s[t.len() as int] == 0x2F);
+    assert forall|k: int| 0 <= k < t.len() implies is_tchar(#[trigger] s[k]) by {
+        assert(s[k] == t[k]);
+        lemma_tchar(t[k]);
+    }
+    lemma_tchar(s[t.len() as int]);
+    lemma_tchars_end_exact(s, 0, t.len());
+    assert(s.subrange(0, t.len() as int) =~= t);
+    assert forall|k: int| t.len() + 1 <= k < h implies is_tchar(#[trigger] s[k]) by {
+        assert(s[k] == st[k - t.len() - 1]);
+        lemma_tchar(st[k - t.len() - 1]);
+    }
+    if segs.len() > 0 {
+        super::lemmas::lemma_holds_at(s, h as int, segs);
+        assert(s[h as int] == 0x3B);
+        lemma_tchar(s[h as int]);
+    }
+    lemma_tchars_end_exact(s, t.len() + 1, h);
+    assert(s.subrange(t.len() as int + 1, h as int) =~= st);
+    lemma_fold_case(t);
+    lemma_fold_case(st);
+}
+
+/// **Every serialization of a parsed record is a valid MIME type string**
+/// (it matches RFC 9110's `media-type`), and denotes that record.
+pub proof fn lemma_serialize_is_media_type(m: MimeTypeRecord)
+    requires
+        super::lemmas::parsed_form(m),
+    ensures
+        media_type(serialize_a_mime_type(m)) is Some,
+        to_record(media_type(serialize_a_mime_type(m))->Some_0) == m,
+{
+    let t = m.type_;
+    let st = m.subtype;
+    let ps = m.parameters;
+    let head = t + seq![0x2Fu32] + st;
+    let segs = super::lemmas::segments(ps, 0);
+    let s = serialize_a_mime_type(m);
+    super::lemmas::lemma_serialize_parameters(ps, 0, head);
+    assert(s == head + segs);
+    super::lemmas::lemma_segments_ends(ps, 0);
+    lemma_media_type_head(s, t, st, segs);
+    assert(super::lemmas::holds_at(s, s.len() - segs.len(), segs)) by {
+        assert(s.subrange(head.len() as int, s.len() as int) =~= segs);
+    }
+    assert(ps.subrange(0, 0) =~= seq![]);
+    lemma_parameters_segments(s, ps, 0);
 }
 
 } // verus!
