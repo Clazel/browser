@@ -43,6 +43,7 @@ dependencies = [
 name = "clazel-mime"
 version = "0.0.0"
 dependencies = [
+ "infer",
  "mime",
  "vstd",
 ]
@@ -54,6 +55,15 @@ dependencies = [
  "clazel-encoding",
  "form_urlencoded",
  "percent-encoding",
+ "vstd",
+]
+
+[[package]]
+name = "clazel-url"
+version = "0.0.0"
+dependencies = [
+ "clazel-encoding",
+ "clazel-percent",
  "vstd",
 ]
 
@@ -133,6 +143,12 @@ dependencies = [
  "equivalent",
  "hashbrown",
 ]
+
+[[package]]
+name = "infer"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a588916bfdfd92e71cacef98a63d9b1f0d74d6599980d11894290e7ddefffcf7"
 
 [[package]]
 name = "itoa"

@@ -11,8 +11,9 @@ instead of trust.
 
 Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
 started: UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`),
-forgiving base64 (`clazel-base64`) and MIME types (`clazel-mime`) are at Tier
-2. MIME sniffing, IDNA and the URL parser are next. Recheck every proof yourself, on Linux x86-64, with:
+forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`) and
+URL host parsing (`clazel-url`, except domains) are at Tier 2. IDNA and the
+URL parser are next. Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh
 docker build --platform linux/amd64 -t clazel-verify .
@@ -28,8 +29,9 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 |-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|--------------|
 | clazel-base64 | 2 (2) | 77 verified, 0 errors | no harnesses | 0 | 635 / 737 / 161 | 23 / 0 / 0 of 23 | WPT fetch/data-urls base64: 80 / 80 | 0 of 3 files current |
 | clazel-encoding | 2 (2) | 81 verified, 0 errors | no harnesses | 0 | 764 / 485 / 205 | 22 / 0 / 0 of 22 | WPT encoding/ UTF-8 decode: 57 / 57<br>WPT encoding/ UTF-8 encode (decode cases reversed): 8 / 8 | 0 of 3 files current |
-| clazel-mime | 2 (2) | 174 verified, 0 errors | no harnesses | 0 | 1963 / 1381 / 679 | 15 / 0 / 0 of 15 | WPT mimesniff/mime-types: 955 / 955 | 0 of 5 files current |
+| clazel-mime | 2 (2) | 288 verified, 0 errors | no harnesses | 0 | 2584 / 2122 / 1640 | 35 / 0 / 0 of 35 | WPT mimesniff/media: 6 / 7 (1 expected failures)<br>WPT mimesniff/mime-types: 955 / 955<br>WPT mimesniff/sniffing feeds: 2 / 2<br>WPT mimesniff/sniffing mislabeled binary: 3 / 3 | 0 of 5 files current |
 | clazel-percent | 2 (2) | 54 verified, 0 errors | no harnesses | 0 | 520 / 297 / 173 | 34 / 0 / 0 of 34 | WPT url/ percent-encoding: 23 / 32 (9 expected failures) | 0 of 3 files current |
+| clazel-url | 2 (2) | 183 verified, 0 errors | no harnesses | 0 | 1937 / 1789 / 648 | 57 / 0 / 0 of 57 | WPT url/ toascii.json: 24 / 87 (63 expected failures)<br>WPT url/ urltestdata.json hosts: 333 / 359 (26 expected failures) | 0 of 3 files current |
 | xtask | 0 (0) | not used | no harnesses | 0 | — | — | none | no spec files |
 
 ¹ From Verus's `line_count`; only code inside `verus!` is counted, and type definitions count as exec.
