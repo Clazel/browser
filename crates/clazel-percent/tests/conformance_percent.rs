@@ -69,6 +69,7 @@ fn string(v: &[u32]) -> String {
 fn wpt_url_percent_encoding() {
     let mut failures = Vec::new();
     let mut passed = 0usize;
+    let mut expected_failures = 0usize;
     for case in WPT {
         assert!(
             case.input.iter().all(|&c| char::from_u32(c).is_some()),
@@ -97,7 +98,9 @@ fn wpt_url_percent_encoding() {
                     case.name, case.query
                 ));
             }
-        } else if !EXPECTED_FAILURES.contains(&case.name) {
+        } else if EXPECTED_FAILURES.contains(&case.name) {
+            expected_failures = expected_failures.saturating_add(1);
+        } else {
             failures.push(format!(
                 "{}: not UTF-8, but not listed in EXPECTED_FAILURES",
                 case.name
@@ -111,9 +114,14 @@ fn wpt_url_percent_encoding() {
             ));
         }
     }
+    // Summary line for the README table (unit: a check, two
+    // per case: fragment and query); format in xtask/src/conformance.rs.
+    let total = WPT.len().saturating_mul(2);
     println!(
-        "WPT percent-encoding: {passed} checks pass, {} expected failures (query in another encoding)",
-        EXPECTED_FAILURES.len()
+        "clazel-conformance: suite=\"WPT url/ percent-encoding\" pass={passed} xfail={expected_failures} fail={} total={total}",
+        total
+            .saturating_sub(passed)
+            .saturating_sub(expected_failures)
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }

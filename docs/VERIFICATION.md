@@ -123,8 +123,8 @@ Limits, stated plainly:
 - Two AI transcriptions are not truly independent: they may share a
   misreading. That is why (1), which draws on sources outside the project,
   carries the most weight.
-- Tests cover only what they test. Each crate's README row will say which
-  suites it passes.
+- Tests cover only what they test. Each crate's README row says which
+  suites it runs and how many of their cases pass (below).
 
 Human reviews ([SPEC-REVIEWS.md](SPEC-REVIEWS.md)) are still welcome and still
 shown, but they gate nothing.
@@ -150,9 +150,22 @@ The format is in `xtask/src/mutate.rs`.
 The README's status table is generated, never typed. For each crate it shows
 the tier and target tier, the Verus result, Kani harness results, the number of
 documented axioms (every other escape hatch is rejected outright), spec / proof /
-exec line counts, and the three-way mutation result. `cargo xtask verify` fails
-if the committed table differs from what that run measured, and `cargo xtask
-report --write` refuses to update it while any check is failing.
+exec line counts, the three-way mutation result, and conformance pass rates.
+`cargo xtask verify` fails if the committed table differs from what that run
+measured, and `cargo xtask report --write` refuses to update it while any
+check is failing.
 
-Not yet in the table: WPT pass rates (added when a crate first runs a test
-suite).
+The **Conformance** column lists every vendored suite a crate's
+`tests/conformance*.rs` runs (WPT `encoding/`, `url/` percent-encoding,
+`fetch/data-urls` base64, `mimesniff/mime-types`, …) as passing / total.
+Expected failures, each listed in the test with its reason, are shown
+separately and never counted as passes. The numbers are not typed: each
+conformance test prints one `clazel-conformance:` summary line per suite,
+and `verify` and `report` run every conformance test target and read those
+lines from its output. A target that prints no summary, a malformed line, a
+suite whose counts do not add up to its total, or an unexpected failure
+fails the run. The line format is defined in one place, the module comment
+of `xtask/src/conformance.rs`; a new conformance test must print it. The
+count is only as good as the test's own bookkeeping: `total` is meant to be
+the size of the generated table, counted independently of the pass count,
+but that it is honest is not machine-checked.
