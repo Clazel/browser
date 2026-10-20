@@ -139,7 +139,9 @@ fn check_all(what: &str, inputs: impl Iterator<Item = Vec<u8>>) {
 fn wpt_encoding_utf8_decode() {
     assert!(WPT.len() >= 57, "WPT table shrank to {} cases", WPT.len());
     let mut failures = Vec::new();
+    let mut failed = 0usize;
     for c in WPT {
+        let before = failures.len();
         let expected = c.expected.map(<[u32]>::to_vec);
         let ours = run(c.hook, c.input);
         if ours != expected {
@@ -171,7 +173,16 @@ fn wpt_encoding_utf8_decode() {
                 ));
             }
         }
+        if failures.len() != before {
+            failed = failed.saturating_add(1);
+        }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT encoding/ UTF-8 decode\" pass={} xfail=0 fail={failed} total={}",
+        WPT.len().saturating_sub(failed),
+        WPT.len()
+    );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
@@ -382,6 +393,12 @@ fn wpt_encoding_utf8_encode() {
             ));
         }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT encoding/ UTF-8 encode (decode cases reversed)\" pass={} xfail=0 fail={} total={count}",
+        count.saturating_sub(failures.len()),
+        failures.len()
+    );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
     assert!(count >= 8, "WPT encode cases shrank to {count}");
 }

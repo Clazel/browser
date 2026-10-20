@@ -51,7 +51,9 @@ fn scalars(s: &str) -> Vec<u32> {
 fn wpt_data_urls_base64() {
     assert_eq!(WPT.len(), 80, "base64.json has 80 rows");
     let mut failures = Vec::new();
+    let mut failed = 0usize;
     for c in WPT {
+        let before = failures.len();
         let got = decode(c.input);
         if got.as_deref() != c.expected {
             failures.push(format!(
@@ -67,7 +69,16 @@ fn wpt_data_urls_base64() {
                 failures.push(format!("base64.json:{}: round trip gave {back:?}", c.line));
             }
         }
+        if failures.len() != before {
+            failed = failed.saturating_add(1);
+        }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT fetch/data-urls base64\" pass={} xfail=0 fail={failed} total={}",
+        WPT.len().saturating_sub(failed),
+        WPT.len()
+    );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 

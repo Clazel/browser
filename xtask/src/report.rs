@@ -11,6 +11,7 @@ use std::process::Command;
 
 use serde_json::Value;
 
+use crate::conformance::{self, Suite};
 use crate::workspace;
 
 /// First line of the generated block in README.md.
@@ -54,6 +55,9 @@ pub struct Metrics {
     pub mutations: Option<Mutations>,
     /// Spec files reviewed and current, out of all reviewable files.
     pub reviews: Option<(usize, usize)>,
+    /// Every suite the crate's `tests/conformance*.rs` reported, by name;
+    /// empty if it has none.
+    pub conformance: Option<Vec<Suite>>,
 }
 
 impl Metrics {
@@ -62,7 +66,7 @@ impl Metrics {
         let verus_ok = !self.is_verus
             || (self.verus.is_some() && self.lines.is_some() && self.mutations.is_some());
         let kani_ok = self.kani_harnesses == 0 || self.kani.is_some();
-        verus_ok && kani_ok && self.reviews.is_some()
+        verus_ok && kani_ok && self.reviews.is_some() && self.conformance.is_some()
     }
 }
 
@@ -74,8 +78,8 @@ pub fn render(table: &Table) -> String {
     let dash = || "—".to_owned();
     let mut out = vec![
         BEGIN.to_owned(),
-        "| Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Spec review³ |".to_owned(),
-        "|-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|".to_owned(),
+        "| Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |".to_owned(),
+        "|-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|--------------|".to_owned(),
     ];
     for (name, m) in table {
         let tier = match (m.tier, m.target_tier) {
@@ -107,8 +111,12 @@ pub fn render(table: &Table) -> String {
             Some((current, total)) => format!("{current} of {total} files current"),
             None => dash(),
         };
+        let suites = m
+            .conformance
+            .as_deref()
+            .map_or_else(dash, conformance::cell);
         out.push(format!(
-            "| {name} | {tier} | {verus} | {kani} | {} | {lines} | {mutations} | {review} |",
+            "| {name} | {tier} | {verus} | {kani} | {} | {lines} | {mutations} | {suites} | {review} |",
             m.axioms
         ));
     }
@@ -127,6 +135,13 @@ pub fn render(table: &Table) -> String {
         "³ Optional human reviews of specs, contracts, axioms and mutation labels, \
          unchanged since review. They gate nothing; see \
          [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md)."
+            .to_owned(),
+    );
+    out.push(
+        "⁴ Measured by the run: passing / total units per vendored suite, as each \
+         `tests/conformance*.rs` reports them. Expected failures are counted \
+         separately and never as passes. See \
+         [docs/VERIFICATION.md](docs/VERIFICATION.md#honesty-metrics)."
             .to_owned(),
     );
     out.push(END.to_owned());
@@ -197,6 +212,7 @@ mod tests {
                 tier: Some(0),
                 target_tier: Some(0),
                 reviews: Some((0, 0)),
+                conformance: Some(Vec::new()),
                 ..Metrics::default()
             },
         );
@@ -204,9 +220,9 @@ mod tests {
         let new = splice(&readme, &block)?;
         assert!(new.starts_with("intro\n") && new.ends_with("\noutro\n"));
         assert_eq!(current(&new), Some(block.as_str()));
-        assert!(
-            new.contains("| a | 0 (0) | not used | no harnesses | 0 | — | — | no spec files |")
-        );
+        assert!(new.contains(
+            "| a | 0 (0) | not used | no harnesses | 0 | — | — | none | no spec files |"
+        ));
         Ok(())
     }
 
@@ -220,6 +236,11 @@ mod tests {
         let plain = Metrics {
             reviews: Some((0, 0)),
             ..Metrics::default()
+        };
+        assert!(!plain.complete(), "conformance not measured");
+        let plain = Metrics {
+            conformance: Some(Vec::new()),
+            ..plain
         };
         assert!(plain.complete());
     }
