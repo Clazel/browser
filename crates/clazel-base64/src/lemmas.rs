@@ -754,6 +754,35 @@ pub proof fn lemma_fails_exactly(input: Seq<u32>)
     }
 }
 
+/// "=" (named here as the literal 0x3D) survives decode only as padding:
+/// in a string decode accepts, after ASCII whitespace is removed, each "="
+/// is one of the last two code points, and the length is a multiple of 4.
+pub proof fn lemma_padding_only_at_end(input: Seq<u32>, k: int)
+    requires
+        forgiving_base64_decode(input) is Some,
+        0 <= k < remove_ascii_whitespace(input).len(),
+        remove_ascii_whitespace(input)[k] == 0x3D,
+    ensures
+        k >= remove_ascii_whitespace(input).len() - 2,
+        remove_ascii_whitespace(input).len() % 4 == 0,
+{
+    let t = remove_ascii_whitespace(input);
+    let n = t.len() as int;
+    lemma_fails_exactly(input);
+    lemma_pad_not_allowed();
+    if all_allowed(t) && t.len() % 4 != 1 {
+        assert(is_step_4_allowed(t[k]));
+    } else if t.len() % 4 == 0 && n >= 1 && t[n - 1] == pad() && all_allowed(t.subrange(0, n - 1)) {
+        if k < n - 1 {
+            assert(is_step_4_allowed(t.subrange(0, n - 1)[k]));
+        }
+    } else {
+        if k < n - 2 {
+            assert(is_step_4_allowed(t.subrange(0, n - 2)[k]));
+        }
+    }
+}
+
 /// The input with code point `c` inserted at index `k`.
 pub open spec fn insert(s: Seq<u32>, k: int, c: u32) -> Seq<u32> {
     s.subrange(0, k) + seq![c] + s.subrange(k, s.len() as int)
@@ -805,25 +834,6 @@ pub proof fn lemma_rejects_other(s: Seq<u32>, k: int, c: u32)
     assert(p < d.len());
     assert(d[p] == c);
     lemma_contains_disallowed(d);
-}
-
-
-/// RFC 4648 §10's test vectors, evaluated on the spec: "f" is "Zg==",
-/// "fo" is "Zm8=", "foo" is "Zm9v", "foobar" is "Zm9vYmFy", and decode
-/// takes each back. Also Infra's own note on step 9: "YQ" and "YR" both
-/// return `a`.
-pub proof fn lemma_examples() {
-    assert(forgiving_base64_encode(seq![0x66u8]) == seq![0x5Au32, 0x67, 0x3D, 0x3D]) by (compute_only);
-    assert(forgiving_base64_encode(seq![0x66u8, 0x6F]) == seq![0x5Au32, 0x6D, 0x38, 0x3D]) by (compute_only);
-    assert(forgiving_base64_encode(seq![0x66u8, 0x6F, 0x6F]) == seq![0x5Au32, 0x6D, 0x39, 0x76]) by (compute_only);
-    assert(forgiving_base64_encode(seq![0x66u8, 0x6F, 0x6F, 0x62, 0x61, 0x72])
-        == seq![0x5Au32, 0x6D, 0x39, 0x76, 0x59, 0x6D, 0x46, 0x79]) by (compute_only);
-    assert(forgiving_base64_decode(seq![0x5Au32, 0x67, 0x3D, 0x3D]) == Some(seq![0x66u8])) by (compute_only);
-    assert(forgiving_base64_decode(seq![0x5Au32, 0x6D, 0x38, 0x3D]) == Some(seq![0x66u8, 0x6F])) by (compute_only);
-    assert(forgiving_base64_decode(seq![0x5Au32, 0x6D, 0x39, 0x76, 0x59, 0x6D, 0x46, 0x79])
-        == Some(seq![0x66u8, 0x6F, 0x6F, 0x62, 0x61, 0x72])) by (compute_only);
-    assert(forgiving_base64_decode(seq![0x59u32, 0x51]) == Some(seq![0x61u8])) by (compute_only);
-    assert(forgiving_base64_decode(seq![0x59u32, 0x52]) == Some(seq![0x61u8])) by (compute_only);
 }
 
 } // verus!

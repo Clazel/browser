@@ -12,13 +12,15 @@
 //! - [`contract`]: what the executable decoder and encoder are proven to
 //!   satisfy.
 //! - [`decode`] and [`encode`]: the executable code, and its proofs.
-//! - [`lemmas`]: facts proven about the spec itself.
+//! - [`lemmas`]: facts proven about the spec itself; [`examples`]: the
+//!   standards' examples, evaluated.
 //! - [`independent`]: a second transcription, from RFC 4648, proven equal
 //!   to [`spec`] on canonical input.
 
 pub mod contract;
 pub mod decode;
 pub mod encode;
+pub mod examples;
 pub mod independent;
 pub mod lemmas;
 pub mod spec;

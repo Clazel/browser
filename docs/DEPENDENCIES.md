@@ -53,6 +53,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | quote | 1.0.47 | proof | Token generation for Verus's macros. Also locked under `serde_derive` (tooling). |
 | unicode-ident | 1.0.27 | proof | Identifier rules for `proc-macro2`. |
 | encoding_rs | 0.8.35 | test | Firefox's Encoding Standard implementation: the reference engine in `clazel-encoding`'s differential test (`tests/conformance_utf8.rs`). Pinned to 0.8.35, whose only dependency is `cfg-if`; later releases add five more. |
+| base64 | 0.22.1 | test | RFC 4648 base64 implementation (rust-base64): the reference engine in `clazel-base64`'s differential test (`tests/conformance_base64.rs`). No dependencies. |
 | cfg-if | 1.0.5 | test | `#[cfg]` helper macro, required by `encoding_rs`. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | tooling | Required by `serde_json`. |

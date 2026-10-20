@@ -1,0 +1,303 @@
+{
+  "mutations": [
+    {
+      "id": "whitespace-drop-ff",
+      "file": "src/spec.rs",
+      "find": "c == 0x09 || c == 0x0A || c == 0x0C || c == 0x0D || c == 0x20",
+      "replace": "c == 0x09 || c == 0x0A || c == 0x0D || c == 0x20",
+      "expect": "killed",
+      "reason": "Drops U+000C FF from ASCII whitespace: the mutant fails on \"ab\\fcd\", so lemma_ignores_whitespace (which lists FF as a literal) is false. WPT has the same case.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_ignores_whitespace(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x0Cu32)",
+        "witness": "forgiving_base64_decode(insert(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x0Cu32)) is None && forgiving_base64_decode(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32]) is Some"
+      }
+    },
+    {
+      "id": "whitespace-add-vt",
+      "file": "src/spec.rs",
+      "find": "c == 0x0D || c == 0x20",
+      "replace": "c == 0x0B || c == 0x0D || c == 0x20",
+      "expect": "killed",
+      "reason": "Adds U+000B VT, which Infra does not list: the mutant accepts \"ab\\vcd\", so lemma_rejects_other is false. WPT has the same case.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_rejects_other(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x0Bu32)",
+        "witness": "forgiving_base64_decode(insert(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x0Bu32)) is Some"
+      }
+    },
+    {
+      "id": "step-1-keeps-whitespace",
+      "file": "src/spec.rs",
+      "find": "} else if is_ascii_whitespace(data.last()) {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Step 1 removes nothing: the mutant fails on \"ab cd\", so lemma_ignores_whitespace is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_ignores_whitespace(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x20u32)",
+        "witness": "forgiving_base64_decode(insert(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32], 2, 0x20u32)) is None && forgiving_base64_decode(seq![0x61u32, 0x62u32, 0x63u32, 0x64u32]) is Some"
+      }
+    },
+    {
+      "id": "step-2-never-two",
+      "file": "src/spec.rs",
+      "find": "if data.len() >= 2 && data[data.len() - 1] == pad() && data[data.len() - 2] == pad() {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Step 2 removes at most one \"=\": the encoding of one byte, \"AA==\", then fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x00u8])) is None"
+      }
+    },
+    {
+      "id": "step-2-never-one",
+      "file": "src/spec.rs",
+      "find": "} else if data.len() >= 1 && data[data.len() - 1] == pad() {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Step 2 never removes a single \"=\": the encoding of two bytes, \"AAA=\", then fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x00u8, 0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x00u8, 0x00u8])) is None"
+      }
+    },
+    {
+      "id": "step-2-any-length",
+      "file": "src/spec.rs",
+      "find": "let data = if data.len() % 4 == 0 { remove_trailing_padding(data) } else { data };",
+      "replace": "let data = remove_trailing_padding(data);",
+      "expect": "killed",
+      "reason": "Removes padding whatever the length: the mutant accepts \"ab=\", where the \"=\" does not complete a quantum, so lemma_padding_only_at_end is false. WPT has the same case.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_padding_only_at_end(seq![0x61u32, 0x62u32, 0x3Du32], 2)",
+        "witness": "forgiving_base64_decode(seq![0x61u32, 0x62u32, 0x3Du32]) is Some && remove_ascii_whitespace(seq![0x61u32, 0x62u32, 0x3Du32]) == seq![0x61u32, 0x62u32, 0x3Du32]"
+      }
+    },
+    {
+      "id": "step-3-removed",
+      "file": "src/spec.rs",
+      "find": "if data.len() % 4 == 1 {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "No failure on a single leftover character: the mutant accepts \"a\" and reaches step 9 with 6 bits, so lemma_step_9_assertion is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_step_9_assertion(seq![0x61u32])",
+        "witness": "forgiving_base64_decode(seq![0x61u32]) is Some && decode_loop(after_step_2(seq![0x61u32]), 0, seq![], empty_buffer()).buffer.len == 6"
+      }
+    },
+    {
+      "id": "step-3-remainder-2",
+      "file": "src/spec.rs",
+      "find": "if data.len() % 4 == 1 {",
+      "replace": "if data.len() % 4 == 2 {",
+      "expect": "killed",
+      "reason": "Fails on remainder 2 instead of 1: the encoding of one byte (\"AA\" after step 2) fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x00u8])) is None"
+      }
+    },
+    {
+      "id": "step-4-drop-plus",
+      "file": "src/spec.rs",
+      "find": "c == 0x2B || c == 0x2F || is_ascii_alphanumeric(c)",
+      "replace": "c == 0x2F || is_ascii_alphanumeric(c)",
+      "expect": "killed",
+      "reason": "Step 4 rejects \"+\": the encoding of F8, \"+A==\", fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xF8u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xF8u8])) is None"
+      }
+    },
+    {
+      "id": "step-4-allow-pad",
+      "file": "src/spec.rs",
+      "find": "c == 0x2B || c == 0x2F || is_ascii_alphanumeric(c)",
+      "replace": "c == 0x2B || c == 0x2F || c == 0x3D || is_ascii_alphanumeric(c)",
+      "expect": "killed",
+      "reason": "Step 4 lets \"=\" through: the mutant accepts \"a=bc\", so lemma_padding_only_at_end (which names \"=\" as a literal) is false. WPT has similar cases.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_padding_only_at_end(seq![0x61u32, 0x3Du32, 0x62u32, 0x63u32], 1)",
+        "witness": "forgiving_base64_decode(seq![0x61u32, 0x3Du32, 0x62u32, 0x63u32]) is Some && remove_ascii_whitespace(seq![0x61u32, 0x3Du32, 0x62u32, 0x63u32]) == seq![0x61u32, 0x3Du32, 0x62u32, 0x63u32]"
+      }
+    },
+    {
+      "id": "table-1-upper-short",
+      "file": "src/spec.rs",
+      "find": "if value <= 25 {",
+      "replace": "if value <= 24 {",
+      "expect": "killed",
+      "reason": "Table 1 value 25 becomes U+0060 (`): the encoding of 64 contains it and fails step 4, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x64u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x64u8])) is None"
+      }
+    },
+    {
+      "id": "table-1-digits-offset",
+      "file": "src/spec.rs",
+      "find": "(0x30 + (value - 52)) as u32",
+      "replace": "(0x30 + (value - 51)) as u32",
+      "expect": "killed",
+      "reason": "Table 1's digits shift by one, so value 61 becomes \":\": the encoding of F4 fails step 4, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xF4u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xF4u8])) is None"
+      }
+    },
+    {
+      "id": "table-1-swap-plus-slash",
+      "file": "src/spec.rs",
+      "find": "} else if value == 62 {",
+      "replace": "} else if value == 63 {",
+      "expect": "killed",
+      "reason": "Swaps \"+\" and \"/\" in Table 1. Encode and decode stay consistent with each other, so lemma_decode_encode still holds; RFC 4648 Table 1 in independent.rs encodes F8 as \"+A==\", where the mutant gives \"/A==\", so lemma_equals_forgiving_base64_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::independent::lemma_equals_forgiving_base64_encode(seq![0xF8u8])",
+        "witness": "forgiving_base64_encode(seq![0xF8u8])[0] == 0x2Fu32 && super::independent::rfc4648_encode(seq![0xF8u8])[0] == 0x2Bu32"
+      }
+    },
+    {
+      "id": "step-8-1-search-short",
+      "file": "src/spec.rs",
+      "find": "if row >= 64 {",
+      "replace": "if row >= 63 {",
+      "expect": "killed",
+      "reason": "Step 8.1 stops before row 63, so \"/\" decodes as 0: the encoding of FC, \"/A==\", decodes to 00, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFCu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFCu8])) != Some(seq![0xFCu8])"
+      }
+    },
+    {
+      "id": "step-8-2-five-bits",
+      "file": "src/spec.rs",
+      "find": "bits: buffer.bits * 64 + n",
+      "replace": "bits: buffer.bits * 32 + n",
+      "expect": "killed",
+      "reason": "Step 8.2 appends five bits: FF FF FF does not survive the round trip, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFu8, 0xFFu8, 0xFFu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFFu8, 0xFFu8, 0xFFu8])) != Some(seq![0xFFu8, 0xFFu8, 0xFFu8])"
+      }
+    },
+    {
+      "id": "step-8-3-at-18-bits",
+      "file": "src/spec.rs",
+      "find": "if buffer.len == 24 {",
+      "replace": "if buffer.len == 18 {",
+      "expect": "killed",
+      "reason": "Step 8.3 empties the buffer after 18 bits: \"YWJj\" (abc) decodes wrongly, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x61u8, 0x62u8, 0x63u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x61u8, 0x62u8, 0x63u8])) != Some(seq![0x61u8, 0x62u8, 0x63u8])"
+      }
+    },
+    {
+      "id": "step-8-3-first-byte",
+      "file": "src/spec.rs",
+      "find": "(buffer.bits / 65536) as u8",
+      "replace": "(buffer.bits / 32768) as u8",
+      "expect": "killed",
+      "reason": "Step 8.3 reads the first byte one bit late: 01 00 00 decodes to 02 00 00, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x01u8, 0x00u8, 0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x01u8, 0x00u8, 0x00u8])) != Some(seq![0x01u8, 0x00u8, 0x00u8])"
+      }
+    },
+    {
+      "id": "step-9-12-bits",
+      "file": "src/spec.rs",
+      "find": "output.push((buffer.bits / 16) as u8)",
+      "replace": "output.push((buffer.bits / 64) as u8)",
+      "expect": "killed",
+      "reason": "Step 9 discards six bits of 12, not four: FF decodes wrongly, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFFu8])) != Some(seq![0xFFu8])"
+      }
+    },
+    {
+      "id": "step-9-18-bits",
+      "file": "src/spec.rs",
+      "find": "let remaining = buffer.bits / 4;",
+      "replace": "let remaining = buffer.bits / 2;",
+      "expect": "killed",
+      "reason": "Step 9 discards one bit of 18, not two: FF FF decodes wrongly, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFu8, 0xFFu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFFu8, 0xFFu8])) != Some(seq![0xFFu8, 0xFFu8])"
+      }
+    },
+    {
+      "id": "encode-8-bits-padded-left",
+      "file": "src/spec.rs",
+      "find": "let group: nat = data[i as int] as nat * 16;",
+      "replace": "let group: nat = data[i as int] as nat;",
+      "expect": "killed",
+      "reason": "RFC 4648 case (2) with the zero bits added on the left: FF encodes as \"D/==\", which decodes to 0F, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFFu8])) != Some(seq![0xFFu8])"
+      }
+    },
+    {
+      "id": "encode-8-bits-one-pad",
+      "file": "src/spec.rs",
+      "find": "seq![encode_6_bit_group(group / 64), encode_6_bit_group(group), pad(), pad()]",
+      "replace": "seq![encode_6_bit_group(group / 64), encode_6_bit_group(group), pad()]",
+      "expect": "killed",
+      "reason": "RFC 4648 case (2) with one \"=\": \"AA=\" is not a whole quantum and fails step 4, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x00u8])) is None"
+      }
+    },
+    {
+      "id": "encode-16-bits-padded-short",
+      "file": "src/spec.rs",
+      "find": ") * 4;",
+      "replace": ") * 2;",
+      "expect": "killed",
+      "reason": "RFC 4648 case (3) with one zero bit, not two: FF FF does not survive the round trip, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0xFFu8, 0xFFu8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0xFFu8, 0xFFu8])) != Some(seq![0xFFu8, 0xFFu8])"
+      }
+    },
+    {
+      "id": "encode-24-bits-first-group",
+      "file": "src/spec.rs",
+      "find": "encode_6_bit_group(group / 262144),",
+      "replace": "encode_6_bit_group(group / 131072),",
+      "expect": "killed",
+      "reason": "The first 6-bit group of a 24-bit group is taken one bit late: 02 00 00 encodes as \"BgAA\" (not \"AgAA\"), which decodes to 06 00 00, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![0x02u8, 0x00u8, 0x00u8])",
+        "witness": "forgiving_base64_decode(forgiving_base64_encode(seq![0x02u8, 0x00u8, 0x00u8])) != Some(seq![0x02u8, 0x00u8, 0x00u8])"
+      }
+    }
+  ]
+}

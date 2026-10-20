@@ -9,10 +9,20 @@ description = "WHATWG Infra: forgiving-base64 decode and encode."
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only engine for the differential test in tests/conformance_base64.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped).
+[dev-dependencies]
+base64 = "=0.22.1"
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
-# the shipped code today; `target-tier` is what the policy requires.
+# the shipped code today; `target-tier` is what the policy requires. Tier 2:
+# the decoder and encoder are proven to meet their contracts; an independent
+# transcription (RFC 4648) is proven equal to the spec on canonical input and
+# to the encoder everywhere; every mutation is certified killed; and both are
+# tested against WPT fetch/data-urls and the `base64` crate
+# (tests/conformance_base64.rs).
 [package.metadata.clazel]
-tier = 0
+tier = 2
 target-tier = 2
 
 [package.metadata.verus]
