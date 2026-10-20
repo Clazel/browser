@@ -58,8 +58,13 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | cfg-if | 1.0.5 | test | `#[cfg]` helper macro, required by `encoding_rs`. |
 | percent-encoding | 2.3.2 | test | rust-url's percent-encoding (used by the `url` crate and Servo): a reference engine in `clazel-percent`'s differential test (`tests/conformance_percent.rs`). No dependencies. |
 | form_urlencoded | 1.2.2 | test | rust-url's `application/x-www-form-urlencoded` serializer: the reference for that percent-encode set in the same test. Its only dependency is `percent-encoding`. |
-| idna | 1.1.0 | test | rust-url's IDNA implementation (used by the `url` crate, Servo and Firefox): the reference engine in `clazel-idna`'s Punycode differential test (`tests/conformance_punycode.rs`). |
-| idna_adapter | 1.0.0 | test | `idna`'s Unicode back end, pinned to 1.0.0, the release with no Unicode tables and no dependencies (the Punycode module needs none). |
+| idna | 1.1.0 | test | rust-url's IDNA implementation (used by the `url` crate, Servo and Firefox): the reference engine in `clazel-idna`'s Punycode and UTS #46 differential tests (`tests/conformance_punycode.rs`, `tests/conformance_uts46.rs`). |
+| idna_adapter | 1.1.0 | test | `idna`'s Unicode back end, pinned to 1.1.0, the unicode-rs one (the 1.2 releases pull in ICU4X, about twenty crates). |
+| idna_mapping | 1.1.0 | test | UTS #46 mapping data for `idna_adapter` 1.1.0. |
+| unicode-joining-type | 1.0.0 | test | Joining_Type data, required by `idna_mapping`. No dependencies. |
+| unicode-bidi | 0.3.18 | test | Bidi_Class data, required by `idna_adapter` 1.1.0. |
+| unicode-normalization | 0.1.26 | test | NFC, required by `idna_adapter` 1.1.0. |
+| tinyvec | 1.13.3 | test | Small-vector type, required by `unicode-normalization`. |
 | smallvec | 1.16.3 | test | Small-vector type, required by `idna`. No dependencies. |
 | utf8_iter | 1.0.4 | test | UTF-8 iteration, required by `idna`. No dependencies. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
