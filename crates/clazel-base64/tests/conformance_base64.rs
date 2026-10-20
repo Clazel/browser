@@ -83,7 +83,10 @@ impl Rng {
     }
 
     fn bytes(&mut self, max_len: u64) -> Vec<u8> {
-        let len = self.next().checked_rem(max_len.saturating_add(1)).unwrap_or(0);
+        let len = self
+            .next()
+            .checked_rem(max_len.saturating_add(1))
+            .unwrap_or(0);
         (0..len).map(|_| self.next().to_le_bytes()[0]).collect()
     }
 }
