@@ -10,9 +10,11 @@
 //!   vendored conformance suites (`tests/generated/*.rs`). `check` and
 //!   `verify` fail if a committed table is stale.
 //! - `cargo xtask report [--write]`: run the checks that produce the README
-//!   status table, print it, and with `--write` update README.md. `verify`
+//!   status table (including each crate's conformance suites, see
+//!   `conformance.rs`), print it, and with `--write` update README.md. `verify`
 //!   fails if README.md's table differs from what it measured.
 
+mod conformance;
 mod deps;
 mod mutate;
 mod pins;
@@ -518,6 +520,35 @@ fn mutations(r: &mut Runner, crates: &[Crate], root: &Path, only: Option<&str>) 
     }
 }
 
+/// Run every crate's conformance tests and record the suites they report
+/// (format: `conformance.rs`).
+fn conformance_suites(r: &mut Runner, crates: &[Crate]) {
+    for c in crates {
+        let res = conformance::run(c);
+        let outcome = match res {
+            Ok(suites) if suites.is_empty() => {
+                r.metrics.entry(c.name.clone()).or_default().conformance = Some(Vec::new());
+                continue;
+            }
+            Ok(suites) => {
+                let notes = suites
+                    .iter()
+                    .map(|s| {
+                        format!(
+                            "{}: {} pass, {} expected failures, {} fail, of {}",
+                            s.name, s.pass, s.xfail, s.fail, s.total
+                        )
+                    })
+                    .collect();
+                r.metrics.entry(c.name.clone()).or_default().conformance = Some(suites);
+                Outcome::Pass(notes)
+            }
+            Err(problems) => Outcome::Fail(problems),
+        };
+        r.step(&format!("conformance {}", c.name), outcome);
+    }
+}
+
 /// Compare (or, with `write`, update) README.md's status table against what
 /// this run measured.
 fn readme_table(r: &mut Runner, write: bool) {
@@ -665,6 +696,7 @@ fn main() -> ExitCode {
         kani(&mut r, &crates, &pins);
         verus(&mut r, &crates, &pins);
         mutations(&mut r, &crates, &root, None);
+        conformance_suites(&mut r, &crates);
         readme_table(&mut r, write);
     }
     if r.failed {
