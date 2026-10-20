@@ -1,0 +1,745 @@
+{
+  "mutations": [
+    {
+      "id": "ipv4-number-hex-prefix-upper",
+      "file": "src/host/spec.rs",
+      "find": "input[1] == 0x58",
+      "replace": "input[1] == 0x78",
+      "expect": "killed",
+      "reason": "Drops \"0X\" from IPv4 number parser step 4: \"0XFF\" is then octal and fails, where the step reads \"0X\" or \"0x\" (255), so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x58, 0x46, 0x46]) == Some(0xFFnat))"
+      }
+    },
+    {
+      "id": "ipv4-number-octal-radix",
+      "file": "src/host/spec.rs",
+      "find": "(true, input.subrange(1, input.len() as int), 8nat)",
+      "replace": "(true, input.subrange(1, input.len() as int), 10nat)",
+      "expect": "killed",
+      "reason": "Reads a leading 0 as decimal (step 5.3 sets R to 8): \"010\" is 10, not 8, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x31, 0x30]) == Some(8nat))"
+      }
+    },
+    {
+      "id": "ipv4-number-hex-radix",
+      "file": "src/host/spec.rs",
+      "find": "(true, input.subrange(2, input.len() as int), 16nat)",
+      "replace": "(true, input.subrange(2, input.len() as int), 10nat)",
+      "expect": "killed",
+      "reason": "Reads \"0x\" numbers as decimal (step 4.3 sets R to 16): \"0xffffffff\" fails, where URL §3's table gives 255.255.255.255, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x78, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66]) == Some(0xFFFF_FFFFnat))"
+      }
+    },
+    {
+      "id": "ipv4-number-empty-after-prefix",
+      "file": "src/host/spec.rs",
+      "find": "Some((0nat, true))",
+      "replace": "None",
+      "expect": "killed",
+      "reason": "Fails on \"0x\" (step 6 returns (0, true)): URL §3's table gives 0.0.0.0, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x78]) == Some(0nat))"
+      }
+    },
+    {
+      "id": "ipv4-number-radix-digit-bound",
+      "file": "src/host/spec.rs",
+      "find": "is_ascii_hex_digit(c) && hex_digit_value(c) < r",
+      "replace": "is_ascii_hex_digit(c) && hex_digit_value(c) <= r",
+      "expect": "killed",
+      "reason": "Lets a digit equal to R through (step 7): \"08\" parses as octal 8, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x38]) is None)"
+      }
+    },
+    {
+      "id": "ipv4-number-radix-value-base",
+      "file": "src/host/spec.rs",
+      "find": "radix_value(s.drop_last(), r) * r +",
+      "replace": "radix_value(s.drop_last(), r) * 10 +",
+      "expect": "killed",
+      "reason": "Always multiplies by 10 (step 8 is radix-R notation): \"0xffffffff\" is no longer 2^32 - 1, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x78, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66, 0x66]) == Some(0xFFFF_FFFFnat))"
+      }
+    },
+    {
+      "id": "hex-value-lower",
+      "file": "src/host/spec.rs",
+      "find": "(c - 0x57) as nat",
+      "replace": "(c - 0x56) as nat",
+      "expect": "killed",
+      "reason": "Gives \"a\" the value 11: the IPv6 parser reads \"a::\" as b::, where RFC 4291 §2.2 (independent.rs) gives a::, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x61u32, 0x3A, 0x3A])",
+        "witness": "ipv6address(seq![0x61u32, 0x3A, 0x3A]) is Some && !(super::spec::ipv6_parser(seq![0x61u32, 0x3A, 0x3A]) == ipv6address(seq![0x61u32, 0x3A, 0x3A]))"
+      }
+    },
+    {
+      "id": "hex-value-upper",
+      "file": "src/host/spec.rs",
+      "find": "(c - 0x37) as nat",
+      "replace": "(c - 0x36) as nat",
+      "expect": "killed",
+      "reason": "Gives \"A\" the value 11: the IPv6 parser reads \"A::\" as b::, where RFC 4291 §2.2 gives a::, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x41u32, 0x3A, 0x3A])",
+        "witness": "ipv6address(seq![0x41u32, 0x3A, 0x3A]) is Some && !(super::spec::ipv6_parser(seq![0x41u32, 0x3A, 0x3A]) == ipv6address(seq![0x41u32, 0x3A, 0x3A]))"
+      }
+    },
+    {
+      "id": "hex-digit-lower-range",
+      "file": "src/host/spec.rs",
+      "find": "(0x61 <= c <= 0x66)",
+      "replace": "(0x61 <= c <= 0x65)",
+      "expect": "killed",
+      "reason": "Drops \"f\" from the ASCII hex digits: the IPv6 parser fails on \"f::\", an RFC 3986 IPv6address, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x66u32, 0x3A, 0x3A])",
+        "witness": "ipv6address(seq![0x66u32, 0x3A, 0x3A]) is Some && !(super::spec::ipv6_parser(seq![0x66u32, 0x3A, 0x3A]) == ipv6address(seq![0x66u32, 0x3A, 0x3A]))"
+      }
+    },
+    {
+      "id": "ends-in-number-step3",
+      "file": "src/host/spec.rs",
+      "find": "let parts = if parts.last().len() == 0 {",
+      "replace": "let parts = if false {",
+      "expect": "killed",
+      "reason": "Keeps a trailing empty part (step 3 removes it): \"example.1.\" no longer ends in a number, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ends_in_a_number(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x31, 0x2E]))"
+      }
+    },
+    {
+      "id": "ends-in-number-step5-empty",
+      "file": "src/host/spec.rs",
+      "find": "if last.len() > 0 && contains_only_ascii_digits(last) {",
+      "replace": "if contains_only_ascii_digits(last) {",
+      "expect": "killed",
+      "reason": "Counts an empty last part as digits (step 5 requires it non-empty): \"a..\" ends in a number, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(!ends_in_a_number(seq![0x61u32, 0x2E, 0x2E]))"
+      }
+    },
+    {
+      "id": "ends-in-number-step6",
+      "file": "src/host/spec.rs",
+      "find": "} else if ipv4_number_parser(last) is Some {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops step 6: \"example.0x1\" no longer ends in a number, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ends_in_a_number(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x30, 0x78, 0x31]))"
+      }
+    },
+    {
+      "id": "only-digits-hex",
+      "file": "src/host/spec.rs",
+      "find": "s.len() == 0 || (is_ascii_digit(s.last())",
+      "replace": "s.len() == 0 || (is_ascii_hex_digit(s.last())",
+      "expect": "killed",
+      "reason": "Counts hex digits as ASCII digits (step 5): \"example.ab\" ends in a number, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(!ends_in_a_number(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x61, 0x62]))"
+      }
+    },
+    {
+      "id": "ipv4-step2-trailing-dot",
+      "file": "src/host/spec.rs",
+      "find": "let parts = if parts.last().len() == 0 && parts.len() > 1 {",
+      "replace": "let parts = if false {",
+      "expect": "killed",
+      "reason": "Keeps the empty last part (step 2.2 removes it): \"0300.0x10.010.\" fails, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv4_parser(seq![0x30u32, 0x33, 0x30, 0x30, 0x2E, 0x30, 0x78, 0x31, 0x30, 0x2E, 0x30, 0x31, 0x30, 0x2E]) == Some(0xC010_0008nat))"
+      }
+    },
+    {
+      "id": "ipv4-step4-five-parts",
+      "file": "src/host/spec.rs",
+      "find": "if parts.len() > 4 {",
+      "replace": "if parts.len() > 5 {",
+      "expect": "killed",
+      "reason": "Accepts five parts (step 4): \"1.2.3.4.0\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv4_parser(seq![0x31u32, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34, 0x2E, 0x35]) is None && ipv4_parser(seq![0x31u32, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34, 0x2E, 0x30]) is None)"
+      }
+    },
+    {
+      "id": "ipv4-step8-bound",
+      "file": "src/host/spec.rs",
+      "find": "any_greater_than_255(numbers, 0, (numbers.len() - 1) as nat)",
+      "replace": "any_greater_than_255(numbers, 1, (numbers.len() - 1) as nat)",
+      "expect": "killed",
+      "reason": "Skips the first part in step 8: \"300.255.255.255\" parses to more than 2^32 - 1, so lemma_ipv4_parser_32_bit is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_parser_32_bit(seq![0x33u32, 0x30, 0x30, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35])",
+        "witness": "ipv4_parser(seq![0x33u32, 0x30, 0x30, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35]) is Some && ipv4_parser(seq![0x33u32, 0x30, 0x30, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35, 0x2E, 0x32, 0x35, 0x35]).unwrap() >= 0x1_0000_0000nat"
+      }
+    },
+    {
+      "id": "ipv4-step9-power",
+      "file": "src/host/spec.rs",
+      "find": "pow256((5 - numbers.len()) as nat)",
+      "replace": "pow256((6 - numbers.len()) as nat)",
+      "expect": "killed",
+      "reason": "Allows a larger last part (step 9 is 256^(5 - size)): \"255.16777216\" parses to 2^32, so lemma_ipv4_parser_32_bit is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_parser_32_bit(seq![0x32u32, 0x35, 0x35, 0x2E, 0x31, 0x36, 0x37, 0x37, 0x37, 0x32, 0x31, 0x36])",
+        "witness": "ipv4_parser(seq![0x32u32, 0x35, 0x35, 0x2E, 0x31, 0x36, 0x37, 0x37, 0x37, 0x32, 0x31, 0x36]) is Some && ipv4_parser(seq![0x32u32, 0x35, 0x35, 0x2E, 0x31, 0x36, 0x37, 0x37, 0x37, 0x32, 0x31, 0x36]).unwrap() >= 0x1_0000_0000nat"
+      }
+    },
+    {
+      "id": "ipv4-step13-power",
+      "file": "src/host/spec.rs",
+      "find": "pow256((3 - counter) as nat))",
+      "replace": "pow256((2 - counter) as nat))",
+      "expect": "killed",
+      "reason": "Weights the parts one byte too low (step 13.1 is 256^(3 - counter)): 1.2.3.4 serializes and parses back as another address, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
+      }
+    },
+    {
+      "id": "ipv4-step13-product",
+      "file": "src/host/spec.rs",
+      "find": "ipv4 + numbers[counter as int] * pow256",
+      "replace": "ipv4 + numbers[counter as int] + pow256",
+      "expect": "killed",
+      "reason": "Adds instead of multiplying in step 13.1: 1.2.3.4 does not parse back, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
+      }
+    },
+    {
+      "id": "ipv6-step5-pointer",
+      "file": "src/host/spec.rs",
+      "find": "ipv6_main_loop(input, address, 1, Some(1), 2)",
+      "replace": "ipv6_main_loop(input, address, 1, Some(1), 1)",
+      "expect": "killed",
+      "reason": "Increases pointer by 1 instead of 2 in step 5.2: \"::1\" fails at the second \":\", where RFC 3986 accepts it, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x3Au32, 0x3A, 0x31])",
+        "witness": "ipv6address(seq![0x3Au32, 0x3A, 0x31]) is Some && !(super::spec::ipv6_parser(seq![0x3Au32, 0x3A, 0x31]) == ipv6address(seq![0x3Au32, 0x3A, 0x31]))"
+      }
+    },
+    {
+      "id": "ipv6-step5-check",
+      "file": "src/host/spec.rs",
+      "find": "if c_at(input, 1) != Some(0x3Au32) {",
+      "replace": "if c_at(input, 1) == Some(0x3Au32) {",
+      "expect": "killed",
+      "reason": "Inverts step 5.1: \"::1\" fails, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x3Au32, 0x3A, 0x31])",
+        "witness": "ipv6address(seq![0x3Au32, 0x3A, 0x31]) is Some && !(super::spec::ipv6_parser(seq![0x3Au32, 0x3A, 0x31]) == ipv6address(seq![0x3Au32, 0x3A, 0x31]))"
+      }
+    },
+    {
+      "id": "ipv6-step6-1-too-many",
+      "file": "src/host/spec.rs",
+      "find": "Some(c) => if piece_index == 8 {",
+      "replace": "Some(c) => if piece_index == 9 {",
+      "expect": "killed",
+      "reason": "Lets a ninth piece through (step 6.1): \"1:2:3:4:5:6:7:8:9\" or \"::1:2:3:4:5:6:7:8\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38, 0x3A, 0x39]) is None && ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38]) is None)"
+      }
+    },
+    {
+      "id": "ipv6-step6-2-multiple-compression",
+      "file": "src/host/spec.rs",
+      "find": "if compress is Some {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Drops step 6.2.1: \"1::2::3\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x31u32, 0x3A, 0x3A, 0x32, 0x3A, 0x3A, 0x33]) is None)"
+      }
+    },
+    {
+      "id": "ipv6-step6-4-length",
+      "file": "src/host/spec.rs",
+      "find": "if length >= 4 {",
+      "replace": "if length >= 5 {",
+      "expect": "killed",
+      "reason": "Reads five hex digits (step 6.4 stops at four): \"12345::\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x31u32, 0x32, 0x33, 0x34, 0x35, 0x3A, 0x3A]) is None)"
+      }
+    },
+    {
+      "id": "ipv6-step6-5-3-too-many",
+      "file": "src/host/spec.rs",
+      "find": "} else if piece_index > 6 {",
+      "replace": "} else if piece_index > 7 {",
+      "expect": "killed",
+      "reason": "Starts an IPv4 part at piece 7 (step 6.5.3): \"::1:2:3:4:5:6:1.2.3.4\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]) is None)"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-decimal",
+      "file": "src/host/spec.rs",
+      "find": "let ipv4_piece = ipv4_piece * 10 + number;",
+      "replace": "let ipv4_piece = ipv4_piece * 16 + number;",
+      "expect": "killed",
+      "reason": "Reads IPv4 parts in base 16 (step 6.5.5.4.4): \"::1.2.3.14\" gets 0x14, where RFC 4291 §2.2 gives 14, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x31, 0x34])",
+        "witness": "ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x31, 0x34]) is Some && !(super::spec::ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x31, 0x34]) == ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x31, 0x34]))"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-leading-zero",
+      "file": "src/host/spec.rs",
+      "find": "if ipv4_piece == 0 {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Drops step 6.5.5.4.3: \"::1.2.3.04\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x30, 0x34]) is None)"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-range",
+      "file": "src/host/spec.rs",
+      "find": "if ipv4_piece > 255 {",
+      "replace": "if ipv4_piece > 256 {",
+      "expect": "killed",
+      "reason": "Allows 256 (step 6.5.5.4.5): \"::1.2.3.256\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x32, 0x35, 0x36]) is None)"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-shift",
+      "file": "src/host/spec.rs",
+      "find": "address[piece_index] * 0x100 + ipv4_piece",
+      "replace": "address[piece_index] * 0x10 + ipv4_piece",
+      "expect": "killed",
+      "reason": "Shifts by 4 bits instead of 8 (step 6.5.5.5): \"::1.2.3.4\" gets the wrong last pieces, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34])",
+        "witness": "ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]) is Some && !(super::spec::ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]) == ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]))"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-piece-index",
+      "file": "src/host/spec.rs",
+      "find": "if numbers_seen == 2 || numbers_seen == 4 {",
+      "replace": "if numbers_seen == 2 {",
+      "expect": "killed",
+      "reason": "Does not move past the last piece after four numbers (step 6.5.5.7): \"::1.2.3.4\" is swapped wrongly, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34])",
+        "witness": "ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]) is Some && !(super::spec::ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]) == ipv6address(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34]))"
+      }
+    },
+    {
+      "id": "ipv4-in-ipv6-too-few",
+      "file": "src/host/spec.rs",
+      "find": "if numbers_seen != 4 {",
+      "replace": "if numbers_seen < 3 {",
+      "expect": "killed",
+      "reason": "Accepts three IPv4 parts (step 6.5.6): \"::1.2.3\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x3Au32, 0x3A, 0x31, 0x2E, 0x32, 0x2E, 0x33]) is None)"
+      }
+    },
+    {
+      "id": "ipv6-step6-6-trailing-colon",
+      "file": "src/host/spec.rs",
+      "find": "if c_at(input, after + 1) is None {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Drops step 6.6.2: \"1:2:3:4:5:6:7:8:\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38, 0x3A]) is None)"
+      }
+    },
+    {
+      "id": "ipv6-step6-9-value",
+      "file": "src/host/spec.rs",
+      "find": "ipv6_main_loop(input, address.update(piece_index, value), piece_index + 1, compress, after + 1)",
+      "replace": "ipv6_main_loop(input, address.update(piece_index, value + 1), piece_index + 1, compress, after + 1)",
+      "expect": "killed",
+      "reason": "Stores value + 1 (step 6.9): \"1:2:3:4:5:6:7:8\" gets 2:3:..., so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38])",
+        "witness": "ipv6address(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38]) is Some && !(super::spec::ipv6_parser(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38]) == ipv6address(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37, 0x3A, 0x38]))"
+      }
+    },
+    {
+      "id": "ipv6-step7-swaps",
+      "file": "src/host/spec.rs",
+      "find": "let swaps = piece_index - compress;",
+      "replace": "let swaps = piece_index - compress - 1;",
+      "expect": "killed",
+      "reason": "One swap too few (step 7.1): \"1::2\" leaves the 2 in place, where RFC 4291 gives 1::2, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x31u32, 0x3A, 0x3A, 0x32])",
+        "witness": "ipv6address(seq![0x31u32, 0x3A, 0x3A, 0x32]) is Some && !(super::spec::ipv6_parser(seq![0x31u32, 0x3A, 0x3A, 0x32]) == ipv6address(seq![0x31u32, 0x3A, 0x3A, 0x32]))"
+      }
+    },
+    {
+      "id": "ipv6-step7-swap-index",
+      "file": "src/host/spec.rs",
+      "find": "let other = compress + swaps - 1;",
+      "replace": "let other = compress + swaps;",
+      "expect": "killed",
+      "reason": "Swaps with the wrong piece (step 7.3): \"1::2\" loses the 2, so lemma_ipv6address_parses is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6address_parses(seq![0x31u32, 0x3A, 0x3A, 0x32])",
+        "witness": "ipv6address(seq![0x31u32, 0x3A, 0x3A, 0x32]) is Some && !(super::spec::ipv6_parser(seq![0x31u32, 0x3A, 0x3A, 0x32]) == ipv6address(seq![0x31u32, 0x3A, 0x3A, 0x32]))"
+      }
+    },
+    {
+      "id": "ipv6-step8-too-few",
+      "file": "src/host/spec.rs",
+      "find": "None => if piece_index != 8 {",
+      "replace": "None => if piece_index < 7 {",
+      "expect": "killed",
+      "reason": "Accepts seven pieces without \"::\" (step 8): \"1:2:3:4:5:6:7\" parses, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(ipv6_parser(seq![0x31u32, 0x3A, 0x32, 0x3A, 0x33, 0x3A, 0x34, 0x3A, 0x35, 0x3A, 0x36, 0x3A, 0x37]) is None)"
+      }
+    },
+    {
+      "id": "forbidden-host-caret",
+      "file": "src/host/spec.rs",
+      "find": "|| c == 0x5C || c == 0x5D || c == 0x5E || c == 0x7C",
+      "replace": "|| c == 0x5C || c == 0x5D || c == 0x7C",
+      "expect": "killed",
+      "reason": "Drops U+005E (^) from the forbidden host code points (§3.2): the opaque-host parser accepts \"example^example\", where URL §3's table gives failure, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(opaque_host_parser(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x5E, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65]) is None)"
+      }
+    },
+    {
+      "id": "opaque-host-encode-set",
+      "file": "src/host/spec.rs",
+      "find": "PercentEncodeSet::C0Control))",
+      "replace": "PercentEncodeSet::Fragment))",
+      "expect": "killed",
+      "reason": "Uses the fragment set (step 4 uses the C0 control set): \"a\\\"b\" becomes \"a%22b\", so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(opaque_host_parser(seq![0x61u32, 0x22, 0x62]) == Some(seq![0x61u32, 0x22, 0x62]))"
+      }
+    },
+    {
+      "id": "host-step1-bracket",
+      "file": "src/host/spec.rs",
+      "find": "if input.len() > 0 && input[0] == 0x5B {",
+      "replace": "if input.len() > 0 && input[0] == 0x5D {",
+      "expect": "killed",
+      "reason": "Tests for \"]\" instead of \"[\" in host parser step 1: \"[0:0::1]\" goes to the opaque-host parser and fails, where URL §3's table gives [::1], so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_parser(seq![0x5Bu32, 0x30, 0x3A, 0x30, 0x3A, 0x3A, 0x31, 0x5D], true, |d: Seq<u32>, b: bool| None::<Seq<u32>>) == Some(Host::Ipv6(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])))"
+      }
+    },
+    {
+      "id": "host-step1-1-close",
+      "file": "src/host/spec.rs",
+      "find": "if input.last() != 0x5D {",
+      "replace": "if input.last() == 0x5D {",
+      "expect": "killed",
+      "reason": "Inverts step 1.1: \"[0:0::1]\" fails, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_parser(seq![0x5Bu32, 0x30, 0x3A, 0x30, 0x3A, 0x3A, 0x31, 0x5D], true, |d: Seq<u32>, b: bool| None::<Seq<u32>>) == Some(Host::Ipv6(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])))"
+      }
+    },
+    {
+      "id": "host-step1-2-strip",
+      "file": "src/host/spec.rs",
+      "find": "match ipv6_parser(input.subrange(1, input.len() - 1)) {",
+      "replace": "match ipv6_parser(input.subrange(1, input.len() as int)) {",
+      "expect": "killed",
+      "reason": "Keeps the \"]\" (step 1.2 removes it): \"[0:0::1]\" fails, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_parser(seq![0x5Bu32, 0x30, 0x3A, 0x30, 0x3A, 0x3A, 0x31, 0x5D], true, |d: Seq<u32>, b: bool| None::<Seq<u32>>) == Some(Host::Ipv6(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])))"
+      }
+    },
+    {
+      "id": "host-step2-empty",
+      "file": "src/host/spec.rs",
+      "find": "Some(s) => if s.len() == 0 {",
+      "replace": "Some(s) => if s.len() == 1 {",
+      "expect": "killed",
+      "reason": "Makes one-code-point opaque hosts empty: \"0\" (opaque) becomes the empty host, where URL §3's table gives the opaque host \"0\", so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_parser(seq![0x30u32], true, |d: Seq<u32>, b: bool| None::<Seq<u32>>) == Some(Host::Opaque(seq![0x30u32])))"
+      }
+    },
+    {
+      "id": "host-step5-no-percent-decode",
+      "file": "src/host/spec.rs",
+      "find": "clazel_percent::spec::percent_decode_string(input),",
+      "replace": "clazel_encoding::utf8::spec::utf8_encode(input),",
+      "expect": "killed",
+      "reason": "Skips percent-decoding (step 5): \"%30\" is not 0.0.0.0, where URL §3's table gives 0.0.0.0, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_parser(seq![0x25u32, 0x33, 0x30], false, |d: Seq<u32>, b: bool| Some(d)) == Some(Host::Ipv4(0nat)) && host_parser(seq![0x25u32, 0x33, 0x30], true, |d: Seq<u32>, b: bool| None::<Seq<u32>>) == Some(Host::Opaque(seq![0x25u32, 0x33, 0x30])))"
+      }
+    },
+    {
+      "id": "host-step8-ends-in-number",
+      "file": "src/host/spec.rs",
+      "find": "Some(ascii_domain) => if ends_in_a_number(ascii_domain) {",
+      "replace": "Some(ascii_domain) => if !ends_in_a_number(ascii_domain) {",
+      "expect": "killed",
+      "reason": "Inverts step 8: \"1.2.3.4\" is a domain and \"example\" an IPv4 failure, so lemma_step_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step_examples()",
+        "witness": "!(host_parser(seq![0x31u32, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34], false, |d: Seq<u32>, b: bool| Some(d)) == Some(Host::Ipv4(0x0102_0304nat)) && host_parser(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65], false, |d: Seq<u32>, b: bool| Some(d)) == Some(Host::Domain(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65])))"
+      }
+    },
+    {
+      "id": "serialize-integer-digit",
+      "file": "src/host/spec.rs",
+      "find": "seq![(0x30 + n % 10) as u32]",
+      "replace": "seq![(0x31 + n % 10) as u32]",
+      "expect": "killed",
+      "reason": "Writes the wrong last digit: 10.11.12.13 does not parse back, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0xa0b0c0dnat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0xa0b0c0dnat)) == Some(0xa0b0c0dnat))"
+      }
+    },
+    {
+      "id": "ipv4-serializer-dot",
+      "file": "src/host/spec.rs",
+      "find": "let output = if i != 4 {",
+      "replace": "let output = if i != 3 {",
+      "expect": "killed",
+      "reason": "Misplaces the dots (step 3.2): 1.2.3.4 does not parse back, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
+      }
+    },
+    {
+      "id": "ipv4-serializer-shift",
+      "file": "src/host/spec.rs",
+      "find": "ipv4_serializer_loop(output, n / 256, i + 1)",
+      "replace": "ipv4_serializer_loop(output, n / 255, i + 1)",
+      "expect": "killed",
+      "reason": "Divides by 255 (step 3.3): 1.2.3.4 serializes as another address, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
+      }
+    },
+    {
+      "id": "ipv6-serializer-uppercase",
+      "file": "src/host/spec.rs",
+      "find": "(0x57 + n) as u32",
+      "replace": "(0x37 + n) as u32",
+      "expect": "killed",
+      "reason": "Writes uppercase hex: a::  serializes as \"A::\", where RFC 5952 §4.3 (independent.rs) gives \"a::\", so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0xanat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0xanat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]) == rfc5952_text(seq![0xanat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]))"
+      }
+    },
+    {
+      "id": "ipv6-serializer-leading-zero",
+      "file": "src/host/spec.rs",
+      "find": "    if n < 16 {\n        seq![lowercase_hex_digit(n)]",
+      "replace": "    if n < 15 {\n        seq![lowercase_hex_digit(n)]",
+      "expect": "killed",
+      "reason": "Writes 15 as \"0f\": RFC 5952 §4.1 suppresses leading zeros, so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0xfnat, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0xfnat, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1]) == rfc5952_text(seq![0xfnat, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1]))"
+      }
+    },
+    {
+      "id": "ipv6-serializer-double-colon",
+      "file": "src/host/spec.rs",
+      "find": "let separator = if piece_index == 0 {",
+      "replace": "let separator = if piece_index == 9 {",
+      "expect": "killed",
+      "reason": "Writes one \":\" for compression at piece 0 (step 4.3.1): ::1 serializes as \":1\", where RFC 5952 gives \"::1\", so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1]) == rfc5952_text(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1]))"
+      }
+    },
+    {
+      "id": "ipv6-serializer-last-colon",
+      "file": "src/host/spec.rs",
+      "find": "let output = if piece_index != 7 {",
+      "replace": "let output = if piece_index != 6 {",
+      "expect": "killed",
+      "reason": "Puts the \":\" after piece 7 instead of 6 (step 4.5): 1:2:3:4:5:6:7:8 is mis-written, so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x1nat, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x1nat, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]) == rfc5952_text(seq![0x1nat, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8]))"
+      }
+    },
+    {
+      "id": "ipv6-serializer-ignore0",
+      "file": "src/host/spec.rs",
+      "find": "} else if ignore0 && address[piece_index as int] == 0 {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops step 4.1: the compressed zeros are written again after \"::\", so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1]) == rfc5952_text(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1]))"
+      }
+    },
+    {
+      "id": "compress-single-zero",
+      "file": "src/host/spec.rs",
+      "find": "find_compressed_loop(address, 0, None, 1, None, 0)",
+      "replace": "find_compressed_loop(address, 0, None, 0, None, 0)",
+      "expect": "killed",
+      "reason": "Starts longestSize at 0 (step 2 says 1): a single zero piece is compressed, which RFC 5952 §4.2.2 forbids, so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x1nat, 0x0, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x1nat, 0x0, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1]) == rfc5952_text(seq![0x1nat, 0x0, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1]))"
+      }
+    },
+    {
+      "id": "compress-first-longest",
+      "file": "src/host/spec.rs",
+      "find": "        let (longest_index, longest_size) = if found_size > longest_size {",
+      "replace": "        let (longest_index, longest_size) = if found_size >= longest_size {",
+      "expect": "killed",
+      "reason": "Prefers a later run of equal length (step 5.1.1): RFC 5952 §4.2.3 compresses the first, so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x1nat, 0x0, 0x0, 0x1, 0x0, 0x0, 0x1, 0x1])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x1nat, 0x0, 0x0, 0x1, 0x0, 0x0, 0x1, 0x1]) == rfc5952_text(seq![0x1nat, 0x0, 0x0, 0x1, 0x0, 0x0, 0x1, 0x1]))"
+      }
+    },
+    {
+      "id": "compress-trailing-run",
+      "file": "src/host/spec.rs",
+      "find": "        if found_size > longest_size {\n            // 6.",
+      "replace": "        if false {\n            // 6.",
+      "expect": "killed",
+      "reason": "Drops step 6: a trailing run of zeros is never compressed, which RFC 5952 §4.2.1 requires, so lemma_ipv6_serializer_rfc5952 is false.",
+      "certificate": {
+        "file": "src/host/independent.rs",
+        "lemma": "lemma_ipv6_serializer_rfc5952(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0])",
+        "witness": "!(super::spec::ipv6_serializer(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]) == rfc5952_text(seq![0x1nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0]))"
+      }
+    },
+    {
+      "id": "host-serializer-brackets",
+      "file": "src/host/spec.rs",
+      "find": "Host::Ipv6(address) => seq![0x5Bu32] + ipv6_serializer(address)",
+      "replace": "Host::Ipv6(address) => ipv6_serializer(address)",
+      "expect": "killed",
+      "reason": "Drops the \"[\" (host serializer step 2): ::1 serializes as \"::1]\", where URL §3's table gives \"[::1]\", so lemma_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(host_serializer(Host::Ipv6(seq![0x0nat, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1])) == seq![0x5Bu32, 0x3A, 0x3A, 0x31, 0x5D])"
+      }
+    },
+    {
+      "id": "collect-wrong-delimiter",
+      "file": "src/host/spec.rs",
+      "find": "if position < input.len() && input[position as int] != delimiter {",
+      "replace": "if position < input.len() && input[position as int] != 0x2Fu32 {",
+      "expect": "killed",
+      "reason": "Strictly splits on \"/\" whatever the delimiter: 1.2.3.4 is one part and does not parse back, so lemma_ipv4_serialize_parse is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
+        "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
+      }
+    }
+  ]
+}

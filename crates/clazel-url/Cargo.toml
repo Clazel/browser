@@ -15,9 +15,16 @@ clazel-encoding = { path = "../clazel-encoding" }
 clazel-percent = { path = "../clazel-percent" }
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
-# the shipped code today; `target-tier` is what the policy requires.
+# the shipped code today; `target-tier` is what the policy requires. Tier 2
+# for what ships, which is URL §3.5 and §3.6 (hosts): every exec function
+# is proven to meet its contract; independent.rs (RFC 3986, RFC 4291, RFC
+# 5952) is proven to agree where the standards do; every mutation is
+# certified killed; tests/conformance_hosts.rs runs WPT url/ host rows and
+# a differential test against std::net. The host parser's domain branch
+# waits on the domain parser (item 1.8): it ships as two proven halves
+# around it. The URL parser (§4) is item 1.10.
 [package.metadata.clazel]
-tier = 0
+tier = 2
 target-tier = 2
 
 [package.metadata.verus]
