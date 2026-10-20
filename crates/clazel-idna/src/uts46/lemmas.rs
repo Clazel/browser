@@ -198,4 +198,75 @@ pub proof fn lemma_join_break(s: Seq<u32>)
     }
 }
 
+/// D108: positions `i` and `i + 1` of `s` hold a Reorderable Pair.
+pub open spec fn reorderable_at(s: Seq<u32>, i: int) -> bool {
+    ccc(s[i]) > ccc(s[i + 1]) && ccc(s[i + 1]) > 0
+}
+
+/// D109's result: "the sequence contains no more Reorderable Pairs".
+pub open spec fn no_reorderable_pair(s: Seq<u32>) -> bool {
+    forall|i: int| 0 <= i < s.len() - 1 ==> !#[trigger] reorderable_at(s, i)
+}
+
+proof fn lemma_insert_ordered_last(done: Seq<u32>, c: u32)
+    ensures
+        insert_ordered(done, c).len() == done.len() + 1,
+        insert_ordered(done, c).last() == c || (done.len() > 0 && insert_ordered(done, c).last() == done.last()),
+    decreases done.len()
+{
+    if !(ccc(c) == 0 || done.len() == 0 || ccc(done.last()) <= ccc(c)) {
+        lemma_insert_ordered_last(done.drop_last(), c);
+    }
+}
+
+proof fn lemma_insert_ordered_keeps(done: Seq<u32>, c: u32)
+    requires
+        no_reorderable_pair(done),
+    ensures
+        no_reorderable_pair(insert_ordered(done, c)),
+    decreases done.len()
+{
+    let r = insert_ordered(done, c);
+    lemma_insert_ordered_last(done, c);
+    if ccc(c) == 0 || done.len() == 0 || ccc(done.last()) <= ccc(c) {
+        assert forall|i: int| 0 <= i < r.len() - 1 implies !#[trigger] reorderable_at(r, i) by {
+            if i < done.len() - 1 {
+                assert(reorderable_at(done, i) == reorderable_at(r, i));
+            }
+        }
+    } else {
+        let d = done.drop_last();
+        assert forall|i: int| 0 <= i < d.len() - 1 implies !#[trigger] reorderable_at(d, i) by {
+            assert(reorderable_at(done, i) == reorderable_at(d, i));
+        }
+        lemma_insert_ordered_keeps(d, c);
+        lemma_insert_ordered_last(d, c);
+        let inner = insert_ordered(d, c);
+        assert forall|i: int| 0 <= i < r.len() - 1 implies !#[trigger] reorderable_at(r, i) by {
+            if i < inner.len() - 1 {
+                assert(reorderable_at(inner, i) == reorderable_at(r, i));
+            } else {
+                // The new pair: (inner's last, done's last).
+                if inner.last() != c {
+                    assert(reorderable_at(done, done.len() - 2) == reorderable_at(r, i));
+                }
+            }
+        }
+    }
+}
+
+/// D109: the Canonical Ordering Algorithm leaves no Reorderable Pair.
+pub proof fn lemma_canonical_order_no_reorderable_pair(s: Seq<u32>)
+    ensures
+        no_reorderable_pair(canonical_order(s)),
+        canonical_order(s).len() == s.len(),
+    decreases s.len()
+{
+    if s.len() > 0 {
+        lemma_canonical_order_no_reorderable_pair(s.drop_last());
+        lemma_insert_ordered_keeps(canonical_order(s.drop_last()), s.last());
+        lemma_insert_ordered_last(canonical_order(s.drop_last()), s.last());
+    }
+}
+
 } // verus!
