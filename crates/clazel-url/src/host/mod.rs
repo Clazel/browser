@@ -16,5 +16,11 @@
 pub mod contract;
 pub mod examples;
 pub mod independent;
+pub mod ipv4;
+pub mod ipv6;
+pub mod lemmas;
+pub mod parse;
+pub mod record;
+pub mod serialize;
 pub mod spec;
 pub mod termination;
