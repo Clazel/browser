@@ -13,3 +13,4 @@ pub mod tables;
 pub mod signatures;
 pub mod algorithms;
 pub mod lemmas;
+pub mod independent;
