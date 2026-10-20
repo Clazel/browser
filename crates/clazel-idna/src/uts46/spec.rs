@@ -381,6 +381,7 @@ pub open spec fn nfc(s: Seq<u32>) -> Seq<u32> {
 // ===========================================================================
 
 /// The input flags that may vary (see the modelling choices).
+#[derive(Clone, Copy)]
 pub struct Flags {
     /// UseSTD3ASCIIRules
     pub use_std3_ascii_rules: bool,
