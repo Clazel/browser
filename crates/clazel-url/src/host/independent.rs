@@ -1210,4 +1210,334 @@ pub proof fn lemma_ipv6address_parses(s: Seq<u32>)
     }
 }
 
+// ---------------------------------------------------------------------
+// IPv4: RFC 3986 IPv4address and the URL Standard's IPv4 parser and
+// serializer.
+// ---------------------------------------------------------------------
+
+/// The IPv4 number parser reads a `dec-octet` as its decimal value.
+pub proof fn lemma_ipv4_number_parser_dec_octet(e: Seq<u32>)
+    requires
+        dec_octet(e) is Some,
+    ensures
+        super::spec::ipv4_number_parser(e) == Some((dec_octet(e).unwrap(), false)),
+{
+    lemma_dec_octet(e);
+    reveal_with_fuel(super::spec::all_radix_digits, 4);
+    reveal_with_fuel(super::spec::radix_value, 4);
+    if e.len() == 1 {
+        assert(e.drop_last() =~= Seq::<u32>::empty());
+    } else if e.len() == 2 {
+        assert(e.drop_last() =~= seq![e[0]]);
+        assert(e.drop_last().drop_last() =~= Seq::<u32>::empty());
+    } else {
+        assert(e.drop_last() =~= seq![e[0], e[1]]);
+        assert(e.drop_last().drop_last() =~= seq![e[0]]);
+        assert(e.drop_last().drop_last().drop_last() =~= Seq::<u32>::empty());
+    }
+}
+
+/// An `IPv4address`, split at its dots.
+pub proof fn lemma_ipv4address_split(s: Seq<u32>)
+    requires
+        ipv4address_octets(s) is Some,
+    ensures
+        ({
+            let d1 = find(s, 0x2E, 0);
+            let d2 = find(s, 0x2E, d1 + 1);
+            let d3 = find(s, 0x2E, d2 + 1);
+            let parts = seq![
+                s.subrange(0, d1 as int),
+                s.subrange(d1 + 1int, d2 as int),
+                s.subrange(d2 + 1int, d3 as int),
+                s.subrange(d3 + 1int, s.len() as int),
+            ];
+            &&& s == super::lemmas::split_join(parts, 0x2E)
+            &&& forall|k: int| 0 <= k < 4 ==> super::lemmas::free_of(#[trigger] parts[k], 0x2E)
+            &&& forall|k: int| 0 <= k < 4 ==> dec_octet(#[trigger] parts[k]) is Some
+        }),
+{
+    let d1 = find(s, 0x2E, 0);
+    let d2 = find(s, 0x2E, d1 + 1);
+    let d3 = find(s, 0x2E, d2 + 1);
+    lemma_find(s, 0x2E, 0);
+    lemma_find(s, 0x2E, d1 + 1);
+    lemma_find(s, 0x2E, d2 + 1);
+    lemma_find(s, 0x2E, d3 + 1);
+    let e1 = s.subrange(0, d1 as int);
+    let e2 = s.subrange(d1 + 1int, d2 as int);
+    let e3 = s.subrange(d2 + 1int, d3 as int);
+    let e4 = s.subrange(d3 + 1int, s.len() as int);
+    let parts = seq![e1, e2, e3, e4];
+    reveal_with_fuel(super::lemmas::split_tail, 4);
+    assert(parts.drop_first() =~= seq![e2, e3, e4]);
+    assert(parts.drop_first().drop_first() =~= seq![e3, e4]);
+    assert(parts.drop_first().drop_first().drop_first() =~= seq![e4]);
+    assert(parts.drop_first().drop_first().drop_first().drop_first() =~= Seq::<Seq<u32>>::empty());
+    let dot = seq![0x2Eu32];
+    assert(s =~= e1 + (dot + e2 + (dot + e3 + (dot + e4 + Seq::<u32>::empty()))));
+    assert forall|k: int| 0 <= k < 4 implies super::lemmas::free_of(#[trigger] parts[k], 0x2E) by {
+        if k == 0 {
+            assert forall|q: int| 0 <= q < e1.len() implies e1[q] != 0x2E by {
+                assert(e1[q] == s[q]);
+            }
+        } else if k == 1 {
+            assert forall|q: int| 0 <= q < e2.len() implies e2[q] != 0x2E by {
+                assert(e2[q] == s[d1 + 1 + q]);
+            }
+        } else if k == 2 {
+            assert forall|q: int| 0 <= q < e3.len() implies e3[q] != 0x2E by {
+                assert(e3[q] == s[d2 + 1 + q]);
+            }
+        } else {
+            assert forall|q: int| 0 <= q < e4.len() implies e4[q] != 0x2E by {
+                assert(e4[q] == s[d3 + 1 + q]);
+            }
+        }
+    }
+}
+
+/// **RFC 3986 §3.2.2 `IPv4address` agrees with the URL Standard's IPv4
+/// parser:** every dotted-decimal string of four `dec-octet`s parses to the
+/// same address. (The URL Standard's parser accepts more: fewer parts,
+/// octal and hex parts, a trailing dot. Those strings are not
+/// `IPv4address`es.)
+pub proof fn lemma_ipv4address_parses(s: Seq<u32>)
+    requires
+        ipv4address(s) is Some,
+    ensures
+        super::spec::ipv4_parser(s) == ipv4address(s),
+{
+    lemma_ipv4address_split(s);
+    let d1 = find(s, 0x2E, 0);
+    let d2 = find(s, 0x2E, d1 + 1);
+    let d3 = find(s, 0x2E, d2 + 1);
+    let parts = seq![
+        s.subrange(0, d1 as int),
+        s.subrange(d1 + 1int, d2 as int),
+        s.subrange(d2 + 1int, d3 as int),
+        s.subrange(d3 + 1int, s.len() as int),
+    ];
+    super::lemmas::lemma_strictly_split_join(parts, 0x2E);
+    let o = ipv4address_octets(s).unwrap();
+    lemma_ipv4_number_parser_dec_octet(parts[0]);
+    lemma_ipv4_number_parser_dec_octet(parts[1]);
+    lemma_ipv4_number_parser_dec_octet(parts[2]);
+    lemma_ipv4_number_parser_dec_octet(parts[3]);
+    lemma_dec_octet(parts[0]);
+    lemma_dec_octet(parts[1]);
+    lemma_dec_octet(parts[2]);
+    lemma_dec_octet(parts[3]);
+    assert(parts[3].len() > 0);
+    reveal_with_fuel(super::spec::ipv4_parse_parts, 5);
+    let numbers = seq![o[0], o[1], o[2], o[3]];
+    assert(super::spec::ipv4_parse_parts(parts, 0, seq![]) == Some(numbers)) by {
+        assert(seq![o[0]] =~= Seq::<nat>::empty().push(o[0]));
+        assert(seq![o[0], o[1]] =~= seq![o[0]].push(o[1]));
+        assert(seq![o[0], o[1], o[2]] =~= seq![o[0], o[1]].push(o[2]));
+        assert(numbers =~= seq![o[0], o[1], o[2]].push(o[3]));
+    }
+    reveal_with_fuel(super::spec::any_greater_than_255, 4);
+    reveal_with_fuel(super::spec::pow256, 5);
+    assert(super::spec::pow256(1) == 256);
+    assert(super::spec::pow256(2) == 0x1_0000);
+    assert(super::spec::pow256(3) == 0x100_0000);
+    let rest = numbers.drop_last();
+    assert(rest =~= seq![o[0], o[1], o[2]]);
+    reveal_with_fuel(super::spec::ipv4_sum, 4);
+    let total = o[3] + o[0] * 0x100_0000 + o[1] * 0x1_0000 + o[2] * 0x100;
+    assert(super::spec::ipv4_sum(rest, 3, total) == total);
+    assert(total == ((o[0] * 256 + o[1]) * 256 + o[2]) * 256 + o[3]);
+}
+
+/// "Serialize an integer" writes a byte as its `dec-octet` text.
+pub proof fn lemma_serialize_integer_dec_octet(n: nat)
+    requires
+        n < 256,
+    ensures
+        super::spec::serialize_integer(n) == dec_octet_text(n),
+{
+    super::lemmas::lemma_serialize_byte(n);
+}
+
+/// **The URL Standard's IPv4 serializer writes RFC 3986's dotted-decimal
+/// form**, for every 32-bit address.
+pub proof fn lemma_ipv4_serializer_rfc3986(a: nat)
+    requires
+        a < 0x1_0000_0000,
+    ensures
+        super::spec::ipv4_serializer(a) == ipv4address_text(a),
+{
+    super::lemmas::lemma_ipv4_serializer_join(a);
+    assert(a / 256 / 256 / 256 == a / 0x100_0000 && a / 256 / 256 == a / 0x1_0000) by (nonlinear_arith)
+        requires
+            a < 0x1_0000_0000,
+    ;
+    lemma_serialize_integer_dec_octet(a % 256);
+    lemma_serialize_integer_dec_octet((a / 256) % 256);
+    lemma_serialize_integer_dec_octet((a / 256 / 256) % 256);
+    lemma_serialize_integer_dec_octet((a / 256 / 256 / 256) % 256);
+    let t0 = dec_octet_text(a % 256);
+    let t1 = dec_octet_text((a / 0x100) % 256);
+    let t2 = dec_octet_text((a / 0x1_0000) % 256);
+    let t3 = dec_octet_text((a / 0x100_0000) % 256);
+    let parts = seq![t3, t2, t1, t0];
+    reveal_with_fuel(super::lemmas::split_tail, 4);
+    assert(parts.drop_first() =~= seq![t2, t1, t0]);
+    assert(parts.drop_first().drop_first() =~= seq![t1, t0]);
+    assert(parts.drop_first().drop_first().drop_first() =~= seq![t0]);
+    assert(parts.drop_first().drop_first().drop_first().drop_first() =~= Seq::<Seq<u32>>::empty());
+    let dot = seq![0x2Eu32];
+    assert(super::lemmas::split_join(parts, 0x2E) =~= ipv4address_text(a));
+}
+
+// ---------------------------------------------------------------------
+// IP-literal and the host parser.
+// ---------------------------------------------------------------------
+
+/// **RFC 3986 `IP-literal` and the URL Standard's host parser:** an
+/// `IPv6address` in brackets parses to its address, whatever isOpaque and
+/// the domain parser; an `IPvFuture` in brackets is failure (a stated
+/// difference: the URL Standard has no IPvFuture hosts).
+pub proof fn lemma_ip_literal_host(s: Seq<u32>, is_opaque: bool, domain_parser: super::spec::DomainParser)
+    requires
+        ip_literal(s) is Some,
+    ensures
+        ip_literal(s) matches Some(IpLiteral::Ipv6(a)) ==> super::spec::host_parser(s, is_opaque, domain_parser) == Some(
+            super::spec::Host::Ipv6(a),
+        ),
+        ip_literal(s) matches Some(IpLiteral::Future) ==> super::spec::host_parser(s, is_opaque, domain_parser) is None,
+{
+    let inner = s.subrange(1, s.len() - 1);
+    match ipv6address(inner) {
+        Some(a) => {
+            lemma_ipv6address_parses(inner);
+        },
+        None => {
+            // IPv6 parser step 5 is not taken ("v" is not ":"); in step 6
+            // "v" is not a hex digit, ".", ":" or the end: 6.7 fails.
+            assert(inner[0] == 0x76 || inner[0] == 0x56);
+            assert(super::spec::ipv6_hex_digits(inner, 0, 0, 0) == (0nat, 0nat));
+        },
+    }
+}
+
+// ---------------------------------------------------------------------
+// RFC 5952 §4 and the URL Standard's IPv6 serializer.
+// ---------------------------------------------------------------------
+
+/// RFC 5952's field text is the URL Standard's "shortest possible
+/// lowercase hexadecimal number".
+pub proof fn lemma_field_text(n: nat)
+    ensures
+        field_text(n) == super::spec::shortest_lowercase_hex(n),
+    decreases n
+{
+    if n >= 16 {
+        lemma_field_text(n / 16);
+    }
+}
+
+/// Fields `i` to `j`, separated by ":", then one more ":".
+pub proof fn lemma_fields_text_colons(a: Seq<nat>, i: nat, j: nat)
+    requires
+        i < j <= a.len(),
+    ensures
+        fields_text(a, i, j) + seq![0x3Au32] == super::ipv6_text::hex_text_colons(a.subrange(i as int, j as int)),
+    decreases j - i
+{
+    lemma_field_text(a[i as int]);
+    let sub = a.subrange(i as int, j as int);
+    assert(sub.drop_first() =~= a.subrange(i + 1int, j as int));
+    if i + 1 == j {
+        assert(sub.drop_first() =~= Seq::<nat>::empty());
+        assert(super::ipv6_text::hex_text_colons(sub.drop_first()) =~= Seq::<u32>::empty());
+        assert(fields_text(a, i, j) + seq![0x3Au32] =~= super::ipv6_text::hex_text_colons(sub));
+    } else {
+        lemma_fields_text_colons(a, i + 1, j);
+        assert(fields_text(a, i, j) + seq![0x3Au32] =~= super::ipv6_text::hex_text_colons(sub));
+    }
+}
+
+/// Fields `i` to the end, separated by ":".
+pub proof fn lemma_fields_text_list(a: Seq<nat>, i: nat)
+    requires
+        i <= a.len(),
+    ensures
+        fields_text(a, i, a.len()) == super::ipv6_text::hex_text(a.subrange(i as int, a.len() as int)),
+    decreases a.len() - i
+{
+    let sub = a.subrange(i as int, a.len() as int);
+    if i < a.len() {
+        lemma_field_text(a[i as int]);
+        assert(sub.drop_first() =~= a.subrange(i + 1int, a.len() as int));
+        lemma_fields_text_list(a, i + 1);
+    } else {
+        assert(sub =~= Seq::<nat>::empty());
+    }
+}
+
+/// RFC 5952's zero run is the one the serializer skips.
+pub proof fn lemma_zero_run_same(a: Seq<nat>, i: nat)
+    requires
+        a.len() == 8,
+    ensures
+        zero_run(a, i) == super::ipv6_text::zero_run_len(a, i as int),
+    decreases 8 - i
+{
+    if i < 8 && a[i as int] == 0 {
+        lemma_zero_run_same(a, i + 1);
+    }
+}
+
+/// RFC 5952 §4.2's choice of run is the URL Standard's "compressed piece
+/// index": the first of the longest runs of at least two zero pieces.
+pub proof fn lemma_compressed_run_same(a: Seq<nat>)
+    requires
+        a.len() == 8,
+    ensures
+        super::spec::find_ipv6_compressed_piece_index(a) == match compressed_run(a) {
+            Some((start, _len)) => Some(start as int),
+            None => None,
+        },
+        compressed_run(a) matches Some((start, len)) ==> len == zero_run(a, start) && start < 8,
+{
+    reveal_with_fuel(super::spec::find_compressed_loop, 10);
+    reveal_with_fuel(longest_zero_run_from, 10);
+    reveal_with_fuel(zero_run, 10);
+}
+
+/// **The URL Standard's IPv6 serializer writes RFC 5952 §4's recommended
+/// text**, for every address.
+pub proof fn lemma_ipv6_serializer_rfc5952(a: Seq<nat>)
+    requires
+        a.len() == 8,
+    ensures
+        super::spec::ipv6_serializer(a) == rfc5952_text(a),
+{
+    super::ipv6_text::lemma_ipv6_serializer_text(a);
+    lemma_compressed_run_same(a);
+    match compressed_run(a) {
+        None => {
+            lemma_fields_text_list(a, 0);
+            assert(a.subrange(0, 8) =~= a);
+        },
+        Some((c, l)) => {
+            lemma_zero_run_same(a, c);
+            super::ipv6_text::lemma_zero_run(a, c as int);
+            lemma_fields_text_list(a, c + l);
+            let right = fields_text(a, c + l, 8);
+            if c == 0 {
+                assert(fields_text(a, 0, 0) =~= Seq::<u32>::empty());
+                assert(a.subrange(0, 0) =~= Seq::<nat>::empty());
+                assert(super::ipv6_text::hex_text_colons(a.subrange(0, 0)) =~= Seq::<u32>::empty());
+                assert(rfc5952_text(a) =~= super::spec::ipv6_serializer(a));
+            } else {
+                lemma_fields_text_colons(a, 0, c);
+                assert(rfc5952_text(a) =~= (fields_text(a, 0, c) + seq![0x3Au32]) + seq![0x3Au32] + right);
+            }
+        },
+    }
+}
+
 } // verus!
