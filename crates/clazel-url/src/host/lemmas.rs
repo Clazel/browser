@@ -675,4 +675,203 @@ pub proof fn lemma_host_serialize_parse(host: Host, is_opaque: bool, domain_pars
     }
 }
 
+// ---------------------------------------------------------------------
+// The IPv6 parser returns eight 16-bit pieces.
+// ---------------------------------------------------------------------
+
+/// The bound on step 6.4's value after `length` hex digits.
+pub open spec fn hex_bound(value: nat, length: nat) -> bool {
+    &&& length <= 4
+    &&& length == 0 ==> value == 0
+    &&& length == 1 ==> value < 0x10
+    &&& length == 2 ==> value < 0x100
+    &&& length == 3 ==> value < 0x1000
+    &&& length == 4 ==> value < 0x1_0000
+}
+
+/// Step 6.4 reads at most four hex digits, so its value is below 2^16.
+pub proof fn lemma_ipv6_hex_digits_bound(input: Seq<u32>, start: int, value: nat, length: nat)
+    requires
+        hex_bound(value, length),
+    ensures
+        hex_bound(ipv6_hex_digits(input, start, value, length).0, ipv6_hex_digits(input, start, value, length).1),
+        ipv6_hex_digits(input, start, value, length).0 < 0x1_0000,
+        ipv6_hex_digits(input, start, value, length).1 >= length,
+    decreases 4 - length
+{
+    if length < 4 {
+        if let Some(c) = c_at(input, start + length) {
+            if is_ascii_hex_digit(c) {
+                lemma_ipv6_hex_digits_bound(input, start, value * 0x10 + hex_digit_value(c), length + 1);
+            }
+        }
+    }
+}
+
+/// Step 6.5.5.4 keeps ipv4Piece at most 255.
+pub proof fn lemma_ipv4_piece_digits_bound(input: Seq<u32>, pointer: int, piece: nat)
+    requires
+        piece <= 255,
+    ensures
+        ipv4_piece_digits(input, pointer, piece) matches Some((p, _q)) ==> p <= 255,
+    decreases input.len() - pointer
+{
+    if let Some(c) = c_at(input, pointer) {
+        if is_ascii_digit(c) && piece != 0 && piece * 10 + (c - 0x30) as nat <= 255 {
+            lemma_ipv4_piece_digits_bound(input, pointer + 1, piece * 10 + (c - 0x30) as nat);
+        }
+    }
+}
+
+/// Eight pieces, each below 2^16.
+pub open spec fn eight_pieces(a: Seq<nat>) -> bool {
+    a.len() == 8 && super::ipv6_text::all_pieces(a)
+}
+
+/// Step 6.5.5 keeps eight 16-bit pieces, with zeros after pieceIndex.
+pub proof fn lemma_ipv4_in_ipv6_bound(input: Seq<u32>, address: Seq<nat>, pi0: int, pi: int, ns: nat, pointer: int)
+    requires
+        eight_pieces(address),
+        0 <= pi0 <= 6,
+        ns <= 4,
+        pi == pi0 + ns / 2,
+        ns % 2 == 0 && pi < 8 ==> address[pi] == 0,
+        ns % 2 == 1 ==> address[pi] <= 255,
+        forall|k: int| pi < k < 8 ==> address[k] == 0,
+    ensures
+        ipv4_in_ipv6(input, address, pi, ns, pointer) matches Some((a, p, n)) ==> eight_pieces(a) && pi0 <= p <= 8
+            && (n == 4 ==> forall|k: int| p <= k < 8 ==> a[k] == 0),
+    decreases 4 - ns
+{
+    if let Some(c) = c_at(input, pointer) {
+        if !(ns > 0 && !(c == 0x2E && ns < 4)) {
+            let q = if ns > 0 {
+                pointer + 1
+            } else {
+                pointer
+            };
+            if let Some(d) = c_at(input, q) {
+                if is_ascii_digit(d) {
+                    lemma_ipv4_piece_digits_bound(input, q + 1, (d - 0x30) as nat);
+                    if let Some((piece, next)) = ipv4_piece_digits(input, q + 1, (d - 0x30) as nat) {
+                        let value = address[pi] * 0x100 + piece;
+                        assert(value < 0x1_0000);
+                        let a2 = address.update(pi, value);
+                        let ns2 = ns + 1;
+                        let pi2 = if ns2 == 2 || ns2 == 4 {
+                            pi + 1
+                        } else {
+                            pi
+                        };
+                        assert(super::ipv6_text::all_pieces(a2)) by {
+                            assert forall|k: int| 0 <= k < a2.len() implies #[trigger] a2[k] < 0x1_0000 by {
+                                if k != pi {
+                                    assert(a2[k] == address[k]);
+                                }
+                            }
+                        }
+                        lemma_ipv4_in_ipv6_bound(input, a2, pi0, pi2, ns2, next);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The main loop keeps eight 16-bit pieces, with zeros after pieceIndex
+/// and compress at most pieceIndex.
+pub proof fn lemma_ipv6_main_loop_bound(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, pointer: int)
+    requires
+        eight_pieces(address),
+        0 <= pi <= 8,
+        forall|k: int| pi <= k < 8 ==> address[k] == 0,
+        compress matches Some(c) ==> 0 <= c <= pi,
+    ensures
+        ipv6_main_loop(input, address, pi, compress, pointer) matches Some((a, p, c)) ==> eight_pieces(a) && 0 <= p <= 8
+            && (c matches Some(c) ==> 0 <= c <= p),
+    decreases input.len() - pointer
+{
+    if let Some(c) = c_at(input, pointer) {
+        if pi != 8 {
+            if c == 0x3A {
+                if compress is None {
+                    lemma_ipv6_main_loop_bound(input, address, pi + 1, Some(pi + 1), pointer + 1);
+                }
+            } else {
+                lemma_ipv6_hex_digits_bound(input, pointer, 0, 0);
+                let (value, length) = ipv6_hex_digits(input, pointer, 0, 0);
+                let after = pointer + length;
+                let a2 = address.update(pi, value);
+                assert(super::ipv6_text::all_pieces(a2)) by {
+                    assert forall|k: int| 0 <= k < a2.len() implies #[trigger] a2[k] < 0x1_0000 by {
+                        if k != pi {
+                            assert(a2[k] == address[k]);
+                        }
+                    }
+                }
+                if c_at(input, after) == Some(0x2Eu32) {
+                    if length != 0 && pi <= 6 {
+                        lemma_ipv4_in_ipv6_bound(input, address, pi, pi, 0, pointer);
+                    }
+                } else if c_at(input, after) == Some(0x3Au32) {
+                    if c_at(input, after + 1) is Some {
+                        lemma_ipv6_main_loop_bound(input, a2, pi + 1, compress, after + 1);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Step 7.3's swaps keep eight 16-bit pieces.
+pub proof fn lemma_ipv6_swaps_bound(address: Seq<nat>, pi: int, compress: int, swaps: int)
+    requires
+        eight_pieces(address),
+        0 <= pi <= 7,
+        0 <= compress,
+        compress + swaps <= pi + 1,
+    ensures
+        eight_pieces(ipv6_swaps(address, pi, compress, swaps)),
+    decreases swaps
+{
+    if pi != 0 && swaps > 0 {
+        let other = compress + swaps - 1;
+        let a2 = address.update(pi, address[other]).update(other, address[pi]);
+        assert(super::ipv6_text::all_pieces(a2)) by {
+            assert forall|k: int| 0 <= k < a2.len() implies #[trigger] a2[k] < 0x1_0000 by {}
+        }
+        lemma_ipv6_swaps_bound(a2, pi - 1, compress, swaps - 1);
+    }
+}
+
+/// The IPv6 parser only returns IPv6 addresses (§3.1: "a list of 8
+/// 16-bit unsigned integers").
+pub proof fn lemma_ipv6_parser_pieces(input: Seq<u32>)
+    ensures
+        ipv6_parser(input) matches Some(a) ==> eight_pieces(a),
+{
+    let zeros8 = seq![0nat, 0, 0, 0, 0, 0, 0, 0];
+    assert(eight_pieces(zeros8)) by {
+        assert forall|k: int| 0 <= k < 8 implies #[trigger] zeros8[k] < 0x1_0000 by {}
+    }
+    lemma_ipv6_main_loop_bound(input, zeros8, 1, Some(1), 2);
+    lemma_ipv6_main_loop_bound(input, zeros8, 0, None, 0);
+    let looped = if c_at(input, 0) == Some(0x3Au32) {
+        if c_at(input, 1) != Some(0x3Au32) {
+            None
+        } else {
+            ipv6_main_loop(input, zeros8, 1, Some(1), 2)
+        }
+    } else {
+        ipv6_main_loop(input, zeros8, 0, None, 0)
+    };
+    if let Some((address, piece_index, compress)) = looped {
+        if let Some(c) = compress {
+            if piece_index <= 8 {
+                lemma_ipv6_swaps_bound(address, 7, c, piece_index - c);
+            }
+        }
+    }
+}
+
 } // verus!

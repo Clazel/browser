@@ -12,8 +12,34 @@
 //!
 //! These definitions were written from the RFCs alone, before
 //! `spec.rs` (the URL Standard transcription) existed, and committed
-//! first. The theorems relating them to `spec.rs` are added later, at the
-//! end of this file.
+//! first (`reg-name` was added later, also from RFC 3986 alone). The
+//! theorems relating them to `spec.rs` are at the end of this file.
+//!
+//! **What is proven** (for every input in the stated class):
+//! - [`lemma_ipv4address_parses`]: a string matching `IPv4address` gets the
+//!   same address from the URL Standard's IPv4 parser. Outside that class
+//!   the URL Standard accepts more (fewer than four parts, octal and hex
+//!   parts, a trailing "."), which RFC 3986 §7.4 calls "other forms of
+//!   dotted notation".
+//! - [`lemma_ipv4_serializer_rfc3986`]: the IPv4 serializer writes the
+//!   `IPv4address` text of every address.
+//! - [`lemma_ipv6address_parses`]: a string matching `IPv6address` gets the
+//!   address RFC 4291 §2.2 gives it from the URL Standard's IPv6 parser.
+//!   The converse (the URL Standard's IPv6 parser accepts nothing else) is
+//!   **not proven**; `tests/conformance_hosts.rs` checks it against
+//!   `std::net::Ipv6Addr` on 500,000 strings and finds no exception.
+//! - [`lemma_ipv6_serializer_rfc5952`]: the IPv6 serializer writes RFC 5952
+//!   §4's text of every address (§5's mixed notation is not used by the
+//!   URL Standard, and not transcribed).
+//! - [`lemma_ip_literal_host`]: the host parser gives a bracketed
+//!   `IPv6address` its address, and fails on `IPvFuture` (a difference:
+//!   the URL Standard has no IPvFuture hosts).
+//! - [`lemma_reg_name_opaque_host`]: every `reg-name` is accepted by the
+//!   opaque-host parser, unchanged. The URL Standard accepts more (any
+//!   code point but the forbidden host code points).
+//!
+//! Not related here: domains, since the host parser's domain branch
+//! waits on the domain parser (item 1.8).
 //!
 //! Modelling choices (each a deviation in form, not in meaning):
 //! - A string is a `Seq<u32>` of code points. An address is a `nat` (IPv4)
