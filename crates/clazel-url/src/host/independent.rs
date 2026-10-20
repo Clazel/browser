@@ -538,4 +538,676 @@ pub open spec fn rfc5952_text(a: Seq<nat>) -> Seq<u32> {
     }
 }
 
+// =====================================================================
+// Theorems: what the RFC transcription and the URL Standard
+// transcription (`spec.rs`) are proven to agree on. Everything above was
+// written before `spec.rs`; everything below relates the two.
+// =====================================================================
+
+// ---------------------------------------------------------------------
+// Code points and hex numbers.
+// ---------------------------------------------------------------------
+
+/// `HEXDIG` is the URL Standard's ASCII hex digit, with the same value.
+pub proof fn lemma_hexdig(c: u32)
+    ensures
+        is_hexdig(c) == super::spec::is_ascii_hex_digit(c),
+        is_digit(c) == super::spec::is_ascii_digit(c),
+        is_hexdig(c) ==> hexdig_value(c) == super::spec::hex_digit_value(c),
+{
+}
+
+/// An `h16`'s digits and value, in the URL Standard's terms.
+pub proof fn lemma_h16(t: Seq<u32>)
+    requires
+        h16(t) is Some,
+    ensures
+        1 <= t.len() <= 4,
+        super::ipv6_text::all_hex(t),
+        h16(t) == Some(super::spec::radix_value(t, 16)),
+        h16(t).unwrap() < 0x1_0000,
+{
+    lemma_hex_number(t);
+    reveal_with_fuel(super::spec::radix_value, 5);
+}
+
+/// `all_hexdig` and `hex_number` are the URL Standard's hex digits and
+/// radix-16 value.
+pub proof fn lemma_hex_number(t: Seq<u32>)
+    requires
+        all_hexdig(t),
+    ensures
+        super::ipv6_text::all_hex(t),
+        hex_number(t) == super::spec::radix_value(t, 16),
+        t.len() <= 4 ==> hex_number(t) < 0x1_0000,
+    decreases t.len()
+{
+    if t.len() > 0 {
+        lemma_hex_number(t.drop_last());
+        lemma_hexdig(t.last());
+        assert forall|k: int| 0 <= k < t.len() implies super::spec::is_ascii_hex_digit(#[trigger] t[k]) by {
+            if k < t.len() - 1 {
+                assert(t.drop_last()[k] == t[k]);
+            }
+        }
+        if t.len() <= 4 {
+            let m = t.drop_last();
+            if m.len() == 0 {
+                assert(hex_number(m) == 0);
+            } else if m.len() == 1 {
+                lemma_hex_number_bound(m);
+            } else if m.len() == 2 {
+                lemma_hex_number_bound(m);
+            } else {
+                lemma_hex_number_bound(m);
+            }
+        }
+    }
+}
+
+/// `hex_number(t) < 16^|t|`, for up to three digits.
+pub proof fn lemma_hex_number_bound(t: Seq<u32>)
+    requires
+        all_hexdig(t),
+        t.len() <= 3,
+    ensures
+        t.len() == 0 ==> hex_number(t) == 0,
+        t.len() == 1 ==> hex_number(t) < 16,
+        t.len() == 2 ==> hex_number(t) < 256,
+        t.len() == 3 ==> hex_number(t) < 0x1000,
+    decreases t.len()
+{
+    if t.len() > 0 {
+        lemma_hex_number_bound(t.drop_last());
+    }
+}
+
+// ---------------------------------------------------------------------
+// The URL Standard's IPv6 parser on RFC text: one piece.
+// ---------------------------------------------------------------------
+
+/// The IPv6 main loop reads an `h16` followed by ":" and more text.
+pub proof fn lemma_main_loop_h16_colon(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int, t: Seq<u32>)
+    requires
+        super::ipv6_text::text_at(input, p, t),
+        h16(t) is Some,
+        p + t.len() + 1 < input.len(),
+        input[p + t.len()] == 0x3A,
+        0 <= pi < 8,
+    ensures
+        super::spec::ipv6_main_loop(input, address, pi, compress, p) == super::spec::ipv6_main_loop(
+            input,
+            address.update(pi, h16(t).unwrap()),
+            pi + 1,
+            compress,
+            p + t.len() + 1,
+        ),
+{
+    lemma_h16(t);
+    assert(input[p] == t[0]);
+    super::ipv6_text::lemma_hex_digits_read(input, p, t, 0);
+    assert(t.subrange(0, 0) =~= Seq::<u32>::empty());
+}
+
+/// The IPv6 main loop reads a final `h16`, up to the end.
+pub proof fn lemma_main_loop_h16_end(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int, t: Seq<u32>)
+    requires
+        super::ipv6_text::text_at(input, p, t),
+        h16(t) is Some,
+        p + t.len() == input.len(),
+        0 <= pi < 8,
+    ensures
+        super::spec::ipv6_main_loop(input, address, pi, compress, p) == Some((address.update(pi, h16(t).unwrap()), pi + 1, compress)),
+{
+    lemma_h16(t);
+    assert(input[p] == t[0]);
+    super::ipv6_text::lemma_hex_digits_read(input, p, t, 0);
+    assert(t.subrange(0, 0) =~= Seq::<u32>::empty());
+}
+
+// ---------------------------------------------------------------------
+// The URL Standard's IPv6 parser on RFC text: an IPv4 tail.
+// ---------------------------------------------------------------------
+
+/// A `dec-octet`'s shape.
+pub proof fn lemma_dec_octet(e: Seq<u32>)
+    requires
+        dec_octet(e) is Some,
+    ensures
+        1 <= e.len() <= 3,
+        forall|k: int| 0 <= k < e.len() ==> is_digit(#[trigger] e[k]),
+        e.len() >= 2 ==> e[0] != 0x30,
+        dec_octet(e).unwrap() <= 255,
+{
+}
+
+/// IPv4-in-IPv6 step 6.5.5.4 reads the rest of a `dec-octet` after its
+/// first digit, and gives its value.
+pub proof fn lemma_piece_digits_dec_octet(input: Seq<u32>, q: int, e: Seq<u32>)
+    requires
+        super::ipv6_text::text_at(input, q, e),
+        dec_octet(e) is Some,
+        q + e.len() == input.len() || !is_digit(input[q + e.len()]),
+    ensures
+        super::spec::ipv4_piece_digits(input, q + 1, digit_value(e[0])) == Some((dec_octet(e).unwrap(), q + e.len())),
+{
+    lemma_dec_octet(e);
+    reveal_with_fuel(super::spec::ipv4_piece_digits, 4);
+    assert(input[q] == e[0]);
+    if e.len() >= 2 {
+        assert(input[q + 1] == e[1]);
+    }
+    if e.len() == 3 {
+        assert(input[q + 2] == e[2]);
+    }
+}
+
+/// One round of IPv6 parser step 6.5.5: a `dec-octet` (after "." unless it
+/// is the first).
+pub proof fn lemma_ipv4_in_ipv6_step(input: Seq<u32>, address: Seq<nat>, pi: int, ns: nat, p: int, e: Seq<u32>)
+    requires
+        ns < 4,
+        0 <= p < input.len(),
+        ns > 0 ==> input[p] == 0x2E,
+        super::ipv6_text::text_at(input, if ns > 0 {
+            p + 1
+        } else {
+            p
+        }, e),
+        dec_octet(e) is Some,
+        (if ns > 0 {
+            p + 1
+        } else {
+            p
+        }) + e.len() == input.len() || !is_digit(input[(if ns > 0 {
+            p + 1
+        } else {
+            p
+        }) + e.len()]),
+    ensures
+        super::spec::ipv4_in_ipv6(input, address, pi, ns, p) == super::spec::ipv4_in_ipv6(
+            input,
+            address.update(pi, address[pi] * 0x100 + dec_octet(e).unwrap()),
+            if ns + 1 == 2 || ns + 1 == 4 {
+                pi + 1
+            } else {
+                pi
+            },
+            ns + 1,
+            (if ns > 0 {
+                p + 1
+            } else {
+                p
+            }) + e.len(),
+        ),
+{
+    let q = if ns > 0 {
+        p + 1
+    } else {
+        p
+    };
+    lemma_dec_octet(e);
+    assert(input[q] == e[0]);
+    lemma_piece_digits_dec_octet(input, q, e);
+}
+
+/// The IPv6 main loop reads an `IPv4address` tail, up to the end, into two
+/// pieces (RFC 4291 §2.2 item 3).
+pub proof fn lemma_main_loop_ipv4_tail(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int)
+    requires
+        0 <= p <= input.len(),
+        ipv4address_octets(input.subrange(p, input.len() as int)) is Some,
+        address.len() == 8,
+        0 <= pi <= 6,
+        address[pi] == 0,
+        address[pi + 1] == 0,
+    ensures
+        ({
+            let o = ipv4address_octets(input.subrange(p, input.len() as int)).unwrap();
+            super::spec::ipv6_main_loop(input, address, pi, compress, p) == Some(
+                (address.update(pi, o[0] * 256 + o[1]).update(pi + 1, o[2] * 256 + o[3]), pi + 2, compress),
+            )
+        }),
+{
+    let t = input.subrange(p, input.len() as int);
+    let o = ipv4address_octets(t).unwrap();
+    let d1 = find(t, 0x2E, 0);
+    let d2 = find(t, 0x2E, d1 + 1);
+    let d3 = find(t, 0x2E, d2 + 1);
+    lemma_find(t, 0x2E, 0);
+    lemma_find(t, 0x2E, d1 + 1);
+    lemma_find(t, 0x2E, d2 + 1);
+    lemma_find(t, 0x2E, d3 + 1);
+    let e1 = t.subrange(0, d1 as int);
+    let e2 = t.subrange(d1 + 1int, d2 as int);
+    let e3 = t.subrange(d2 + 1int, d3 as int);
+    let e4 = t.subrange(d3 + 1int, t.len() as int);
+    lemma_dec_octet(e1);
+    lemma_dec_octet(e2);
+    lemma_dec_octet(e3);
+    lemma_dec_octet(e4);
+    assert(super::ipv6_text::text_at(input, p, e1)) by {
+        assert(input.subrange(p, p + e1.len()) =~= e1);
+    }
+    assert(super::ipv6_text::text_at(input, p + d1 + 1, e2)) by {
+        assert(input.subrange(p + d1 + 1, p + d1 + 1 + e2.len()) =~= e2);
+    }
+    assert(super::ipv6_text::text_at(input, p + d2 + 1, e3)) by {
+        assert(input.subrange(p + d2 + 1, p + d2 + 1 + e3.len()) =~= e3);
+    }
+    assert(super::ipv6_text::text_at(input, p + d3 + 1, e4)) by {
+        assert(input.subrange(p + d3 + 1, p + d3 + 1 + e4.len()) =~= e4);
+    }
+    assert(input[p + d1] == 0x2E && input[p + d2] == 0x2E && input[p + d3] == 0x2E) by {
+        assert(t[d1 as int] == input[p + d1]);
+        assert(t[d2 as int] == input[p + d2]);
+        assert(t[d3 as int] == input[p + d3]);
+    }
+    // Main loop: the hex digits of e1 stop at the first ".".
+    assert(input[p] == e1[0]);
+    assert(super::spec::is_ascii_hex_digit(e1[0]));
+    let a0 = address;
+    lemma_hex_digits_prefix(input, p, e1);
+    lemma_ipv4_in_ipv6_step(input, a0, pi, 0, p, e1);
+    let a1 = a0.update(pi, o[0]);
+    lemma_ipv4_in_ipv6_step(input, a1, pi, 1, p + d1, e2);
+    let a2 = a1.update(pi, o[0] * 256 + o[1]);
+    lemma_ipv4_in_ipv6_step(input, a2, pi + 1, 2, p + d2, e3);
+    let a3 = a2.update(pi + 1, o[2]);
+    lemma_ipv4_in_ipv6_step(input, a3, pi + 1, 3, p + d3, e4);
+    assert(p + d3 + 1 + e4.len() == input.len());
+}
+
+/// `find`'s result.
+pub proof fn lemma_find(s: Seq<u32>, c: u32, from: nat)
+    ensures
+        from <= s.len() ==> from <= find(s, c, from) <= s.len(),
+        from > s.len() ==> find(s, c, from) == s.len(),
+        find(s, c, from) < s.len() ==> s[find(s, c, from) as int] == c,
+        forall|k: int| from <= k < find(s, c, from) ==> s[k] != c,
+    decreases s.len() - from
+{
+    if from < s.len() && s[from as int] != c {
+        lemma_find(s, c, from + 1);
+    }
+}
+
+/// IPv6 parser step 6.4 on decimal digits followed by "." : it reads them
+/// all (at most three), and step 6.5 then starts the IPv4 loop at the same
+/// pointer.
+pub proof fn lemma_hex_digits_prefix(input: Seq<u32>, p: int, e: Seq<u32>)
+    requires
+        super::ipv6_text::text_at(input, p, e),
+        dec_octet(e) is Some,
+        p + e.len() < input.len(),
+        input[p + e.len()] == 0x2E,
+    ensures
+        super::spec::ipv6_hex_digits(input, p, 0, 0).1 == e.len(),
+{
+    lemma_dec_octet(e);
+    assert forall|k: int| 0 <= k < e.len() implies super::spec::is_ascii_hex_digit(#[trigger] e[k]) by {}
+    super::ipv6_text::lemma_hex_digits_read(input, p, e, 0);
+    assert(e.subrange(0, 0) =~= Seq::<u32>::empty());
+}
+
+// ---------------------------------------------------------------------
+// The URL Standard's IPv6 parser on RFC text: lists of pieces.
+// ---------------------------------------------------------------------
+
+/// `ls32` and `j( h16 ":" ) ls32` match only non-empty text, and give
+/// `j + 2` pieces.
+pub proof fn lemma_h16_colons_ls32_shape(t: Seq<u32>, j: nat)
+    requires
+        h16_colons_ls32(t, j) is Some,
+    ensures
+        t.len() > 0,
+        h16_colons_ls32(t, j).unwrap().len() == j + 2,
+    decreases j
+{
+    let i = find(t, 0x3A, 0);
+    lemma_find(t, 0x3A, 0);
+    if j == 0 {
+        if i < t.len() {
+            lemma_h16(t.subrange(i + 1int, t.len() as int));
+        } else {
+            lemma_find(t, 0x2E, 0);
+        }
+    } else {
+        lemma_h16_colons_ls32_shape(t.subrange(i + 1int, t.len() as int), (j - 1) as nat);
+    }
+}
+
+/// The IPv6 main loop reads `ls32`, up to the end.
+pub proof fn lemma_main_loop_ls32(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int)
+    requires
+        0 <= p <= input.len(),
+        ls32(input.subrange(p, input.len() as int)) is Some,
+        address.len() == 8,
+        0 <= pi <= 6,
+        forall|k: int| pi <= k < 8 ==> address[k] == 0,
+    ensures
+        super::spec::ipv6_main_loop(input, address, pi, compress, p) == Some(
+            (super::ipv6_text::write(address, pi, ls32(input.subrange(p, input.len() as int)).unwrap()), pi + 2, compress),
+        ),
+{
+    let t = input.subrange(p, input.len() as int);
+    let vals = ls32(t).unwrap();
+    let i = find(t, 0x3A, 0);
+    lemma_find(t, 0x3A, 0);
+    reveal_with_fuel(super::ipv6_text::write, 3);
+    if i < t.len() {
+        let token = t.subrange(0, i as int);
+        let rest = t.subrange(i + 1int, t.len() as int);
+        assert(super::ipv6_text::text_at(input, p, token)) by {
+            assert(input.subrange(p, p + token.len()) =~= token);
+        }
+        assert(input[p + i] == t[i as int]);
+        lemma_h16(rest);
+        lemma_main_loop_h16_colon(input, address, pi, compress, p, token);
+        assert(super::ipv6_text::text_at(input, p + i + 1, rest)) by {
+            assert(input.subrange(p + i + 1, p + i + 1 + rest.len()) =~= rest);
+        }
+        lemma_main_loop_h16_end(input, address.update(pi, h16(token).unwrap()), pi + 1, compress, p + i + 1, rest);
+        assert(vals =~= seq![h16(token).unwrap(), h16(rest).unwrap()]);
+        assert(vals.drop_first() =~= seq![h16(rest).unwrap()]);
+        assert(vals.drop_first().drop_first() =~= Seq::<nat>::empty());
+    } else {
+        lemma_main_loop_ipv4_tail(input, address, pi, compress, p);
+        let o = ipv4address_octets(t).unwrap();
+        assert(vals =~= seq![o[0] * 256 + o[1], o[2] * 256 + o[3]]);
+        assert(vals.drop_first() =~= seq![o[2] * 256 + o[3]]);
+        assert(vals.drop_first().drop_first() =~= Seq::<nat>::empty());
+    }
+}
+
+/// The IPv6 main loop reads `j( h16 ":" ) ls32`, up to the end.
+pub proof fn lemma_main_loop_h16_colons_ls32(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int, j: nat)
+    requires
+        0 <= p <= input.len(),
+        h16_colons_ls32(input.subrange(p, input.len() as int), j) is Some,
+        address.len() == 8,
+        0 <= pi,
+        pi + j <= 6,
+        forall|k: int| pi <= k < 8 ==> address[k] == 0,
+    ensures
+        super::spec::ipv6_main_loop(input, address, pi, compress, p) == Some(
+            (
+                super::ipv6_text::write(address, pi, h16_colons_ls32(input.subrange(p, input.len() as int), j).unwrap()),
+                pi + j + 2,
+                compress,
+            ),
+        ),
+    decreases j
+{
+    let t = input.subrange(p, input.len() as int);
+    let vals = h16_colons_ls32(t, j).unwrap();
+    let i = find(t, 0x3A, 0);
+    lemma_find(t, 0x3A, 0);
+    let token = t.subrange(0, i as int);
+    let rest = t.subrange(i + 1int, t.len() as int);
+    if j == 0 {
+        lemma_main_loop_ls32(input, address, pi, compress, p);
+    } else {
+        assert(super::ipv6_text::text_at(input, p, token)) by {
+            assert(input.subrange(p, p + token.len()) =~= token);
+        }
+        assert(input[p + i] == t[i as int]);
+        assert(rest =~= input.subrange(p + i + 1, input.len() as int));
+        lemma_h16_colons_ls32_shape(rest, (j - 1) as nat);
+        lemma_main_loop_h16_colon(input, address, pi, compress, p, token);
+        let v = h16(token).unwrap();
+        lemma_main_loop_h16_colons_ls32(input, address.update(pi, v), pi + 1, compress, p + i + 1, (j - 1) as nat);
+        assert(vals[0] == v);
+        assert(vals.drop_first() =~= h16_colons_ls32(rest, (j - 1) as nat).unwrap());
+    }
+}
+
+/// `h16_list` gives at least one piece.
+pub proof fn lemma_h16_list_shape(t: Seq<u32>)
+    requires
+        h16_list(t) is Some,
+    ensures
+        h16_list(t).unwrap().len() >= 1,
+        t.len() >= 1,
+        super::spec::is_ascii_hex_digit(t[0]),
+    decreases t.len()
+{
+    let i = find(t, 0x3A, 0);
+    lemma_find(t, 0x3A, 0);
+    lemma_h16(t.subrange(0, i as int));
+    assert(t.subrange(0, i as int)[0] == t[0]);
+}
+
+/// The IPv6 main loop reads `h16 *( ":" h16 )` from `p` to `k`, where
+/// ":" and more text follow.
+pub proof fn lemma_main_loop_h16_list_colon(input: Seq<u32>, address: Seq<nat>, pi: int, compress: Option<int>, p: int, k: int)
+    requires
+        0 <= p <= k,
+        k + 1 < input.len(),
+        input[k] == 0x3A,
+        h16_list(input.subrange(p, k)) is Some,
+        address.len() == 8,
+        0 <= pi,
+        pi + h16_list(input.subrange(p, k)).unwrap().len() <= 8,
+    ensures
+        super::spec::ipv6_main_loop(input, address, pi, compress, p) == super::spec::ipv6_main_loop(
+            input,
+            super::ipv6_text::write(address, pi, h16_list(input.subrange(p, k)).unwrap()),
+            pi + h16_list(input.subrange(p, k)).unwrap().len(),
+            compress,
+            k + 1,
+        ),
+    decreases k - p
+{
+    let t = input.subrange(p, k);
+    let vals = h16_list(t).unwrap();
+    let i = find(t, 0x3A, 0);
+    lemma_find(t, 0x3A, 0);
+    lemma_h16_list_shape(t);
+    reveal_with_fuel(super::ipv6_text::write, 2);
+    let token = t.subrange(0, i as int);
+    assert(super::ipv6_text::text_at(input, p, token)) by {
+        assert(input.subrange(p, p + token.len()) =~= token);
+    }
+    let v = h16(token).unwrap();
+    if i >= t.len() {
+        lemma_main_loop_h16_colon(input, address, pi, compress, p, token);
+        assert(vals =~= seq![v]);
+        assert(vals.drop_first() =~= Seq::<nat>::empty());
+    } else {
+        assert(input[p + i] == t[i as int]);
+        let rest = t.subrange(i + 1int, t.len() as int);
+        assert(rest =~= input.subrange(p + i + 1, k));
+        lemma_h16_list_shape(rest);
+        lemma_main_loop_h16_colon(input, address, pi, compress, p, token);
+        lemma_main_loop_h16_list_colon(input, address.update(pi, v), pi + 1, compress, p + i + 1, k);
+        assert(vals[0] == v);
+        assert(vals.drop_first() =~= h16_list(rest).unwrap());
+    }
+}
+
+/// `find_double_colon`'s result.
+pub proof fn lemma_find_double_colon(s: Seq<u32>, from: nat)
+    ensures
+        find_double_colon(s, from) >= from || find_double_colon(s, from) == s.len(),
+        find_double_colon(s, from) < s.len() ==> find_double_colon(s, from) + 1 < s.len()
+            && s[find_double_colon(s, from) as int] == 0x3A && s[find_double_colon(s, from) + 1int] == 0x3A,
+    decreases s.len() - from
+{
+    if from + 1 < s.len() && !(s[from as int] == 0x3A && s[from + 1int] == 0x3A) {
+        lemma_find_double_colon(s, from + 1);
+    }
+}
+
+/// After the "::" of alternative `m`, the IPv6 main loop reads the rest.
+pub proof fn lemma_after_double_colon_parses(s: Seq<u32>, w1: Seq<nat>, pi: int, k: int, m: nat)
+    requires
+        0 <= k,
+        k + 2 <= s.len(),
+        2 <= m <= 9,
+        after_double_colon(s.subrange(k + 2, s.len() as int), m) is Some,
+        w1.len() == 8,
+        1 <= pi,
+        pi + 9 - m <= 8,
+        m == 9 ==> pi <= 8,
+        m == 8 ==> pi <= 7,
+        forall|q: int| pi <= q < 8 ==> w1[q] == 0,
+    ensures
+        ({
+            let r = after_double_colon(s.subrange(k + 2, s.len() as int), m).unwrap();
+            super::spec::ipv6_main_loop(s, w1, pi, Some(pi), k + 2) == Some(
+                (super::ipv6_text::write(w1, pi, r), pi + r.len(), Some(pi)),
+            ) && r.len() == if m <= 7 {
+                9 - m
+            } else {
+                9 - m
+            }
+        }),
+{
+    let after = s.subrange(k + 2, s.len() as int);
+    let r = after_double_colon(after, m).unwrap();
+    reveal_with_fuel(super::ipv6_text::write, 2);
+    if 2 <= m <= 7 {
+        lemma_h16_colons_ls32_shape(after, (7 - m) as nat);
+        lemma_main_loop_h16_colons_ls32(s, w1, pi, Some(pi), k + 2, (7 - m) as nat);
+    } else if m == 8 {
+        lemma_h16(after);
+        assert(super::ipv6_text::text_at(s, k + 2, after)) by {
+            assert(s.subrange(k + 2, k + 2 + after.len()) =~= after);
+        }
+        lemma_main_loop_h16_end(s, w1, pi, Some(pi), k + 2, after);
+        assert(r =~= seq![h16(after).unwrap()]);
+        assert(r.drop_first() =~= Seq::<nat>::empty());
+    } else {
+        assert(r =~= Seq::<nat>::empty());
+        assert(after.len() == 0);
+        assert(k + 2 == s.len());
+    }
+}
+
+/// The IPv6 parser's step 7 after "::": the pieces before it, zeros, and
+/// the pieces after it.
+pub proof fn lemma_finish_compressed(l: Seq<nat>, r: Seq<nat>)
+    requires
+        l.len() + r.len() <= 7,
+    ensures
+        ({
+            let zeros8 = seq![0nat, 0, 0, 0, 0, 0, 0, 0];
+            let w2 = super::ipv6_text::write(super::ipv6_text::write(zeros8, 0, l), l.len() + 1int, r);
+            super::lemmas::ipv6_parser_after(Some((w2, l.len() + 1int + r.len(), Some(l.len() + 1int))))
+                == Some(l + zeros((8 - l.len() - r.len()) as nat) + r)
+        }),
+{
+    use super::ipv6_text::*;
+    let zeros8 = seq![0nat, 0, 0, 0, 0, 0, 0, 0];
+    let w1 = write(zeros8, 0, l);
+    lemma_write(zeros8, 0, l);
+    let pi = l.len() + 1int;
+    let w2 = write(w1, pi, r);
+    lemma_write(w1, pi, r);
+    lemma_ipv6_swaps(w2, 7, pi, r.len() as int, r);
+    let result = w2.subrange(0, pi) + Seq::new((8 - r.len() - pi) as nat, |_i: int| 0nat) + r;
+    let expected = l + zeros((8 - l.len() - r.len()) as nat) + r;
+    assert(result =~= expected) by {
+        assert forall|q: int| 0 <= q < 8 implies #[trigger] result[q] == expected[q] by {
+            if q < l.len() {
+                assert(result[q] == w2[q]);
+            }
+        }
+    }
+}
+
+/// Alternative `m` of `IPv6address` (2 to 9), with its "::" at `k`: the URL
+/// Standard's IPv6 parser gives the same address.
+pub proof fn lemma_compressed_parses(s: Seq<u32>, k: int, m: nat)
+    requires
+        0 <= k,
+        k + 1 < s.len(),
+        s[k] == 0x3A,
+        s[k + 1] == 0x3A,
+        2 <= m <= 9,
+        compressed(m, s.subrange(0, k), s.subrange(k + 2, s.len() as int)) is Some,
+    ensures
+        super::spec::ipv6_parser(s) == compressed(m, s.subrange(0, k), s.subrange(k + 2, s.len() as int)),
+{
+    use super::ipv6_text::*;
+    let zeros8 = seq![0nat, 0, 0, 0, 0, 0, 0, 0];
+    let before = s.subrange(0, k);
+    let after = s.subrange(k + 2, s.len() as int);
+    let l = before_double_colon(before, (m - 2) as nat).unwrap();
+    let r = after_double_colon(after, m).unwrap();
+    let w1 = write(zeros8, 0, l);
+    // The parser reaches the state after "::".
+    if before.len() == 0 {
+        assert(l =~= Seq::<nat>::empty());
+        assert(w1 == zeros8);
+        assert(super::spec::ipv6_parser(s) == super::lemmas::ipv6_parser_after(
+            super::spec::ipv6_main_loop(s, w1, 1, Some(1), 2),
+        ));
+    } else {
+        lemma_h16_list_shape(before);
+        assert(s[0] == before[0]);
+        lemma_main_loop_h16_list_colon(s, zeros8, 0, None, 0, k);
+        lemma_write(zeros8, 0, l);
+        assert(super::spec::ipv6_parser(s) == super::lemmas::ipv6_parser_after(
+            super::spec::ipv6_main_loop(s, w1, l.len() + 1int, Some(l.len() + 1int), k + 2),
+        ));
+    }
+    lemma_write(zeros8, 0, l);
+    let pi = l.len() + 1int;
+    // The pieces after "::".
+    lemma_after_double_colon_parses(s, w1, pi, k, m);
+    lemma_finish_compressed(l, r);
+}
+
+/// Alternatives `n` to 9: whichever matches first, the URL Standard's
+/// IPv6 parser agrees.
+pub proof fn lemma_compressed_from_parses(s: Seq<u32>, k: int, n: nat)
+    requires
+        0 <= k,
+        k + 1 < s.len(),
+        s[k] == 0x3A,
+        s[k + 1] == 0x3A,
+        2 <= n,
+        compressed_from(n, s.subrange(0, k), s.subrange(k + 2, s.len() as int)) is Some,
+    ensures
+        super::spec::ipv6_parser(s) == compressed_from(n, s.subrange(0, k), s.subrange(k + 2, s.len() as int)),
+    decreases 10 - n
+{
+    if compressed(n, s.subrange(0, k), s.subrange(k + 2, s.len() as int)) is Some {
+        lemma_compressed_parses(s, k, n);
+    } else {
+        lemma_compressed_from_parses(s, k, n + 1);
+    }
+}
+
+/// **RFC 3986 §3.2.2 `IPv6address` agrees with the URL Standard's IPv6
+/// parser:** every string matching `IPv6address` parses to the address
+/// RFC 4291 §2.2 gives it.
+pub proof fn lemma_ipv6address_parses(s: Seq<u32>)
+    requires
+        ipv6address(s) is Some,
+    ensures
+        super::spec::ipv6_parser(s) == ipv6address(s),
+{
+    use super::ipv6_text::*;
+    let k = find_double_colon(s, 0);
+    lemma_find_double_colon(s, 0);
+    if k >= s.len() {
+        let zeros8 = seq![0nat, 0, 0, 0, 0, 0, 0, 0];
+        let v = h16_colons_ls32(s, 6).unwrap();
+        lemma_h16_colons_ls32_shape(s, 6);
+        assert(s.subrange(0, s.len() as int) =~= s);
+        let i = find(s, 0x3A, 0);
+        lemma_find(s, 0x3A, 0);
+        lemma_h16(s.subrange(0, i as int));
+        assert(s.subrange(0, i as int)[0] == s[0]);
+        lemma_main_loop_h16_colons_ls32(s, zeros8, 0, None, 0, 6);
+        lemma_write(zeros8, 0, v);
+        assert(write(zeros8, 0, v) =~= v);
+    } else {
+        lemma_compressed_from_parses(s, k as int, 2);
+    }
+}
+
 } // verus!
