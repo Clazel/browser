@@ -289,6 +289,17 @@ URL §6.1 setters reuse the parser with a state override. Conformance:
 Phase 0 deferred this column. Each conformance test reports pass / total
 per suite; `xtask report` adds a "Conformance" column.
 
+**As built:** each `tests/conformance*.rs` prints one
+`clazel-conformance: suite="…" pass=N xfail=N fail=N total=N` line per
+suite, before its assertions; the format is defined only in
+`xtask/src/conformance.rs`. `verify` and `report` run each conformance test
+target on its own (`cargo test -p <crate> --test <file> -- --show-output`),
+fail if a target prints no summary, a line is malformed, the counts do not
+add up, or a suite has unexpected failures, and show passing / total per
+suite with expected failures apart. Percent-encoding counts checks (two per
+case), the others count cases. A new conformance test (1.7 stage B, 1.8,
+1.9, …) must print the line, or `verify` fails.
+
 ## Order of work
 
 ```
@@ -313,7 +324,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
 | 1.6 Forgiving base64 | done: 77 verified, 0 errors; `decode` and `encode` proven against their contracts; `independent.rs` (RFC 4648 §4) proven equal to the encoder and, on canonical input, the decoder; round trip `lemma_decode_encode`; all 23 mutations certified `killed`; all 80 WPT `fetch/data-urls` base64 rows pass; differential test against `base64` 0.22.1 agrees; **`clazel-base64` at tier 2** |
 | 1.7 MIME types and sniffing | MIME types done (stage A): 164 verified, 0 errors; parse, serialize (to/from bytes) and the §4.6 groups proven against `contract.rs`; round trip `lemma_parse_serialize_parse`; `independent.rs` (RFC 9110 media-type) proven equal on valid media types with no repeated parameter names, and every serialization proven a valid media type; 15 mutations, all certified `killed`; 955 WPT `mimesniff/mime-types` cases pass; differential against `mime` 0.3.17; **`clazel-mime` raised to tier 2**. Sniffing (stage B): spec and contract committed (`sniff/spec.rs`, `sniff/contract.rs`: §6 pattern matching and tables, MP4/WebM/MP3 signatures, §7, §7.1, §7.2); not done: implementation and proof, lemmas, independent transcription, mutations, WPT `mimesniff/sniffing` conformance. Errata: Fetch quoted string step 7, §6 pattern matching past the end, WebM/vint and MP3 (several already open upstream) |
-| 1.8–1.12 | not started |
+| 1.8–1.11 | not started |
+| 1.12 WPT pass rates in the README table | done: "Conformance" column measured from `clazel-conformance:` summary lines (`xtask/src/conformance.rs`); all four existing conformance tests emit them; both planted violations caught (hand-edited README count, test without a summary) |
 
 ## Risks
 
