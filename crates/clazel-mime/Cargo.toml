@@ -14,6 +14,10 @@ vstd = "=0.0.0-2026-10-04-0306"
 # never shipped).
 [dev-dependencies]
 mime = "=0.3.17"
+# Test-only file-type detector for the differential test in
+# tests/conformance_sniffing.rs (class `test`; never shipped). Without
+# default features it has no dependencies.
+infer = { version = "=0.19.0", default-features = false }
 
 # Verification tier (docs/VERIFICATION.md). Tier 2: parse, serialize (to
 # and from bytes) and the §4.6 groups are proven to meet their contracts;
@@ -21,7 +25,14 @@ mime = "=0.3.17"
 # every valid media type without repeated parameter names; every mutation
 # is certified killed; and tests/conformance_mime_types.rs runs WPT
 # mimesniff/mime-types and a differential test against the mime crate.
-# Sniffing (§7) has a spec and contract only, and no exec code yet.
+# Sniffing (§5.1, §6, §7): every exec function is proven against
+# sniff/contract.rs; sniff/independent.rs (the tables' notes and the
+# file-format specs) is proven to agree with the spec on every input for
+# §6.1, §6.3, §6.4, both §7.1 tables, MP4, §6.2, §7.1 and §7.2 (WebM and
+# MP3 without ID3 are not independently transcribed: WPT media examples
+# cover them); its mutations are certified killed; and
+# tests/conformance_sniffing.rs runs WPT mimesniff/media and
+# mimesniff/sniffing resources and a differential test against infer.
 [package.metadata.clazel]
 tier = 2
 target-tier = 2

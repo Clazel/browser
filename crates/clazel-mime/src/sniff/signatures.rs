@@ -3,12 +3,12 @@
 //! video type pattern matching algorithm (§6.2) that uses them, proven
 //! against [`super::contract`].
 
+use super::pattern::mime_literal;
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::mime_type::record::MimeType;
 #[allow(unused_imports)]
 use vstd::prelude::*;
-use super::pattern::mime_literal;
-use crate::mime_type::record::MimeType;
 
 verus! {
 

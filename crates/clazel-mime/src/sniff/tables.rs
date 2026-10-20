@@ -8,12 +8,12 @@
 //! proven equal to `match_table` on its spec table, so a row that differs
 //! from the spec fails verification.
 
+use super::pattern::{mime_literal, row_matches};
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::mime_type::record::MimeType;
 #[allow(unused_imports)]
 use vstd::prelude::*;
-use super::pattern::{mime_literal, row_matches};
-use crate::mime_type::record::MimeType;
 
 verus! {
 /// The table in §6.1 (image type pattern matching algorithm).

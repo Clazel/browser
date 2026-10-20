@@ -73,7 +73,6 @@
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
-use super::lemmas::lemma_pattern_matching_in_bounds;
 
 verus! {
 
@@ -685,7 +684,7 @@ pub proof fn lemma_encode(input: Seq<u8>, e: Entry)
     match e.sig {
         Signature::Starts(x) => {
             lemma_repeat(0xFF, x.len());
-            lemma_pattern_matching_in_bounds(input, x, repeat(0xFF, x.len()), Ignored::None);
+            super::lemmas::lemma_pattern_matching_in_bounds(input, x, repeat(0xFF, x.len()), Ignored::None);
             lemma_begins_with_at(input, 0, x, false);
             assert forall|k: int| 0 <= k < x.len() implies ((#[trigger] input[0 + k] & repeat(0xFFu8, x.len())[k]) == x[k]) == (input[0 + k] == x[k]) by {
                 lemma_mask_byte(input[0 + k]);
@@ -693,7 +692,7 @@ pub proof fn lemma_encode(input: Seq<u8>, e: Entry)
         },
         Signature::StartsAfterWhitespace(x) => {
             lemma_repeat(0xFF, x.len());
-            lemma_pattern_matching_in_bounds(input, x, repeat(0xFF, x.len()), Ignored::WhitespaceBytes);
+            super::lemmas::lemma_pattern_matching_in_bounds(input, x, repeat(0xFF, x.len()), Ignored::WhitespaceBytes);
             lemma_begins_with_at(input, w, x, false);
             assert forall|k: int| 0 <= k < x.len() implies ((#[trigger] input[w + k] & repeat(0xFFu8, x.len())[k]) == x[k]) == (input[w + k] == x[k]) by {
                 lemma_mask_byte(input[w + k]);
@@ -705,7 +704,7 @@ pub proof fn lemma_encode(input: Seq<u8>, e: Entry)
             lemma_repeat(0xFF, x.len());
             lemma_repeat(0, n);
             lemma_repeat(0xFF, y.len());
-            lemma_pattern_matching_in_bounds(input, p, m, Ignored::None);
+            super::lemmas::lemma_pattern_matching_in_bounds(input, p, m, Ignored::None);
             lemma_begins_with_at(input, 0, x, false);
             lemma_begins_with_at(input, x.len() + n, y, false);
             let all = forall|k: int| 0 <= k < p.len() ==> (#[trigger] input[0 + k] & m[k]) == p[k];
@@ -746,7 +745,7 @@ pub proof fn lemma_encode(input: Seq<u8>, e: Entry)
                 pattern_matching(input, #[trigger] ci_pattern(x).push(tt), m, Ignored::WhitespaceBytes) == (begins_with_at(input, w, x, true)
                     && w + x.len() < input.len() && input[(w + x.len()) as int] == tt) by {
                 let p = ci_pattern(x).push(tt);
-                lemma_pattern_matching_in_bounds(input, p, m, Ignored::WhitespaceBytes);
+                super::lemmas::lemma_pattern_matching_in_bounds(input, p, m, Ignored::WhitespaceBytes);
                 assert forall|k: int| 0 <= k < p.len() implies ((#[trigger] input[w + k] & m[k]) == p[k]) == (
                     if k < x.len() { lower(input[w + k]) == lower(x[k]) } else { input[w + k] == tt }) by {
                     lemma_mask_byte(input[w + k]);
@@ -771,7 +770,7 @@ pub proof fn lemma_encode(input: Seq<u8>, e: Entry)
                 pattern_matching(input, #[trigger] x.push(tt), m, Ignored::WhitespaceBytes) == (begins_with_at(input, w, x, false)
                     && w + x.len() < input.len() && input[(w + x.len()) as int] == tt) by {
                 let p = x.push(tt);
-                lemma_pattern_matching_in_bounds(input, p, m, Ignored::WhitespaceBytes);
+                super::lemmas::lemma_pattern_matching_in_bounds(input, p, m, Ignored::WhitespaceBytes);
                 assert forall|k: int| 0 <= k < p.len() implies ((#[trigger] input[w + k] & m[k]) == p[k]) == (
                     if k < x.len() { input[w + k] == x[k] } else { input[w + k] == tt }) by {
                     lemma_mask_byte(input[w + k]);

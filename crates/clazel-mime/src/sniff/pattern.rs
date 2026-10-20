@@ -4,9 +4,9 @@
 
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::mime_type::record::MimeType;
 #[allow(unused_imports)]
 use vstd::prelude::*;
-use crate::mime_type::record::MimeType;
 
 verus! {
 

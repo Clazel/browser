@@ -5,13 +5,13 @@
 //! (§7.1) and the MIME type sniffing algorithm (§7). Each is proven against
 //! [`super::contract`].
 
+use super::pattern::{contains_binary_data_byte_exec, mime_literal};
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::mime_type::groups;
+use crate::mime_type::record::{MimeType, copy, slice_eq};
 #[allow(unused_imports)]
 use vstd::prelude::*;
-use super::pattern::{contains_binary_data_byte_exec, mime_literal};
-use crate::mime_type::groups;
-use crate::mime_type::record::{copy, slice_eq, MimeType};
 
 verus! {
 

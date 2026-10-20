@@ -194,6 +194,266 @@
         "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32])",
         "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32]) is Some && (parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32])->Some_0)) is None)"
       }
+    },
+    {
+      "id": "pattern-mask-ignored",
+      "file": "src/sniff/spec.rs",
+      "find": "let masked_data = input[s as int] & mask[p as int];",
+      "replace": "let masked_data = input[s as int];",
+      "expect": "killed",
+      "reason": "The pattern mask is no longer applied: case-insensitive rows only match uppercase, so <html> (lowercase) is no longer HTML, where the row's note (\"the case-insensitive string <HTML\") says it is; lemma_agree_unknown_tables is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_unknown_tables(seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8])",
+        "witness": "first_match(seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8], scriptable_entries(), 0) is Some && match_table(seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8], unknown_scriptable_table(), 0) is None"
+      }
+    },
+    {
+      "id": "compare-past-end-matches",
+      "file": "src/sniff/spec.rs",
+      "find": "            // there matches, so return false.\n            false",
+      "replace": "            // there matches, so return true.\n            true",
+      "expect": "killed",
+      "reason": "Undoes the §6 erratum fix the other way: a pattern running past the end of the input matches, so \" <p\" (the tag-terminating byte missing) is HTML; the note needs the terminating byte, so lemma_agree_unknown_tables is false. (lemma_pattern_matching_in_bounds is false too.)",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_unknown_tables(seq![0x20u8, 0x3Cu8, 0x70u8])",
+        "witness": "first_match(seq![0x20u8, 0x3Cu8, 0x70u8], scriptable_entries(), 0) is None && match_table(seq![0x20u8, 0x3Cu8, 0x70u8], unknown_scriptable_table(), 0) is Some"
+      }
+    },
+    {
+      "id": "whitespace-byte-no-ff",
+      "file": "src/sniff/spec.rs",
+      "find": "b == 0x09 || b == 0x0A || b == 0x0C || b == 0x0D || b == 0x20",
+      "replace": "b == 0x09 || b == 0x0A || b == 0x0D || b == 0x20",
+      "expect": "killed",
+      "reason": "FF is no longer a whitespace byte: FF then <p> is not skipped to, so it is not HTML; §3 lists 0x0C, and lemma_agree_unknown_tables is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_unknown_tables(seq![0x0Cu8, 0x3Cu8, 0x70u8, 0x3Eu8])",
+        "witness": "first_match(seq![0x0Cu8, 0x3Cu8, 0x70u8, 0x3Eu8], scriptable_entries(), 0) is Some && match_table(seq![0x0Cu8, 0x3Cu8, 0x70u8, 0x3Eu8], unknown_scriptable_table(), 0) is None"
+      }
+    },
+    {
+      "id": "ignored-whitespace-never",
+      "file": "src/sniff/spec.rs",
+      "find": "Ignored::WhitespaceBytes => is_whitespace_byte(b),",
+      "replace": "Ignored::WhitespaceBytes => false,",
+      "expect": "killed",
+      "reason": "Leading whitespace bytes are never ignored: \" <b>\" is not HTML, so lemma_agree_unknown_tables is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_unknown_tables(seq![0x20u8, 0x3Cu8, 0x62u8, 0x3Eu8])",
+        "witness": "first_match(seq![0x20u8, 0x3Cu8, 0x62u8, 0x3Eu8], scriptable_entries(), 0) is Some && match_table(seq![0x20u8, 0x3Cu8, 0x62u8, 0x3Eu8], unknown_scriptable_table(), 0) is None"
+      }
+    },
+    {
+      "id": "png-signature-first-byte",
+      "file": "src/sniff/spec.rs",
+      "find": "pattern: seq![0x89u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],",
+      "replace": "pattern: seq![0x88u8, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A],",
+      "expect": "killed",
+      "reason": "The PNG row's first byte is 0x88: the PNG signature (PNG §5.2: 137 80 78 71 13 10 26 10) is no longer an image, so lemma_agree_image is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_image(seq![0x89u8, 0x50u8, 0x4Eu8, 0x47u8, 0x0Du8, 0x0Au8, 0x1Au8, 0x0Au8])",
+        "witness": "indep_image(seq![0x89u8, 0x50u8, 0x4Eu8, 0x47u8, 0x0Du8, 0x0Au8, 0x1Au8, 0x0Au8]) is Some && image_type_pattern_matching(seq![0x89u8, 0x50u8, 0x4Eu8, 0x47u8, 0x0Du8, 0x0Au8, 0x1Au8, 0x0Au8]) is None"
+      }
+    },
+    {
+      "id": "webp-gives-webm",
+      "file": "src/sniff/spec.rs",
+      "find": "computed: mime_type(seq![0x69u32, 0x6D, 0x61, 0x67, 0x65], seq![0x77u32, 0x65, 0x62, 0x70]),",
+      "replace": "computed: mime_type(seq![0x69u32, 0x6D, 0x61, 0x67, 0x65], seq![0x77u32, 0x65, 0x62, 0x6D]),",
+      "expect": "killed",
+      "reason": "The WebP row gives image/webm: lemma_agree_image is false on a RIFF/WEBP/VP8 header.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_image(seq![0x52u8, 0x49u8, 0x46u8, 0x46u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x57u8, 0x45u8, 0x42u8, 0x50u8, 0x56u8, 0x50u8, 0x38u8, 0x20u8])",
+        "witness": "image_type_pattern_matching(seq![0x52u8, 0x49u8, 0x46u8, 0x46u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x57u8, 0x45u8, 0x42u8, 0x50u8, 0x56u8, 0x50u8, 0x38u8, 0x20u8]) is Some && indep_image(seq![0x52u8, 0x49u8, 0x46u8, 0x46u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x57u8, 0x45u8, 0x42u8, 0x50u8, 0x56u8, 0x50u8, 0x38u8, 0x20u8]) is Some && image_type_pattern_matching(seq![0x52u8, 0x49u8, 0x46u8, 0x46u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x57u8, 0x45u8, 0x42u8, 0x50u8, 0x56u8, 0x50u8, 0x38u8, 0x20u8])->Some_0.subtype[3] != indep_image(seq![0x52u8, 0x49u8, 0x46u8, 0x46u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x57u8, 0x45u8, 0x42u8, 0x50u8, 0x56u8, 0x50u8, 0x38u8, 0x20u8])->Some_0.subtype[3]"
+      }
+    },
+    {
+      "id": "html-tag-gt-row",
+      "file": "src/sniff/spec.rs",
+      "find": "pattern: seq![0x3Cu8, 0x48, 0x54, 0x4D, 0x4C, 0x3E],",
+      "replace": "pattern: seq![0x3Cu8, 0x48, 0x54, 0x4D, 0x4C, 0x3F],",
+      "expect": "killed",
+      "reason": "The second <HTML row ends in \"?\" instead of the tag-terminating byte \">\": <HTML> is not HTML, so lemma_agree_unknown_tables is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_unknown_tables(seq![0x3Cu8, 0x48u8, 0x54u8, 0x4Du8, 0x4Cu8, 0x3Eu8])",
+        "witness": "first_match(seq![0x3Cu8, 0x48u8, 0x54u8, 0x4Du8, 0x4Cu8, 0x3Eu8], scriptable_entries(), 0) is Some && match_table(seq![0x3Cu8, 0x48u8, 0x54u8, 0x4Du8, 0x4Cu8, 0x3Eu8], unknown_scriptable_table(), 0) is None"
+      }
+    },
+    {
+      "id": "aiff-mask-size-byte",
+      "file": "src/sniff/spec.rs",
+      "find": "mask: seq![0xFFu8, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF],",
+      "replace": "mask: seq![0xFFu8, 0xFF, 0xFF, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF],",
+      "expect": "killed",
+      "reason": "The AIFF row (the first with this mask) no longer ignores the first size byte: FORM with size 1 is not AIFF, where the note says \"followed by four bytes\"; lemma_agree_audio_or_video is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_audio_or_video(seq![0x46u8, 0x4Fu8, 0x52u8, 0x4Du8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x41u8, 0x49u8, 0x46u8, 0x46u8])",
+        "witness": "indep_audio_or_video(seq![0x46u8, 0x4Fu8, 0x52u8, 0x4Du8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x41u8, 0x49u8, 0x46u8, 0x46u8], matches_webm(seq![0x46u8, 0x4Fu8, 0x52u8, 0x4Du8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x41u8, 0x49u8, 0x46u8, 0x46u8]), matches_mp3_without_id3(seq![0x46u8, 0x4Fu8, 0x52u8, 0x4Du8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x41u8, 0x49u8, 0x46u8, 0x46u8])) is Some && audio_or_video_type_pattern_matching(seq![0x46u8, 0x4Fu8, 0x52u8, 0x4Du8, 0x01u8, 0x00u8, 0x00u8, 0x00u8, 0x41u8, 0x49u8, 0x46u8, 0x46u8]) is None"
+      }
+    },
+    {
+      "id": "id3-gives-mp4",
+      "file": "src/sniff/spec.rs",
+      "find": "computed: mime_type(seq![0x61u32, 0x75, 0x64, 0x69, 0x6F], seq![0x6Du32, 0x70, 0x65, 0x67]),\n        },\n        // The string \"OggS\"",
+      "replace": "computed: mime_type(seq![0x61u32, 0x75, 0x64, 0x69, 0x6F], seq![0x6Du32, 0x70, 0x34]),\n        },\n        // The string \"OggS\"",
+      "expect": "killed",
+      "reason": "The ID3 row gives audio/mp4: lemma_agree_audio_or_video is false on \"ID3\".",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_audio_or_video(seq![0x49u8, 0x44u8, 0x33u8])",
+        "witness": "audio_or_video_type_pattern_matching(seq![0x49u8, 0x44u8, 0x33u8]) is Some && audio_or_video_type_pattern_matching(seq![0x49u8, 0x44u8, 0x33u8])->Some_0.subtype.len() == 3 && indep_audio_or_video(seq![0x49u8, 0x44u8, 0x33u8], matches_webm(seq![0x49u8, 0x44u8, 0x33u8]), matches_mp3_without_id3(seq![0x49u8, 0x44u8, 0x33u8]))->Some_0.subtype.len() == 4"
+      }
+    },
+    {
+      "id": "binary-data-byte-bs",
+      "file": "src/sniff/spec.rs",
+      "find": "b <= 0x08 || b == 0x0B",
+      "replace": "b < 0x08 || b == 0x0B",
+      "expect": "killed",
+      "reason": "BS (0x08) is no longer a binary data byte: a resource of one BS is text/plain; §3 includes it, so lemma_agree_text_or_binary is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_text_or_binary(seq![0x08u8])",
+        "witness": "distinguish_text_or_binary(seq![0x08u8]).subtype.len() == 5 && indep_text_or_binary(seq![0x08u8]).subtype.len() == 12"
+      }
+    },
+    {
+      "id": "utf8-bom-last-byte",
+      "file": "src/sniff/spec.rs",
+      "find": "header[0] == 0xEF && header[1] == 0xBB && header[2] == 0xBF",
+      "replace": "header[0] == 0xEF && header[1] == 0xBB && header[2] == 0xBE",
+      "expect": "killed",
+      "reason": "§7.2 step 3 checks EF BB BE: a UTF-8 BOM followed by NUL is binary, where Unicode's BOM (EF BB BF) makes it text; lemma_agree_text_or_binary is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_text_or_binary(seq![0xEFu8, 0xBBu8, 0xBFu8, 0x00u8])",
+        "witness": "distinguish_text_or_binary(seq![0xEFu8, 0xBBu8, 0xBFu8, 0x00u8]).subtype.len() == 12 && indep_text_or_binary(seq![0xEFu8, 0xBBu8, 0xBFu8, 0x00u8]).subtype.len() == 5"
+      }
+    },
+    {
+      "id": "unknown-binary-check-inverted",
+      "file": "src/sniff/spec.rs",
+      "find": "None => if !contains_binary_data_byte(header) {\n                            // 9.",
+      "replace": "None => if contains_binary_data_byte(header) {\n                            // 9.",
+      "expect": "killed",
+      "reason": "§7.1 step 9 inverted: \"A\" is application/octet-stream, so lemma_agree_identify_unknown is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_identify_unknown(seq![0x41u8], true)",
+        "witness": "identify_unknown_mime_type(seq![0x41u8], true).subtype.len() == 12 && indep_identify_unknown(seq![0x41u8], true, matches_webm(seq![0x41u8]), matches_mp3_without_id3(seq![0x41u8])).subtype.len() == 5"
+      }
+    },
+    {
+      "id": "scriptable-flag-ignored",
+      "file": "src/sniff/spec.rs",
+      "find": "let scriptable = if sniff_scriptable {",
+      "replace": "let scriptable = if true {",
+      "expect": "killed",
+      "reason": "§7.1 step 1 runs without the sniff-scriptable flag: <html> is sniffed as text/html with the flag unset, so lemma_no_scriptable_without_flag is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "lemma_no_scriptable_without_flag(seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8])",
+        "witness": "crate::mime_type::spec::is_scriptable_mime_type(identify_unknown_mime_type(seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8], false))"
+      }
+    },
+    {
+      "id": "apache-bug-sniffs-unknown",
+      "file": "src/sniff/spec.rs",
+      "find": "                distinguish_text_or_binary(resource.header)\n",
+      "replace": "                identify_unknown_mime_type(resource.header, true)\n",
+      "expect": "killed",
+      "reason": "§7 step 4 runs the unknown-type rules instead of §7.2: <html> served as text/plain with the check-for-apache-bug flag becomes text/html, so lemma_apache_bug_text_or_binary is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "lemma_apache_bug_text_or_binary(Resource { supplied: Some(mime_type(seq![0x74u32, 0x65, 0x78, 0x74], seq![0x70u32, 0x6C, 0x61, 0x69, 0x6E])), check_for_apache_bug: true, no_sniff: false, header: seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8] }, true)",
+        "witness": "crate::mime_type::spec::is_scriptable_mime_type(computed_mime_type(Resource { supplied: Some(mime_type(seq![0x74u32, 0x65, 0x78, 0x74], seq![0x70u32, 0x6C, 0x61, 0x69, 0x6E])), check_for_apache_bug: true, no_sniff: false, header: seq![0x3Cu8, 0x68u8, 0x74u8, 0x6Du8, 0x6Cu8, 0x3Eu8] }, true))"
+      }
+    },
+    {
+      "id": "mp4-box-size-modulo-8",
+      "file": "src/sniff/spec.rs",
+      "find": "|| box_size % 4 != 0 {",
+      "replace": "|| box_size % 8 != 0 {",
+      "expect": "killed",
+      "reason": "§6.2.1 step 5 rejects box sizes that are not multiples of 8: a 20-byte ftyp box with major brand mp42 fails, which ISO/IEC 14496-12 and step 5 accept; lemma_agree_mp4 is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_agree_mp4(seq![0x00u8, 0x00u8, 0x00u8, 0x14u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x6Du8, 0x70u8, 0x34u8, 0x32u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8])",
+        "witness": "ftyp_box(seq![0x00u8, 0x00u8, 0x00u8, 0x14u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x6Du8, 0x70u8, 0x34u8, 0x32u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8]) && mp4_brand_at(seq![0x00u8, 0x00u8, 0x00u8, 0x14u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x6Du8, 0x70u8, 0x34u8, 0x32u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8], 8) && !matches_mp4(seq![0x00u8, 0x00u8, 0x00u8, 0x14u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x6Du8, 0x70u8, 0x34u8, 0x32u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x00u8])"
+      }
+    },
+    {
+      "id": "mp4-loop-skips-brands",
+      "file": "src/sniff/spec.rs",
+      "find": "mp4_loop(sequence, box_size, bytes_read + 4)",
+      "replace": "mp4_loop(sequence, box_size, bytes_read + 8)",
+      "expect": "killed",
+      "reason": "§6.2.1 step 9.2 steps by 8: the second compatible brand (mp41 at offset 20) is skipped, so lemma_mp4_compatible_brand is false.",
+      "certificate": {
+        "file": "src/sniff/independent.rs",
+        "lemma": "lemma_mp4_compatible_brand(seq![0x00u8, 0x00u8, 0x00u8, 0x18u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x6Du8, 0x70u8, 0x34u8, 0x31u8], 1)",
+        "witness": "ftyp_box(seq![0x00u8, 0x00u8, 0x00u8, 0x18u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x6Du8, 0x70u8, 0x34u8, 0x31u8]) && mp4_compatible_brand(seq![0x00u8, 0x00u8, 0x00u8, 0x18u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x6Du8, 0x70u8, 0x34u8, 0x31u8], 1) && !matches_mp4(seq![0x00u8, 0x00u8, 0x00u8, 0x18u8, 0x66u8, 0x74u8, 0x79u8, 0x70u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x00u8, 0x00u8, 0x00u8, 0x00u8, 0x69u8, 0x73u8, 0x6Fu8, 0x6Du8, 0x6Du8, 0x70u8, 0x34u8, 0x31u8])"
+      }
+    },
+    {
+      "id": "webm-loop-bound-20",
+      "file": "src/sniff/spec.rs",
+      "find": "if iter < length && iter < 38 {",
+      "replace": "if iter < length && iter < 20 {",
+      "expect": "killed",
+      "reason": "§6.2.2 step 6 stops at 20: WPT's webm.webm has its DocType element at offset 21, so lemma_wpt_webm is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "super::examples::lemma_wpt_webm()",
+        "witness": "!matches_webm(super::examples::wpt_webm_prefix())"
+      }
+    },
+    {
+      "id": "mp3-scale-swapped",
+      "file": "src/sniff/spec.rs",
+      "find": "{ 72 } else { 144 }",
+      "replace": "{ 144 } else { 72 }",
+      "expect": "killed",
+      "reason": "Compute an mp3 frame size uses scale 72 for MPEG-1, as the standard reads literally: WPT's mp3-raw.mp3 frame is computed as 104 bytes, where no header follows, so lemma_wpt_mp3_raw is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "super::examples::lemma_wpt_mp3_raw()",
+        "witness": "!matches_mp3_without_id3(super::examples::wpt_mp3_raw_prefix())"
+      }
+    },
+    {
+      "id": "mp3-final-layer-2",
+      "file": "src/sniff/spec.rs",
+      "find": "final_layer == 3\n",
+      "replace": "final_layer == 2\n",
+      "expect": "killed",
+      "reason": "Match an mp3 header accepts Layer II instead of Layer III: WPT's mp3-raw.mp3 (Layer III) no longer matches, so lemma_wpt_mp3_raw is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "super::examples::lemma_wpt_mp3_raw()",
+        "witness": "!matches_mp3_without_id3(super::examples::wpt_mp3_raw_prefix())"
+      }
+    },
+    {
+      "id": "mp3-sample-rates-swapped",
+      "file": "src/sniff/spec.rs",
+      "find": "seq![44100, 48000, 32000]",
+      "replace": "seq![48000, 44100, 32000]",
+      "expect": "killed",
+      "reason": "The samplerate table has 44.1 and 48 kHz swapped: WPT's mp3-raw.mp3 frame is computed as 192 bytes, where no header follows, so lemma_wpt_mp3_raw is false.",
+      "certificate": {
+        "file": "src/sniff/lemmas.rs",
+        "lemma": "super::examples::lemma_wpt_mp3_raw()",
+        "witness": "!matches_mp3_without_id3(super::examples::wpt_mp3_raw_prefix())"
+      }
     }
   ]
 }
