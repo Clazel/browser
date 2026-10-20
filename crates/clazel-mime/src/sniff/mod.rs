@@ -12,3 +12,4 @@ pub mod pattern;
 pub mod tables;
 pub mod signatures;
 pub mod algorithms;
+pub mod lemmas;
