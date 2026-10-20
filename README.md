@@ -11,9 +11,10 @@ instead of trust.
 
 Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
 started: UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`),
-forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`) and
-URL host parsing (`clazel-url`, except domains) are at Tier 2. IDNA and the
-URL parser are next. Recheck every proof yourself, on Linux x86-64, with:
+forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`),
+IDNA (`clazel-idna`) and URL host parsing (`clazel-url`, except domains) are at
+Tier 2. Wiring IDNA into the host parser and the URL parser itself are next.
+Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh
 docker build --platform linux/amd64 -t clazel-verify .
