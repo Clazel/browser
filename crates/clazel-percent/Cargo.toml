@@ -20,9 +20,14 @@ form_urlencoded = "=1.2.2"
 percent-encoding = "=2.3.2"
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
-# the shipped code today; `target-tier` is what the policy requires.
+# the shipped code today; `target-tier` is what the policy requires. Tier 2:
+# every exec function is proven to meet its contract; independent.rs (RFC
+# 3986) is proven equal where the standards agree, with the disagreements
+# listed exactly; every mutation is certified killed; and the crate is
+# tested against WPT url/percent-encoding and rust-url
+# (tests/conformance_percent.rs).
 [package.metadata.clazel]
-tier = 0
+tier = 2
 target-tier = 2
 
 [package.metadata.verus]
