@@ -49,6 +49,17 @@
 //! quantifiers, but it crashes Verus 0.2026.10.04 here; `compute_only`
 //! needs quantifier-free witnesses, e.g. one concrete output element.)
 //!
+//! A certificate may also list `reveal`: paths of opaque spec items (for
+//! example generated table constants) that the witness evaluates through.
+//! Each becomes `reveal(PATH);` before the witness. Only paths are
+//! accepted, so a certificate cannot add an assumption this way.
+//!
+//! A mutation may name a `module` (e.g. `"uts46::process"`): the run that
+//! must fail for `killed` and `killed-incidentally` (or pass for
+//! `survives`) then verifies only that module, instead of the whole
+//! crate. Use it for crates whose full run is slow; the certificate is
+//! checked exactly as without it.
+//!
 //! `killed-incidentally` and `survives` need no certificate: they claim no
 //! coverage, so a wrong label can only understate it.
 
@@ -76,12 +87,28 @@ struct Certificate {
     lemma: String,
     /// Quantifier-free fact about the concrete input that contradicts the lemma.
     witness: String,
+    /// Opaque items to reveal before the witness (paths only).
+    reveal: Vec<String>,
+}
+
+/// `a::b::C`: identifiers separated by `::`, nothing else.
+fn is_path(s: &str) -> bool {
+    !s.is_empty()
+        && s.split("::").all(|part| {
+            let mut chars = part.chars();
+            chars
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
 }
 
 const CERTIFICATE_FN: &str = "__clazel_kill_certificate";
 
 struct Mutation {
     id: String,
+    /// Verify only this module in the mutant's run (see the module docs).
+    module: Option<String>,
     certificate: Option<Certificate>,
     file: String,
     find: String,
@@ -166,10 +193,38 @@ fn load(c: &Crate) -> Result<Vec<Mutation>, String> {
                         file: f("file")?,
                         lemma: f("lemma")?,
                         witness: f("witness")?,
+                        reveal: match c.get("reveal") {
+                            None => Vec::new(),
+                            Some(list) => list
+                                .as_array()
+                                .ok_or(format!("{}: {id}: reveal must be an array", path.display()))?
+                                .iter()
+                                .map(|v| match v.as_str() {
+                                    Some(p) if is_path(p) => Ok(p.to_owned()),
+                                    _ => Err(format!(
+                                        "{}: {id}: reveal entries must be paths, not {v}",
+                                        path.display()
+                                    )),
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                        },
                     })
                 }
             };
+            let module = match m.get("module") {
+                None => None,
+                Some(v) => match v.as_str() {
+                    Some(p) if is_path(p) => Some(p.to_owned()),
+                    _ => {
+                        return Err(format!(
+                            "{}: {id}: module must be a module path",
+                            path.display()
+                        ));
+                    }
+                },
+            };
             Ok(Mutation {
+                module,
                 certificate,
                 file: field("file")?,
                 find: field("find")?,
@@ -219,7 +274,10 @@ pub fn run(c: &Crate, root: &Path) -> Result<Report, String> {
         }
         let mutated = original.replacen(&m.find, &m.replace, 1);
         std::fs::write(&target, mutated).map_err(|e| format!("{}: {e}", target.display()))?;
-        let result = verus::run(&crate_dir, &c.name, false);
+        let result = match &m.module {
+            Some(module) => verus::module(&crate_dir, &c.name, module),
+            None => verus::run(&crate_dir, &c.name, false),
+        };
         std::fs::write(&target, &original).map_err(|e| format!("{}: {e}", target.display()))?;
         match (result?, m.expect) {
             (Run::ProofFailed(_, out), Expect::Killed) => {
@@ -293,8 +351,13 @@ fn check_certificate(
     let cert_path = crate_dir.join(&cert.file);
     let cert_original =
         std::fs::read_to_string(&cert_path).map_err(|e| format!("{}: {e}", cert_path.display()))?;
+    let reveals: String = cert
+        .reveal
+        .iter()
+        .map(|p| format!("    reveal({p});\n"))
+        .collect();
     let code = format!(
-        "\n\nverus! {{\nproof fn {CERTIFICATE_FN}() {{\n    assert({}) by (compute_only);\n    {};\n    assert(false);\n}}\n}} // verus!\n",
+        "\n\nverus! {{\nproof fn {CERTIFICATE_FN}() {{\n{reveals}    assert({}) by (compute_only);\n    {};\n    assert(false);\n}}\n}} // verus!\n",
         cert.witness, cert.lemma
     );
     let mutated = original.replacen(&m.find, &m.replace, 1);
@@ -450,4 +513,17 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn reveal_entries_are_paths() {
+        assert!(super::is_path("super::data::IDNA_MAPPING_0"));
+        assert!(super::is_path("T"));
+        assert!(!super::is_path("assume(false)"));
+        assert!(!super::is_path("a::"));
+        assert!(!super::is_path("a; admit()"));
+        assert!(!super::is_path(""));
+    }
 }

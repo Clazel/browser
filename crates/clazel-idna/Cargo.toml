@@ -1,0 +1,37 @@
+[package]
+name = "clazel-idna"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "RFC 3492 Punycode and UTS #46 Unicode IDNA Compatibility Processing."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+
+# Test-only engine for the differential tests in tests/conformance_*.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped). idna_adapter 1.1.0
+# is idna's unicode-rs back end (Unicode 16.0 normalization, Bidi and
+# joining data).
+[dev-dependencies]
+idna = "=1.1.0"
+idna_adapter = "=1.1.0"
+
+# Verification tier (docs/VERIFICATION.md). Tier 2: Punycode decode and
+# encode, NFC, UTS #46 processing, ToASCII, ToUnicode and the URL domain
+# parser are proven to meet their contracts, the UTS #46 part relative to
+# the generated Unicode 18.0.0 tables (src/uts46/data.rs, checked by
+# `cargo xtask check`); independent.rs files (RFC 3492 Appendix C; RFC
+# 5893, RFC 5892, the Unicode Standard's Hangul sample code, D115 and
+# D117 R1) are proven equal to the spec; every mutation is certified
+# killed; and tests/conformance_*.rs run the RFC 3492 samples, WPT
+# IdnaTestV2.json and toascii.json, and differential tests against idna.
+[package.metadata.clazel]
+tier = 2
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true

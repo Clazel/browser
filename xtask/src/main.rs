@@ -9,6 +9,10 @@
 //! - `cargo xtask testdata`: regenerate the Rust tables converted from
 //!   vendored conformance suites (`tests/generated/*.rs`). `check` and
 //!   `verify` fail if a committed table is stale.
+//! - `cargo xtask tables`: regenerate the Unicode tables generated from
+//!   vendored Unicode data (`crates/clazel-idna/src/uts46/data.rs`).
+//!   `check` and `verify` fail if they are stale or a data file's hash
+//!   differs from its `SOURCE.md`.
 //! - `cargo xtask report [--write]`: run the checks that produce the README
 //!   status table (including each crate's conformance suites, see
 //!   `conformance.rs`), print it, and with `--write` update README.md. `verify`
@@ -22,6 +26,7 @@ mod report;
 mod reviews;
 mod scan;
 mod testdata;
+mod unicode;
 mod verus;
 mod workspace;
 
@@ -202,6 +207,8 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     r.step("pinned versions", from_result(check_pins(crates, pins)));
     let (problems, notes) = testdata::run(crates, false);
     r.step("generated test data", outcome(problems, notes));
+    let (problems, notes) = unicode::run(false);
+    r.step("generated Unicode tables", outcome(problems, notes));
     let tooling = crates
         .iter()
         .filter(|c| c.tooling)
@@ -634,6 +641,28 @@ fn generate_testdata() -> ExitCode {
     }
 }
 
+/// `cargo xtask tables`: rewrite the generated Unicode tables if stale.
+fn generate_tables() -> ExitCode {
+    let mut r = Runner::default();
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent();
+    if !root.is_some_and(|p| std::env::set_current_dir(p).is_ok()) {
+        r.step(
+            "find repository root",
+            Outcome::Fail(vec!["cannot enter the repository root".into()]),
+        );
+        return ExitCode::from(1);
+    }
+    let (problems, notes) = unicode::run(true);
+    r.step("generate Unicode tables", outcome(problems, notes));
+    if r.failed {
+        println!("RESULT: FAILED");
+        ExitCode::from(1)
+    } else {
+        println!("RESULT: UNICODE TABLES UP TO DATE");
+        ExitCode::SUCCESS
+    }
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
@@ -641,6 +670,7 @@ fn main() -> ExitCode {
     let mut only_crate: Option<&str> = None;
     let (full, only_mutate, report_mode, write) = match args.as_slice() {
         ["testdata"] => return generate_testdata(),
+        ["tables"] => return generate_tables(),
         ["verify"] => (true, false, false, false),
         ["check"] => (false, false, false, false),
         ["mutate"] => (false, true, false, false),
@@ -651,7 +681,9 @@ fn main() -> ExitCode {
         ["report"] => (false, false, true, false),
         ["report", "--write"] => (false, false, true, true),
         _ => {
-            eprintln!("usage: cargo xtask <verify|check|mutate [crate]|testdata|report [--write]>");
+            eprintln!(
+                "usage: cargo xtask <verify|check|mutate [crate]|testdata|tables|report [--write]>"
+            );
             return ExitCode::from(64);
         }
     };
