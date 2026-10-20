@@ -1,0 +1,199 @@
+{
+  "mutations": [
+    {
+      "id": "token-code-point-full-stop",
+      "file": "src/mime_type/spec.rs",
+      "find": "|| c == 0x2E || c == 0x5E",
+      "replace": "|| c == 0x5E",
+      "expect": "killed",
+      "reason": "\".\" is no longer an HTTP token code point: the mutant fails to parse t/x.y, which matches RFC 9110 media-type (tchar includes \".\"), so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x78u32, 0x2Eu32, 0x79u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x78u32, 0x2Eu32, 0x79u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x78u32, 0x2Eu32, 0x79u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x78u32, 0x2Eu32, 0x79u32]) is None)"
+      }
+    },
+    {
+      "id": "quoted-string-token-ff",
+      "file": "src/mime_type/spec.rs",
+      "find": "(0x80 <= c <= 0xFF)",
+      "replace": "(0x80 <= c <= 0xFE)",
+      "expect": "killed",
+      "reason": "U+00FF is no longer an HTTP quoted-string token code point: the mutant drops the parameter of t/h;a=\"\\u{FF}\", whose quoted value is obs-text in RFC 9110, so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0xFFu32, 0x22u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0xFFu32, 0x22u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0xFFu32, 0x22u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0xFFu32, 0x22u32])->Some_0.parameters.len() == 0 && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0xFFu32, 0x22u32])->Some_0.parameters.len() == 1)"
+      }
+    },
+    {
+      "id": "ascii-lowercase-offset",
+      "file": "src/mime_type/spec.rs",
+      "find": "{ (c + 0x20) as u32 }",
+      "replace": "{ (c + 0x21) as u32 }",
+      "expect": "killed",
+      "reason": "ASCII lowercase maps A to b: the mutant parses T/h with type u, where RFC 9110's case-insensitive type is t, so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x54u32, 0x2Fu32, 0x68u32])",
+        "witness": "media_type(seq![0x54u32, 0x2Fu32, 0x68u32]) is Some && media_type(seq![0x54u32, 0x2Fu32, 0x68u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x54u32, 0x2Fu32, 0x68u32])->Some_0.type_[0] == 0x75u32 && media_type(seq![0x54u32, 0x2Fu32, 0x68u32])->Some_0.type_[0] == 0x74u32)"
+      }
+    },
+    {
+      "id": "collect-drops-code-points",
+      "file": "src/mime_type/spec.rs",
+      "find": "collect_loop(condition, input, position + 1, result.push(input[position as int]))",
+      "replace": "collect_loop(condition, input, position + 1, result)",
+      "expect": "killed",
+      "reason": "Collecting no longer appends: every type is empty, so the mutant fails t/h, which matches media-type, and lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32]) is None)"
+      }
+    },
+    {
+      "id": "subtype-keeps-trailing-whitespace",
+      "file": "src/mime_type/spec.rs",
+      "find": "let subtype = remove_trailing_http_whitespace(subtype);",
+      "replace": "let subtype = subtype;",
+      "expect": "killed",
+      "reason": "Step 8 dropped: the mutant fails t/h ;a=b (subtype \"h \"), where RFC 9110 allows OWS before \";\", so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x20u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x20u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x20u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x20u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32]) is None)"
+      }
+    },
+    {
+      "id": "parameters-skip-whitespace-dropped",
+      "file": "src/mime_type/spec.rs",
+      "find": "let (_, position) = collect(Condition::HttpWhitespace, input, position);",
+      "replace": "let position = position;",
+      "expect": "killed",
+      "reason": "Step 11.2 dropped: the mutant reads the name \" a\" in t/h; a=b and drops the parameter, where RFC 9110 allows OWS after \";\", so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x20u32, 0x61u32, 0x3Du32, 0x62u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x20u32, 0x61u32, 0x3Du32, 0x62u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x20u32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x20u32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() == 0 && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x20u32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() == 1)"
+      }
+    },
+    {
+      "id": "parameter-name-not-lowercased",
+      "file": "src/mime_type/spec.rs",
+      "find": "let parameter_name = ascii_lowercase(parameter_name);",
+      "replace": "let parameter_name = parameter_name;",
+      "expect": "killed",
+      "reason": "Step 11.4 dropped: the mutant keeps the name A in t/h;A=b, where RFC 9110's parameter names are case-insensitive (folded to a), so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x41u32, 0x3Du32, 0x62u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x41u32, 0x3Du32, 0x62u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x41u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x41u32, 0x3Du32, 0x62u32])->Some_0.parameters[0].0[0] == 0x41u32 && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x41u32, 0x3Du32, 0x62u32])->Some_0.parameters[0].0[0] == 0x61u32)"
+      }
+    },
+    {
+      "id": "semicolon-continue-becomes-break",
+      "file": "src/mime_type/spec.rs",
+      "find": "            parse_parameters(input, position, mime_type)\n        } else {\n            // 11.5.2",
+      "replace": "            mime_type\n        } else {\n            // 11.5.2",
+      "expect": "killed",
+      "reason": "Step 11.5.1's continue becomes break: the mutant stops at the empty parameter in t/h;;a=b, which RFC 9110 allows, and loses a=b, so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() == 0 && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])->Some_0.parameters.len() == 1)"
+      }
+    },
+    {
+      "id": "quoted-pair-drops-code-point",
+      "file": "src/mime_type/spec.rs",
+      "find": "quoted_string_loop(input, position + 1, value.push(input[position as int]))",
+      "replace": "quoted_string_loop(input, position + 1, value)",
+      "expect": "killed",
+      "reason": "Fetch step 5.5.2 dropped: the mutant reads t/h;a=\"\\\"\" as a=\"\", where RFC 9110's quoted-pair gives the value \", so lemma_agree is false.",
+      "certificate": {
+        "file": "src/mime_type/independent.rs",
+        "lemma": "lemma_agree(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])",
+        "witness": "media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32]) is Some && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])->Some_0.parameters.len() <= 1 && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])->Some_0.parameters[0].1.len() == 0 && media_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])->Some_0.parameters[0].1.len() == 1)"
+      }
+    },
+    {
+      "id": "trailing-backslash-dropped",
+      "file": "src/mime_type/spec.rs",
+      "find": "(value.push(0x5C), position)",
+      "replace": "(value, position)",
+      "expect": "killed",
+      "reason": "Fetch step 5.5.1 no longer appends \\: the mutant collects \"\\ as the empty value, where Fetch's own example table gives \\, so lemma_standard_examples (examples.rs) is false.",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "super::examples::lemma_standard_examples()",
+        "witness": "collect_an_http_quoted_string(seq![0x22u32, 0x5Cu32], 0, true).0.len() == 0"
+      }
+    },
+    {
+      "id": "escape-dropped",
+      "file": "src/mime_type/spec.rs",
+      "find": "seq![0x5Cu32, value[0]] + precede_quotes_and_backslashes(value.drop_first())",
+      "replace": "seq![value[0]] + precede_quotes_and_backslashes(value.drop_first())",
+      "expect": "killed",
+      "reason": "Serialize step 2.4.1 dropped: the value \" serializes as \"\"\", which parses to the empty value, so the round trip lemma_parse_serialize_parse is false.",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])",
+        "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32]) is Some && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])->Some_0.parameters[0].1.len() == 1 && parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x5Cu32, 0x22u32, 0x22u32])->Some_0))->Some_0.parameters[0].1.len() == 0)"
+      }
+    },
+    {
+      "id": "empty-value-not-quoted",
+      "file": "src/mime_type/spec.rs",
+      "find": "if !solely_http_token_code_points(value) || value.len() == 0 {",
+      "replace": "if !solely_http_token_code_points(value) {",
+      "expect": "killed",
+      "reason": "The empty value serializes unquoted (a=), which parsing drops, so the round trip lemma_parse_serialize_parse is false on t/h;a=\"\".",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x22u32])",
+        "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x22u32]) is Some && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x22u32])->Some_0.parameters.len() == 1 && parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x22u32])->Some_0))->Some_0.parameters.len() == 0)"
+      }
+    },
+    {
+      "id": "serialize-wrong-separator",
+      "file": "src/mime_type/spec.rs",
+      "find": "let serialization = serialization + seq![0x3Bu32] + name",
+      "replace": "let serialization = serialization + seq![0x2Cu32] + name",
+      "expect": "killed",
+      "reason": "Parameters are separated by \",\": t/h;a=b serializes as t/h,a=b, which does not parse, so the round trip lemma_parse_serialize_parse is false.",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])",
+        "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32]) is Some && (parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x62u32])->Some_0)) is None)"
+      }
+    },
+    {
+      "id": "serialize-no-closing-quote",
+      "file": "src/mime_type/spec.rs",
+      "find": "seq![0x22u32] + precede_quotes_and_backslashes(value) + seq![0x22u32]",
+      "replace": "seq![0x22u32] + precede_quotes_and_backslashes(value)",
+      "expect": "killed",
+      "reason": "The closing quote is dropped: t/h;a=\" \";b=c serializes as t/h;a=\" ;b=c, whose quoted value runs to the end, so the round trip lemma_parse_serialize_parse is false.",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x20u32, 0x22u32, 0x3Bu32, 0x62u32, 0x3Du32, 0x63u32])",
+        "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x20u32, 0x22u32, 0x3Bu32, 0x62u32, 0x3Du32, 0x63u32]) is Some && (parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x20u32, 0x22u32, 0x3Bu32, 0x62u32, 0x3Du32, 0x63u32])->Some_0.parameters.len() == 2 && parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32, 0x3Bu32, 0x61u32, 0x3Du32, 0x22u32, 0x20u32, 0x22u32, 0x3Bu32, 0x62u32, 0x3Du32, 0x63u32])->Some_0))->Some_0.parameters.len() == 1)"
+      }
+    },
+    {
+      "id": "serialize-subtype-separator",
+      "file": "src/mime_type/spec.rs",
+      "find": "let serialization = mime_type.type_ + seq![0x2Fu32] + mime_type.subtype;",
+      "replace": "let serialization = mime_type.type_ + seq![0x2Eu32] + mime_type.subtype;",
+      "expect": "killed",
+      "reason": "Type and subtype joined with \".\": t/h serializes as t.h, which does not parse, so the round trip lemma_parse_serialize_parse is false.",
+      "certificate": {
+        "file": "src/mime_type/lemmas.rs",
+        "lemma": "lemma_parse_serialize_parse(seq![0x74u32, 0x2Fu32, 0x68u32])",
+        "witness": "parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32]) is Some && (parse_a_mime_type(serialize_a_mime_type(parse_a_mime_type(seq![0x74u32, 0x2Fu32, 0x68u32])->Some_0)) is None)"
+      }
+    }
+  ]
+}

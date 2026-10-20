@@ -9,8 +9,12 @@
 //! - [`parse`], [`serialize`], [`groups`]: the executable algorithms, each
 //!   proven against [`contract`].
 //! - [`lemmas`]: facts proven about the spec itself.
+//! - [`examples`]: the standards' examples, evaluated on the spec.
+//! - [`independent`]: a second transcription, from RFC 9110, and what it
+//!   and the spec are proven to agree on.
 
 pub mod contract;
+pub mod examples;
 pub mod groups;
 pub mod independent;
 pub mod lemmas;
