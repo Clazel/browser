@@ -49,6 +49,11 @@
 //! quantifiers, but it crashes Verus 0.2026.10.04 here; `compute_only`
 //! needs quantifier-free witnesses, e.g. one concrete output element.)
 //!
+//! A certificate may also list `reveal`: paths of opaque spec items (for
+//! example generated table constants) that the witness evaluates through.
+//! Each becomes `reveal(PATH);` before the witness. Only paths are
+//! accepted, so a certificate cannot add an assumption this way.
+//!
 //! `killed-incidentally` and `survives` need no certificate: they claim no
 //! coverage, so a wrong label can only understate it.
 
@@ -76,6 +81,20 @@ struct Certificate {
     lemma: String,
     /// Quantifier-free fact about the concrete input that contradicts the lemma.
     witness: String,
+    /// Opaque items to reveal before the witness (paths only).
+    reveal: Vec<String>,
+}
+
+/// `a::b::C`: identifiers separated by `::`, nothing else.
+fn is_path(s: &str) -> bool {
+    !s.is_empty()
+        && s.split("::").all(|part| {
+            let mut chars = part.chars();
+            chars
+                .next()
+                .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+                && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+        })
 }
 
 const CERTIFICATE_FN: &str = "__clazel_kill_certificate";
@@ -166,6 +185,21 @@ fn load(c: &Crate) -> Result<Vec<Mutation>, String> {
                         file: f("file")?,
                         lemma: f("lemma")?,
                         witness: f("witness")?,
+                        reveal: match c.get("reveal") {
+                            None => Vec::new(),
+                            Some(list) => list
+                                .as_array()
+                                .ok_or(format!("{}: {id}: reveal must be an array", path.display()))?
+                                .iter()
+                                .map(|v| match v.as_str() {
+                                    Some(p) if is_path(p) => Ok(p.to_owned()),
+                                    _ => Err(format!(
+                                        "{}: {id}: reveal entries must be paths, not {v}",
+                                        path.display()
+                                    )),
+                                })
+                                .collect::<Result<Vec<_>, _>>()?,
+                        },
                     })
                 }
             };
@@ -293,8 +327,13 @@ fn check_certificate(
     let cert_path = crate_dir.join(&cert.file);
     let cert_original =
         std::fs::read_to_string(&cert_path).map_err(|e| format!("{}: {e}", cert_path.display()))?;
+    let reveals: String = cert
+        .reveal
+        .iter()
+        .map(|p| format!("    reveal({p});\n"))
+        .collect();
     let code = format!(
-        "\n\nverus! {{\nproof fn {CERTIFICATE_FN}() {{\n    assert({}) by (compute_only);\n    {};\n    assert(false);\n}}\n}} // verus!\n",
+        "\n\nverus! {{\nproof fn {CERTIFICATE_FN}() {{\n{reveals}    assert({}) by (compute_only);\n    {};\n    assert(false);\n}}\n}} // verus!\n",
         cert.witness, cert.lemma
     );
     let mutated = original.replacen(&m.find, &m.replace, 1);
@@ -450,4 +489,17 @@ fn copy_dir(from: &Path, to: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn reveal_entries_are_paths() {
+        assert!(super::is_path("super::data::IDNA_MAPPING_0"));
+        assert!(super::is_path("T"));
+        assert!(!super::is_path("assume(false)"));
+        assert!(!super::is_path("a::"));
+        assert!(!super::is_path("a; admit()"));
+        assert!(!super::is_path(""));
+    }
 }
