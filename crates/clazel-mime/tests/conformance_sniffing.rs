@@ -90,7 +90,10 @@ fn wpt_media() {
         _ => Some("(not a known vector)"),
     };
     let mut failures = Vec::new();
+    let mut failed_vectors = 0usize;
+    let mut xfail = 0usize;
     for case in MEDIA {
+        let before = failures.len();
         let want = expected(case.file);
         let got = match_audio_or_video_type_pattern(header(case.bytes)).map(|m| essence(&m));
         if got.as_deref() != want {
@@ -111,7 +114,24 @@ fn wpt_media() {
                 }
             }
         }
+        if failures.len() > before {
+            failed_vectors = failed_vectors.saturating_add(1);
+        } else if want.is_none() {
+            // Expected failure: WPT expects FLAC to play, but the standard
+            // has no FLAC signature, so §6.2 cannot recognise it.
+            xfail = xfail.saturating_add(1);
+        }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    // Units: vectors (each checked by §6.2 and, with no Content-Type, §7).
+    println!(
+        "clazel-conformance: suite=\"WPT mimesniff/media\" pass={} xfail={xfail} fail={failed_vectors} total={}",
+        MEDIA
+            .len()
+            .saturating_sub(xfail)
+            .saturating_sub(failed_vectors),
+        MEDIA.len()
+    );
     assert!(MEDIA.len() == 7 && !MEDIA_CONTENT_TYPES.is_empty());
     assert!(
         failures.is_empty(),
@@ -144,6 +164,13 @@ fn wpt_mislabeled_binary() {
             failures.push(format!("{}: gave {got}, expected {want}", case.file));
         }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT mimesniff/sniffing mislabeled binary\" pass={} xfail=0 fail={} total={}",
+        MISLABELED.len().saturating_sub(failures.len()),
+        failures.len(),
+        MISLABELED.len()
+    );
     assert!(MISLABELED.len() == 3);
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
@@ -152,11 +179,22 @@ fn wpt_mislabeled_binary() {
 /// rss.html, served as text/html, have content type text/html.
 #[test]
 fn wpt_feeds() {
+    let mut failures = Vec::new();
     for case in FEEDS {
         let got = computed(case.content_type.unwrap_or_default(), case.bytes);
-        assert_eq!(got, "text/html", "{}", case.file);
+        if got != "text/html" {
+            failures.push(format!("{}: gave {got}", case.file));
+        }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT mimesniff/sniffing feeds\" pass={} xfail=0 fail={} total={}",
+        FEEDS.len().saturating_sub(failures.len()),
+        failures.len(),
+        FEEDS.len()
+    );
     assert!(FEEDS.len() == 2);
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
 fn image(b: &[u8]) -> String {
