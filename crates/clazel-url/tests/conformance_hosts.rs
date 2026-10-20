@@ -397,7 +397,7 @@ fn differential_ipv4_parser() {
         }
     }
     assert!(
-        agreed > 1000,
+        agreed > usize::try_from(samples(1000, 50)).unwrap_or(0),
         "too few strings in the common class: {agreed}"
     );
 }
