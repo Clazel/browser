@@ -299,6 +299,10 @@ domain parser with no expected failures; differential tests against
 rust-url's `idna` 1.1.0 (Punycode, and 100 000 random domains through
 the domain parser, strict and not; `idna` predates two URL Standard
 rules, which the test documents).
+For 1.9, `clazel_idna::uts46::spec::domain_parser` has exactly the type of
+`clazel-url`'s `DomainParser` (`spec_fn(Seq<u32>, bool) -> Option<Seq<u32>>`),
+and the exec `clazel_idna::uts46::process::domain_parser(&[u32], bool) ->
+Option<Vec<u32>>` is proven equal to it, ready to feed `host_parser_finish`.
 
 ### 1.9 Host parsing (M)
 
