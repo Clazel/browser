@@ -48,7 +48,9 @@ fn scalars(s: &str) -> Vec<u32> {
 #[test]
 fn wpt_mime_types() {
     let mut failures = Vec::new();
+    let mut failed = 0usize;
     for case in WPT {
+        let before = failures.len();
         let got = parse(case.input).map(|m| serialize(&m));
         if got.as_deref() != case.output {
             failures.push(format!(
@@ -88,7 +90,16 @@ fn wpt_mime_types() {
                 failures.push(format!("{}[{}]: from bytes differs", case.file, case.index));
             }
         }
+        if failures.len() != before {
+            failed = failed.saturating_add(1);
+        }
     }
+    // Summary line for the README table; format in xtask/src/conformance.rs.
+    println!(
+        "clazel-conformance: suite=\"WPT mimesniff/mime-types\" pass={} xfail=0 fail={failed} total={}",
+        WPT.len().saturating_sub(failed),
+        WPT.len()
+    );
     assert!(WPT.len() > 900, "only {} WPT cases", WPT.len());
     assert!(
         failures.is_empty(),

@@ -49,14 +49,13 @@ fn string(v: &[u32]) -> String {
         .collect()
 }
 
-#[test]
-fn wpt_url_idna() {
+/// Runs one suite; returns the names of the rows that fail.
+fn run_suite(suite: &str, cases: &[Case], expected: &[String]) -> Vec<String> {
     let mut failing: Vec<String> = Vec::new();
-    let mut total = 0usize;
-    // Miri is slow; under it, every 97th row (the expected failures are
-    // then checked only outside Miri).
+    // Miri is slow; under it, every 97th row.
     let step = if cfg!(miri) { 97 } else { 1 };
-    for case in IDNA_TEST_V2.iter().chain(TOASCII).step_by(step) {
+    let mut total = 0usize;
+    for case in cases.iter().step_by(step) {
         total = total.saturating_add(1);
         let got = domain_parser(case.input, false);
         if got.as_deref() != case.output {
@@ -71,15 +70,23 @@ fn wpt_url_idna() {
             failing.push(case.name.to_owned());
         }
     }
+    let xfail = failing.iter().filter(|f| expected.contains(f)).count();
+    let fail = failing.len().saturating_sub(xfail);
+    println!(
+        "clazel-conformance: suite=\"{suite}\" pass={} xfail={xfail} fail={fail} total={total}",
+        total.saturating_sub(failing.len())
+    );
+    failing
+}
+
+#[test]
+fn wpt_url_idna() {
     let expected: Vec<String> = EXPECTED_FAILURES
         .iter()
         .map(|(n, _)| (*n).to_owned())
         .collect();
-    println!(
-        "WPT url IDNA: {} of {total} pass ({} expected failures)",
-        total.saturating_sub(failing.len()),
-        expected.len()
-    );
+    let mut failing = run_suite("WPT url/ IdnaTestV2.json", IDNA_TEST_V2, &expected);
+    failing.extend(run_suite("WPT url/ toascii.json", TOASCII, &expected));
     if !cfg!(miri) {
         assert_eq!(
             failing, expected,

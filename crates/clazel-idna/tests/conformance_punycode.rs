@@ -11,7 +11,7 @@
 //!    which only changes the case of the digits after the last delimiter;
 //!    our encoder outputs lowercase digits, so those are compared
 //!    lowercased. The decoder ignores case, so it is fed the samples as
-//!    printed.
+//!    printed. A sample passes when both directions match.
 //! 2. A differential test against rust-url's `idna` crate (used by the
 //!    `url` crate and Servo), `idna::punycode`: `encode` on random strings
 //!    of scalar values, `decode` on every string of up to 3 characters
@@ -204,18 +204,29 @@ const RFC_3492_SAMPLES: &[(&str, &[u32], &str)] = &[
 #[test]
 fn rfc_3492_samples() {
     assert_eq!(RFC_3492_SAMPLES.len(), 19, "(A) to (S)");
+    let mut failed: Vec<String> = Vec::new();
+    let mut failing_samples = 0usize;
     for &(label, code_points, punycode) in RFC_3492_SAMPLES {
-        assert_eq!(
-            decode(&scalars(punycode)).as_deref(),
-            Some(code_points),
-            "decode {label}"
-        );
-        assert_eq!(
-            encode(code_points).map(|v| string(&v)),
-            Some(without_annotation(punycode)),
-            "encode {label}"
-        );
+        let decoded = decode(&scalars(punycode));
+        let encoded = encode(code_points).map(|v| string(&v));
+        let decode_ok = decoded.as_deref() == Some(code_points);
+        let encode_ok = encoded == Some(without_annotation(punycode));
+        if !decode_ok {
+            failed.push(format!("decode {label}: got {decoded:X?}"));
+        }
+        if !encode_ok {
+            failed.push(format!("encode {label}: got {encoded:?}"));
+        }
+        if !(decode_ok && encode_ok) {
+            failing_samples = failing_samples.saturating_add(1);
+        }
     }
+    println!(
+        "clazel-conformance: suite=\"RFC 3492 section 7.1 samples\" pass={} xfail=0 fail={failing_samples} total={}",
+        RFC_3492_SAMPLES.len().saturating_sub(failing_samples),
+        RFC_3492_SAMPLES.len()
+    );
+    assert!(failed.is_empty(), "{failed:#?}");
 }
 
 struct Rng(u64);
