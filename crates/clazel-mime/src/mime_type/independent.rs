@@ -1038,4 +1038,17 @@ pub proof fn lemma_serialize_is_media_type(m: MimeTypeRecord)
     lemma_parameters_segments(s, ps, 0);
 }
 
+
+/// [`lemma_equals_parse_a_mime_type`] as one implication, for use at a
+/// concrete input (mutation certificates).
+pub proof fn lemma_agree(s: Seq<u32>)
+    ensures
+        media_type(s) is Some && distinct_names(media_type(s)->Some_0.parameters)
+            ==> parse_a_mime_type(s) == Some(to_record(media_type(s)->Some_0)),
+{
+    if media_type(s) is Some && distinct_names(media_type(s)->Some_0.parameters) {
+        lemma_equals_parse_a_mime_type(s);
+    }
+}
+
 } // verus!

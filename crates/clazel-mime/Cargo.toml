@@ -9,6 +9,12 @@ description = "WHATWG MIME Sniffing Standard: MIME types and sniffing."
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only engine for the differential test in
+# tests/conformance_mime_types.rs (class `test` in docs/DEPENDENCIES.md:
+# never shipped).
+[dev-dependencies]
+mime = "=0.3.17"
+
 # Verification tier (docs/VERIFICATION.md).
 [package.metadata.clazel]
 tier = 0

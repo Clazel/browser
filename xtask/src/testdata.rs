@@ -13,6 +13,7 @@
 
 mod js;
 mod wpt_encoding;
+mod wpt_mime_types;
 
 use std::path::{Path, PathBuf};
 
@@ -23,8 +24,14 @@ type Convert = fn(&Path) -> Result<String, String>;
 
 /// Every suite the converter knows, by directory name, with the files it
 /// expects to find there.
-const CONVERTERS: &[(&str, Convert, &[&str])] =
-    &[("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES)];
+const CONVERTERS: &[(&str, Convert, &[&str])] = &[
+    ("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES),
+    (
+        "wpt-mime-types",
+        wpt_mime_types::convert,
+        wpt_mime_types::FILES,
+    ),
+];
 
 /// Files every suite directory has besides the converter's inputs.
 const ALWAYS: &[&str] = &["SOURCE.md", "LICENSE.md"];
