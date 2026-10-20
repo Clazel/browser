@@ -28,6 +28,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 |-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|
 | clazel-base64 | 2 (2) | 77 verified, 0 errors | no harnesses | 0 | 635 / 737 / 161 | 23 / 0 / 0 of 23 | 0 of 3 files current |
 | clazel-encoding | 2 (2) | 81 verified, 0 errors | no harnesses | 0 | 764 / 485 / 205 | 22 / 0 / 0 of 22 | 0 of 3 files current |
+| clazel-idna | 2 (2) | 375 verified, 0 errors | no harnesses | 0 | 2406 / 2887 / 17549 | 69 / 0 / 0 of 69 | 0 of 5 files current |
 | clazel-mime | 2 (2) | 174 verified, 0 errors | no harnesses | 0 | 1963 / 1381 / 679 | 15 / 0 / 0 of 15 | 0 of 5 files current |
 | clazel-percent | 2 (2) | 54 verified, 0 errors | no harnesses | 0 | 520 / 297 / 173 | 34 / 0 / 0 of 34 | 0 of 3 files current |
 | xtask | 0 (0) | not used | no harnesses | 0 | — | — | no spec files |
