@@ -264,6 +264,36 @@ opaque-host parser, and §3.6 host serializers. Independent: RFC 3986 §3.2.2
 and RFC 4291 §2.2 for IPv6 text forms. Lemma: serialize then parse is the
 identity on hosts.
 
+**As built:** `crates/clazel-url/src/host/`, from `url.bs` at
+`845bafca`. Strings are `u32` scalar values; an IPv4 address is a `nat`
+and an IPv6 address a `Seq<nat>` of pieces in the spec, with lemmas that
+the parsers only return values that fit (`lemma_ipv4_parser_32_bit`,
+`lemma_ipv6_parser_pieces`). Validation errors are not modelled (they never
+change a result). **Waiting on 1.8:** host parser step 6 runs the domain
+parser (URL §3.3), which runs UTS #46 ToASCII. The spec takes the domain
+parser as a parameter and every contract and theorem quantifies over it,
+so nothing assumes how it behaves. The exec host parser is therefore two
+proven halves, `host_parser_start` (steps 1 to 5: IPv6, opaque host, or
+the "domain" to pass on) and `host_parser_finish` (steps 7 to 9 on the
+domain parser's result); 1.8 supplies the call in between. (For an ASCII
+domain and beStrict false, §3.3 does not depend on ToASCII at all: it
+lowercases, and fails on the empty string and forbidden domain code
+points. The conformance test uses exactly that for ASCII rows.)
+`lemma_ipv4_serialize_parse` and `lemma_ipv6_serialize_parse` prove the
+round trip for every address, and `lemma_host_serialize_parse` lifts it
+to hosts. `independent.rs` (RFC 3986 §3.2.2, RFC 4291 §2.2, RFC 5952 §4)
+was committed before `spec.rs`: every `IPv4address` and `IPv6address`
+parses to the same address, both serializers write the RFC text for
+every address, a bracketed `IPvFuture` fails, and every `reg-name` is an
+unchanged opaque host. The converse for IPv6 (the URL Standard accepts
+nothing but `IPv6address`) is not proven; the differential test against
+`std::net::Ipv6Addr` finds no exception in 500,000 strings. Conformance:
+the 359 host rows of WPT `urltestdata.json` (inputs whose host string can
+be read off without the URL parser, 1.10) and all 87 `toascii.json` rows;
+89 rows whose domain is not ASCII are expected failures until 1.8,
+listed by name. "Radix-R digit" (IPv4 number parser step 7) is undefined
+in the standard; it is read as an ASCII hex digit with value below R.
+
 ### 1.10 Basic URL parser (L)
 
 URL §4.4, the state machine, transcribed one state per spec function with
@@ -321,7 +351,9 @@ case), the others count cases. A new conformance test (1.7 stage B, 1.8,
 | 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
 | 1.6 Forgiving base64 | done: 77 verified, 0 errors; `decode` and `encode` proven against their contracts; `independent.rs` (RFC 4648 §4) proven equal to the encoder and, on canonical input, the decoder; round trip `lemma_decode_encode`; all 23 mutations certified `killed`; all 80 WPT `fetch/data-urls` base64 rows pass; differential test against `base64` 0.22.1 agrees; **`clazel-base64` at tier 2** |
 | 1.7 MIME types and sniffing | Done. Whole crate: 288 verified, 0 errors; 35 mutations, all certified `killed`; tier 2 holds for everything shipped. MIME types (stage A): parse, serialize (to/from bytes) and the §4.6 groups proven against `contract.rs`; round trip `lemma_parse_serialize_parse`; `independent.rs` (RFC 9110 media-type) proven equal on valid media types with no repeated parameter names; 15 mutations certified; 955 WPT `mimesniff/mime-types` cases pass; differential against `mime` 0.3.17. Sniffing (stage B): §5.1, §6 (pattern matching, the four tables, MP4/WebM/MP3 signatures), §7, §7.1, §7.2 proven against `sniff/contract.rs`; lemmas: pattern matching never depends on bytes past the input (§6 erratum), matches survive appending bytes, tables meet §6 step 1, no scriptable type without the sniff-scriptable flag, the apache-bug path gives only text/plain or application/octet-stream; `sniff/independent.rs` (row notes + format specs, ISO BMFF for MP4, Unicode BOMs) proven equal on every input for every table, MP4, §6.2, §7.1, §7.2 (WebM and MP3-without-ID3 not independently transcribed; WPT media examples cover them); 20 mutations certified; WPT `mimesniff/media` 6/7 (FLAC: expected failure, the standard has no FLAC row) and `mimesniff/sniffing` 5/5; differential against `infer` 0.19.0, format by format. Not converted: `test-file.zip` (gzip-encoded), the tentative `<!--` test (a proposed change). Errata: Fetch quoted string step 7, §6 pattern matching past the end, WebM/vint and MP3 (several already open upstream) |
-| 1.8–1.11 | not started |
+| 1.8 IDNA | in progress |
+| 1.9 Host parsing | done for everything but the domain branch: 183 verified, 0 errors; IPv4 (number parser, ends in a number, parser), IPv6 parser, opaque-host parser and the IPv4, IPv6 and host serializers proven against `contract.rs`; the host parser ships as `host_parser_start` (steps 1 to 5) and `host_parser_finish` (steps 7 to 9), proven for every domain parser; round trips `lemma_ipv4_serialize_parse`, `lemma_ipv6_serialize_parse`, `lemma_host_serialize_parse`; `independent.rs` (RFC 3986 §3.2.2, RFC 4291 §2.2, RFC 5952 §4) proven to agree on every `IPv4address`, `IPv6address`, IP-literal and `reg-name`, and both serializers proven to write the RFC text (IPv6 converse not proven, tested); all 57 mutations certified `killed`; WPT url/ hosts: 357 of 446 cases pass, 89 expected failures; differential against `std::net` agrees; **`clazel-url` at tier 2** for what ships. **Waiting on 1.8:** host parser step 6, the domain parser (URL §3.3, UTS #46 ToASCII), and the 89 WPT rows whose domain is not ASCII |
+| 1.10–1.11 | not started |
 | 1.12 WPT pass rates in the README table | done: "Conformance" column measured from `clazel-conformance:` summary lines (`xtask/src/conformance.rs`); all four existing conformance tests emit them; both planted violations caught (hand-edited README count, test without a summary) |
 
 ## Risks
