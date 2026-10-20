@@ -237,6 +237,36 @@ opaque-host parser, and §3.6 host serializers. Independent: RFC 3986 §3.2.2
 and RFC 4291 §2.2 for IPv6 text forms. Lemma: serialize then parse is the
 identity on hosts.
 
+**As built:** `crates/clazel-url/src/host/`, from `url.bs` at
+`845bafca`. Strings are `u32` scalar values; an IPv4 address is a `nat`
+and an IPv6 address a `Seq<nat>` of pieces in the spec, with lemmas that
+the parsers only return values that fit (`lemma_ipv4_parser_32_bit`,
+`lemma_ipv6_parser_pieces`). Validation errors are not modelled (they never
+change a result). **Waiting on 1.8:** host parser step 6 runs the domain
+parser (URL §3.3), which runs UTS #46 ToASCII. The spec takes the domain
+parser as a parameter and every contract and theorem quantifies over it,
+so nothing assumes how it behaves. The exec host parser is therefore two
+proven halves, `host_parser_start` (steps 1 to 5: IPv6, opaque host, or
+the "domain" to pass on) and `host_parser_finish` (steps 7 to 9 on the
+domain parser's result); 1.8 supplies the call in between. (For an ASCII
+domain and beStrict false, §3.3 does not depend on ToASCII at all: it
+lowercases, and fails on the empty string and forbidden domain code
+points. The conformance test uses exactly that for ASCII rows.)
+`lemma_ipv4_serialize_parse` and `lemma_ipv6_serialize_parse` prove the
+round trip for every address, and `lemma_host_serialize_parse` lifts it
+to hosts. `independent.rs` (RFC 3986 §3.2.2, RFC 4291 §2.2, RFC 5952 §4)
+was committed before `spec.rs`: every `IPv4address` and `IPv6address`
+parses to the same address, both serializers write the RFC text for
+every address, a bracketed `IPvFuture` fails, and every `reg-name` is an
+unchanged opaque host. The converse for IPv6 (the URL Standard accepts
+nothing but `IPv6address`) is not proven; the differential test against
+`std::net::Ipv6Addr` finds no exception in 500,000 strings. Conformance:
+the 359 host rows of WPT `urltestdata.json` (inputs whose host string can
+be read off without the URL parser, 1.10) and all 87 `toascii.json` rows;
+89 rows whose domain is not ASCII are expected failures until 1.8,
+listed by name. "Radix-R digit" (IPv4 number parser step 7) is undefined
+in the standard; it is read as an ASCII hex digit with value below R.
+
 ### 1.10 Basic URL parser (L)
 
 URL §4.4, the state machine, transcribed one state per spec function with
