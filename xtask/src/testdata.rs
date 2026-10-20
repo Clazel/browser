@@ -14,6 +14,7 @@
 mod js;
 mod wpt_base64;
 mod wpt_encoding;
+mod wpt_idna;
 mod wpt_mime_types;
 mod wpt_url_percent;
 
@@ -29,6 +30,7 @@ type Convert = fn(&Path) -> Result<String, String>;
 const CONVERTERS: &[(&str, Convert, &[&str])] = &[
     ("wpt-base64", wpt_base64::convert, wpt_base64::FILES),
     ("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES),
+    ("wpt-url-idna", wpt_idna::convert, wpt_idna::FILES),
     (
         "wpt-mime-types",
         wpt_mime_types::convert,
