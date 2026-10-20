@@ -230,6 +230,49 @@ them in `verify`. Conformance: WPT `IdnaTestV2.json` and `toascii.json`.
 Risk: Verus performance on large constant tables. Fallback: a table-lookup
 function with a proven contract over a sorted range array.
 
+**As built:** `crates/clazel-idna`. Punycode (`punycode/`) is RFC 3492
+§6 with a 32-bit `maxint`: decoder and encoder proven against the
+contract with `u64` arithmetic checked where the RFC says "fail on
+overflow"; `round_trip.rs` proves decode inverts encode whenever
+`35 * (c + 1) * (length + 1) <= maxint` for every code point (any string
+of up to 100 scalar values), the bound under which the decoder's `i` and
+`w` cannot overflow where the encoder's `delta` did not; `independent.rs`
+transcribes the RFC's Appendix C sample C code and is proven equal for
+decode and encode on every input. With Punycode's parameters the
+decoder's `w` overflow check is redundant (`i` always overflows first;
+the largest reachable bias is 204), so that check has no killable
+mutation. UTS #46 (`uts46/`) is pinned to Unicode 18.0.0, the version
+WPT's IdnaTestV2.json is generated from; the five data files are
+vendored under `data/unicode-18.0.0/` with SHA-256 in `SOURCE.md`, and
+`cargo xtask tables` generates `uts46/data.rs` (`check` fails if a hash
+or the generated file differs). Large constant tables were the risk:
+non-opaque constants exceed Verus's resource limit, `static`s cannot be
+read in specs, and clippy's `large_const_arrays` forbids constants over
+16 KiB, so each table is split into opaque chunks of at most 16 000
+bytes behind a generated, total row accessor (spec and proven exec
+twin), and lookups are a bisection whose exec form mirrors the spec
+step for step, so no sortedness proof is needed (the generator checks
+the order). The spec transcribes §4 processing, §4.1–§4.3, NFC from the
+Unicode Standard §3.11/§3.12, RFC 5892 A.1/A.2 and RFC 5893 §2, and the
+URL Standard's domain parser, domain parser ToASCII and domain to
+Unicode (at `845bafca`), with Transitional_Processing and
+IgnoreInvalidPunycode fixed to false; the proof is stated relative to
+the tables in its header. `uts46/independent.rs` restates the Bidi
+rule, ContextJ, criteria 5 and 7, D115, D117 R1 and the §3.12 Hangul
+sample code over positions and proves each equal; the Map/Break/Convert
+pipeline and the table-driven decomposition and composition have no
+second transcription (no other document defines them), and their
+evidence is WPT, the differential test and the example theorems.
+`compute_only` needs the opaque table constants revealed, so kill
+certificates may list `reveal` paths (paths only), and since the
+crate's full run spends two minutes evaluating examples, a mutation may
+scope its must-fail run to one module. Conformance: all 2762 rows of
+WPT `url/resources/IdnaTestV2.json` and `toascii.json` pass through the
+domain parser with no expected failures; differential tests against
+rust-url's `idna` 1.1.0 (Punycode, and 100 000 random domains through
+the domain parser, strict and not; `idna` predates two URL Standard
+rules, which the test documents).
+
 ### 1.9 Host parsing (M)
 
 URL §3.5: host parser, IPv4 parser (with its number parser), IPv6 parser,
@@ -283,7 +326,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
 | 1.6 Forgiving base64 | done: 77 verified, 0 errors; `decode` and `encode` proven against their contracts; `independent.rs` (RFC 4648 §4) proven equal to the encoder and, on canonical input, the decoder; round trip `lemma_decode_encode`; all 23 mutations certified `killed`; all 80 WPT `fetch/data-urls` base64 rows pass; differential test against `base64` 0.22.1 agrees; **`clazel-base64` at tier 2** |
 | 1.7 MIME types and sniffing | MIME types done (stage A): 164 verified, 0 errors; parse, serialize (to/from bytes) and the §4.6 groups proven against `contract.rs`; round trip `lemma_parse_serialize_parse`; `independent.rs` (RFC 9110 media-type) proven equal on valid media types with no repeated parameter names, and every serialization proven a valid media type; 15 mutations, all certified `killed`; 955 WPT `mimesniff/mime-types` cases pass; differential against `mime` 0.3.17; **`clazel-mime` raised to tier 2**. Sniffing (stage B): spec and contract committed (`sniff/spec.rs`, `sniff/contract.rs`: §6 pattern matching and tables, MP4/WebM/MP3 signatures, §7, §7.1, §7.2); not done: implementation and proof, lemmas, independent transcription, mutations, WPT `mimesniff/sniffing` conformance. Errata: Fetch quoted string step 7, §6 pattern matching past the end, WebM/vint and MP3 (several already open upstream) |
-| 1.8–1.12 | not started |
+| 1.8 IDNA | done: `crates/clazel-idna`, 375 verified, 0 errors. Punycode (RFC 3492 §6, 32-bit `maxint`): decoder and encoder proven against `contract.rs`; round trip `lemma_decode_encode` (bounded inputs, any 100 scalar values); `independent.rs` (Appendix C sample code) proven equal on all inputs; all 19 §7.1 samples pass; differential against `idna` 1.1.0. UTS #46 (Unicode 18.0.0, data vendored with SHA-256, tables generated by `cargo xtask tables`): NFC, processing, ToASCII, ToUnicode and the URL domain parser proven against `uts46/contract.rs` relative to the tables; `uts46/independent.rs` (RFC 5893, RFC 5892, criteria 5 and 7, §3.12 Hangul sample code, D115, D117 R1) proven equal; `lemma_join_break`, D109 postcondition; all 2762 WPT IdnaTestV2.json and toascii.json rows pass, no expected failures; 100 000-domain differential against `idna`; 69 mutations, all certified `killed`; **`clazel-idna` raised to tier 2** |
+| 1.9–1.12 | not started |
 
 ## Risks
 

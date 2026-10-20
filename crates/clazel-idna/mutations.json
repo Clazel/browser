@@ -689,11 +689,11 @@
       "find": "None => Converted { label, error: true, validate: false },",
       "replace": "None => Converted { label, error: false, validate: false },",
       "expect": "killed",
-      "reason": "Step 4.1.2 records no error when Punycode decoding fails. The spec then contradicts example_xn_prefix, a theorem proven by evaluating the real spec.",
+      "reason": "Step 4.1.2 records no error when Punycode decoding fails (\"xn---\"). The spec then contradicts example_bad_punycode, a theorem proven by evaluating the real spec.",
       "certificate": {
         "file": "src/uts46/lemmas.rs",
-        "lemma": "super::examples::example_xn_prefix()",
-        "witness": "domain_parser_to_ascii(seq![0x78u32, 0x6Eu32, 0x2Du32, 0x2Du32, 0x61u32], false) is Some",
+        "lemma": "super::examples::example_bad_punycode()",
+        "witness": "domain_parser_to_ascii(seq![0x78u32, 0x6Eu32, 0x2Du32, 0x2Du32, 0x2Du32], false) is Some",
         "reveal": [
           "super::data::IDNA_MAPPING_0",
           "super::data::IDNA_MAPPING_1",
@@ -1582,7 +1582,7 @@
     {
       "id": "uts46-dns-label-64",
       "file": "src/uts46/spec.rs",
-      "module": "uts46::process",
+      "module": "uts46::lemmas",
       "find": "1 <= labels.last().len() <= 63",
       "replace": "1 <= labels.last().len() <= 64",
       "expect": "killed",
