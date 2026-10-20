@@ -1,0 +1,33 @@
+[package]
+name = "clazel-mime"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "WHATWG MIME Sniffing Standard: MIME types and sniffing."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+
+# Test-only engine for the differential test in
+# tests/conformance_mime_types.rs (class `test` in docs/DEPENDENCIES.md:
+# never shipped).
+[dev-dependencies]
+mime = "=0.3.17"
+
+# Verification tier (docs/VERIFICATION.md). Tier 2: parse, serialize (to
+# and from bytes) and the §4.6 groups are proven to meet their contracts;
+# independent.rs (RFC 9110 media-type) is proven to agree with the spec on
+# every valid media type without repeated parameter names; every mutation
+# is certified killed; and tests/conformance_mime_types.rs runs WPT
+# mimesniff/mime-types and a differential test against the mime crate.
+# Sniffing (§7) has a spec and contract only, and no exec code yet.
+[package.metadata.clazel]
+tier = 2
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true

@@ -202,6 +202,22 @@ MIME type" with the pattern-matching algorithm (§4.x pattern tables are
 data; the matcher is proven against its spec). Independent: RFC 9110 §8.3.1
 grammar for the parse step.
 
+**As built (MIME types):** `crates/clazel-mime/src/mime_type/`. Strings are
+`u32` scalar values, as in `clazel-encoding`. The spec also transcribes
+Fetch's "collect an HTTP quoted string" and Infra's string and ordered-map
+operations it uses; Fetch's step 7 says "inclusive" where its own example
+table needs exclusive (ERRATA). "Supported by the user agent" and
+"minimize a supported MIME type" are not transcribed. The standard does
+not state the round trip as a sentence; `lemmas.rs` proves it for every
+parsed record (`lemma_parse_serialize`), and `examples.rs` evaluates the
+standards' own examples. The RFC 9110 transcription agrees exactly on
+strings matching `media-type` with no parameter name twice
+(case-insensitively); outside that class the WHATWG parser accepts more
+and keeps the first of repeated parameters. The `mime` crate rejects some
+valid media types (HTAB in OWS, OWS before ";", empty parameters), so the
+differential test sticks to forms it takes; a second random test covers
+all forms against the RFC's expected values.
+
 ### 1.8 IDNA (L)
 
 Needed by the host parser ("domain to ASCII"). RFC 3492 punycode first
@@ -266,7 +282,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; encode conformance added to `conformance_utf8.rs`; **`clazel-encoding` raised to tier 2** |
 | 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
 | 1.6 Forgiving base64 | done: 77 verified, 0 errors; `decode` and `encode` proven against their contracts; `independent.rs` (RFC 4648 §4) proven equal to the encoder and, on canonical input, the decoder; round trip `lemma_decode_encode`; all 23 mutations certified `killed`; all 80 WPT `fetch/data-urls` base64 rows pass; differential test against `base64` 0.22.1 agrees; **`clazel-base64` at tier 2** |
-| 1.7–1.12 | not started |
+| 1.7 MIME types and sniffing | MIME types done (stage A): 164 verified, 0 errors; parse, serialize (to/from bytes) and the §4.6 groups proven against `contract.rs`; round trip `lemma_parse_serialize_parse`; `independent.rs` (RFC 9110 media-type) proven equal on valid media types with no repeated parameter names, and every serialization proven a valid media type; 15 mutations, all certified `killed`; 955 WPT `mimesniff/mime-types` cases pass; differential against `mime` 0.3.17; **`clazel-mime` raised to tier 2**. Sniffing (stage B): spec and contract committed (`sniff/spec.rs`, `sniff/contract.rs`: §6 pattern matching and tables, MP4/WebM/MP3 signatures, §7, §7.1, §7.2); not done: implementation and proof, lemmas, independent transcription, mutations, WPT `mimesniff/sniffing` conformance. Errata: Fetch quoted string step 7, §6 pattern matching past the end, WebM/vint and MP3 (several already open upstream) |
+| 1.8–1.12 | not started |
 
 ## Risks
 
