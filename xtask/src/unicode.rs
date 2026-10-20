@@ -670,30 +670,30 @@ fn emit(out: &mut String, t: &Table<'_>) {
         }
         out.push_str("];\n\n");
     }
-    // Spec view.
-    let _ = writeln!(out, "/// Row `i` of the {} table: {}", t.name, t.doc);
+    // Spec view: total, with the dummy row outside the table.
+    let dummy = dummy(t.row_type);
     let _ = writeln!(
         out,
-        "pub open spec fn {}_at(i: int) -> {} {{",
+        "/// Row `i` of the {} table: {} Outside the table, a fixed dummy row.",
+        t.name, t.doc
+    );
+    let _ = writeln!(
+        out,
+        "pub open spec fn {}_at(i: int) -> {} {{\n    if i < 0 || i >= {upper}_LEN {{\n        {dummy}",
         t.name, t.row_type
     );
     for (k, _) in chunks.iter().enumerate() {
         let start = k.saturating_mul(per_chunk);
         let end = start.saturating_add(per_chunk);
-        let keyword = if k == 0 { "if" } else { "} else if" };
         if k.saturating_add(1) == chunks.len() {
-            if k == 0 {
-                let _ = writeln!(out, "    {upper}_{k}@[i]");
-            } else {
-                let _ = writeln!(
-                    out,
-                    "    }} else {{\n        {upper}_{k}@[i - {start}]\n    }}"
-                );
-            }
+            let _ = writeln!(
+                out,
+                "    }} else {{\n        {upper}_{k}@[i - {start}]\n    }}"
+            );
         } else {
             let _ = writeln!(
                 out,
-                "    {keyword} i < {end} {{\n        {upper}_{k}@[i - {start}]"
+                "    }} else if i < {end} {{\n        {upper}_{k}@[i - {start}]"
             );
         }
     }
@@ -702,13 +702,13 @@ fn emit(out: &mut String, t: &Table<'_>) {
     let _ = writeln!(out, "/// Row `i` of the {} table.", t.name);
     let _ = writeln!(
         out,
-        "pub fn {}_at_exec(i: usize) -> (r: {})\n    requires\n        i < {upper}_LEN,\n    ensures\n        r == {}_at(i as int),\n{{",
+        "pub fn {}_at_exec(i: usize) -> (r: {})\n    ensures\n        r == {}_at(i as int),\n{{",
         t.name, t.row_type, t.name
     );
     let _ = writeln!(
         out,
-        "    {}\n}}\n",
-        exec_body(&upper, chunks.len(), per_chunk, &dummy(t.row_type))
+        "    if i >= {upper}_LEN {{\n        {dummy}\n    }}{}\n}}\n",
+        exec_body(&upper, chunks.len(), per_chunk, &dummy)
     );
 }
 
@@ -737,13 +737,7 @@ fn exec_body(upper: &str, chunks: usize, per_chunk: usize, dummy: &str) -> Strin
             "let chunk: &[_] = &{upper}_{k};\n        match chunk.get(i.saturating_sub({start})) {{\n            Some(r) => *r,\n            None => {dummy},\n        }}"
         );
         if k.saturating_add(1) == chunks {
-            if k == 0 {
-                let _ = write!(body, "{{\n        {get}\n    }}");
-            } else {
-                let _ = write!(body, " else {{\n        {get}\n    }}");
-            }
-        } else if k == 0 {
-            let _ = write!(body, "if i < {end} {{\n        {get}\n    }}");
+            let _ = write!(body, " else {{\n        {get}\n    }}");
         } else {
             let _ = write!(body, " else if i < {end} {{\n        {get}\n    }}");
         }

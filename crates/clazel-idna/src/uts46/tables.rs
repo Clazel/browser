@@ -560,8 +560,6 @@ pub open spec fn decomposition_data_slice(start: int, len: nat) -> Seq<u32>
 
 /// Appends [`idna_mapping_data_slice`] to `out`.
 pub fn push_idna_mapping_data(out: &mut Vec<u32>, start: u32, len: u32)
-    requires
-        start as int + len as int <= IDNA_MAPPING_DATA_LEN,
     ensures
         final(out)@ == old(out)@ + idna_mapping_data_slice(start as int, len as nat),
 {
@@ -570,13 +568,15 @@ pub fn push_idna_mapping_data(out: &mut Vec<u32>, start: u32, len: u32)
     while k < len
         invariant
             k <= len,
-            start as int + len as int <= IDNA_MAPPING_DATA_LEN,
             out@ == before + idna_mapping_data_slice(start as int, k as nat),
         decreases len - k
     {
-        // Never saturates: start + k < IDNA_MAPPING_DATA_LEN.
-        let i = (start as usize).saturating_add(k as usize);
-        out.push(idna_mapping_data_at_exec(i));
+        // An index past u32::MAX is past the table, where the row is 0.
+        let value = match start.checked_add(k) {
+            Some(i) => idna_mapping_data_at_exec(i as usize),
+            None => 0,
+        };
+        out.push(value);
         assert(out@ =~= before + idna_mapping_data_slice(start as int, (k + 1) as nat));
         k = k.saturating_add(1);
     }
@@ -584,8 +584,6 @@ pub fn push_idna_mapping_data(out: &mut Vec<u32>, start: u32, len: u32)
 
 /// Appends [`decomposition_data_slice`] to `out`.
 pub fn push_decomposition_data(out: &mut Vec<u32>, start: u32, len: u32)
-    requires
-        start as int + len as int <= DECOMPOSITION_DATA_LEN,
     ensures
         final(out)@ == old(out)@ + decomposition_data_slice(start as int, len as nat),
 {
@@ -594,13 +592,15 @@ pub fn push_decomposition_data(out: &mut Vec<u32>, start: u32, len: u32)
     while k < len
         invariant
             k <= len,
-            start as int + len as int <= DECOMPOSITION_DATA_LEN,
             out@ == before + decomposition_data_slice(start as int, k as nat),
         decreases len - k
     {
-        // Never saturates: start + k < DECOMPOSITION_DATA_LEN.
-        let i = (start as usize).saturating_add(k as usize);
-        out.push(decomposition_data_at_exec(i));
+        // An index past u32::MAX is past the table, where the row is 0.
+        let value = match start.checked_add(k) {
+            Some(i) => decomposition_data_at_exec(i as usize),
+            None => 0,
+        };
+        out.push(value);
         assert(out@ =~= before + decomposition_data_slice(start as int, (k + 1) as nat));
         k = k.saturating_add(1);
     }

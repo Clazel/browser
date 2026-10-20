@@ -13,5 +13,7 @@
 pub mod contract;
 pub mod data;
 pub mod examples;
+pub mod lemmas;
+pub mod nfc;
 pub mod spec;
 pub mod tables;

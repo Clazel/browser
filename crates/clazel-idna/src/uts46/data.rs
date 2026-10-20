@@ -9510,9 +9510,11 @@ pub const IDNA_MAPPING_11: [IdnaRow; 616] = [
     IdnaRow { first: 0x10FFFE, last: 0x10FFFF, status: Status::Disallowed, mapping_start: 8044, mapping_len: 0 },
 ];
 
-/// Row `i` of the idna_mapping table: IdnaMappingTable.txt, one row per data line.
+/// Row `i` of the idna_mapping table: IdnaMappingTable.txt, one row per data line. Outside the table, a fixed dummy row.
 pub open spec fn idna_mapping_at(i: int) -> IdnaRow {
-    if i < 800 {
+    if i < 0 || i >= IDNA_MAPPING_LEN {
+        IdnaRow { first: 0, last: 0, status: Status::Disallowed, mapping_start: 0, mapping_len: 0 }
+    } else if i < 800 {
         IDNA_MAPPING_0@[i - 0]
     } else if i < 1600 {
         IDNA_MAPPING_1@[i - 800]
@@ -9541,12 +9543,12 @@ pub open spec fn idna_mapping_at(i: int) -> IdnaRow {
 
 /// Row `i` of the idna_mapping table.
 pub fn idna_mapping_at_exec(i: usize) -> (r: IdnaRow)
-    requires
-        i < IDNA_MAPPING_LEN,
     ensures
         r == idna_mapping_at(i as int),
 {
-    if i < 800 {
+    if i >= IDNA_MAPPING_LEN {
+        IdnaRow { first: 0, last: 0, status: Status::Disallowed, mapping_start: 0, mapping_len: 0 }
+    } else if i < 800 {
         let chunk: &[_] = &IDNA_MAPPING_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -10311,9 +10313,11 @@ pub const IDNA_MAPPING_DATA_2: [u32; 44] = [
     0x4D56, 0x9EF9, 0x9EFE, 0x9F05, 0x9F0F, 0x9F16, 0x9F3B, 0x2A600,
 ];
 
-/// Row `i` of the idna_mapping_data table: The mappings of the IDNA mapping table, concatenated.
+/// Row `i` of the idna_mapping_data table: The mappings of the IDNA mapping table, concatenated. Outside the table, a fixed dummy row.
 pub open spec fn idna_mapping_data_at(i: int) -> u32 {
-    if i < 4000 {
+    if i < 0 || i >= IDNA_MAPPING_DATA_LEN {
+        0
+    } else if i < 4000 {
         IDNA_MAPPING_DATA_0@[i - 0]
     } else if i < 8000 {
         IDNA_MAPPING_DATA_1@[i - 4000]
@@ -10324,12 +10328,12 @@ pub open spec fn idna_mapping_data_at(i: int) -> u32 {
 
 /// Row `i` of the idna_mapping_data table.
 pub fn idna_mapping_data_at_exec(i: usize) -> (r: u32)
-    requires
-        i < IDNA_MAPPING_DATA_LEN,
     ensures
         r == idna_mapping_data_at(i as int),
 {
-    if i < 4000 {
+    if i >= IDNA_MAPPING_DATA_LEN {
+        0
+    } else if i < 4000 {
         let chunk: &[_] = &IDNA_MAPPING_DATA_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -12444,9 +12448,11 @@ pub const DECOMPOSITION_1: [DecompositionRow; 748] = [
     DecompositionRow { code_point: 0x2FA1D, start: 3449, len: 1 },
 ];
 
-/// Row `i` of the decomposition table: Full canonical decompositions (D68), by code point.
+/// Row `i` of the decomposition table: Full canonical decompositions (D68), by code point. Outside the table, a fixed dummy row.
 pub open spec fn decomposition_at(i: int) -> DecompositionRow {
-    if i < 1333 {
+    if i < 0 || i >= DECOMPOSITION_LEN {
+        DecompositionRow { code_point: 0, start: 0, len: 0 }
+    } else if i < 1333 {
         DECOMPOSITION_0@[i - 0]
     } else {
         DECOMPOSITION_1@[i - 1333]
@@ -12455,12 +12461,12 @@ pub open spec fn decomposition_at(i: int) -> DecompositionRow {
 
 /// Row `i` of the decomposition table.
 pub fn decomposition_at_exec(i: usize) -> (r: DecompositionRow)
-    requires
-        i < DECOMPOSITION_LEN,
     ensures
         r == decomposition_at(i as int),
 {
-    if i < 1333 {
+    if i >= DECOMPOSITION_LEN {
+        DecompositionRow { code_point: 0, start: 0, len: 0 }
+    } else if i < 1333 {
         let chunk: &[_] = &DECOMPOSITION_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -12771,19 +12777,23 @@ pub const DECOMPOSITION_DATA_0: [u32; 3450] = [
     0x9EFE, 0x9F05, 0x9F0F, 0x9F16, 0x9F3B, 0x2A600,
 ];
 
-/// Row `i` of the decomposition_data table: The full canonical decompositions, concatenated.
+/// Row `i` of the decomposition_data table: The full canonical decompositions, concatenated. Outside the table, a fixed dummy row.
 pub open spec fn decomposition_data_at(i: int) -> u32 {
-    DECOMPOSITION_DATA_0@[i]
+    if i < 0 || i >= DECOMPOSITION_DATA_LEN {
+        0
+    } else {
+        DECOMPOSITION_DATA_0@[i - 0]
+    }
 }
 
 /// Row `i` of the decomposition_data table.
 pub fn decomposition_data_at_exec(i: usize) -> (r: u32)
-    requires
-        i < DECOMPOSITION_DATA_LEN,
     ensures
         r == decomposition_data_at(i as int),
 {
-    {
+    if i >= DECOMPOSITION_DATA_LEN {
+        0
+    } else {
         let chunk: &[_] = &DECOMPOSITION_DATA_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -13761,19 +13771,23 @@ pub const COMPOSITION_0: [CompositionRow; 961] = [
     CompositionRow { first: 0x16D69, second: 0x16D67, composite: 0x16D6A },
 ];
 
-/// Row `i` of the composition table: Primary composites other than Hangul (D114), by (L, C).
+/// Row `i` of the composition table: Primary composites other than Hangul (D114), by (L, C). Outside the table, a fixed dummy row.
 pub open spec fn composition_at(i: int) -> CompositionRow {
-    COMPOSITION_0@[i]
+    if i < 0 || i >= COMPOSITION_LEN {
+        CompositionRow { first: 0, second: 0, composite: 0 }
+    } else {
+        COMPOSITION_0@[i - 0]
+    }
 }
 
 /// Row `i` of the composition table.
 pub fn composition_at_exec(i: usize) -> (r: CompositionRow)
-    requires
-        i < COMPOSITION_LEN,
     ensures
         r == composition_at(i as int),
 {
-    {
+    if i >= COMPOSITION_LEN {
+        CompositionRow { first: 0, second: 0, composite: 0 }
+    } else {
         let chunk: &[_] = &COMPOSITION_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -14212,19 +14226,23 @@ pub const COMBINING_CLASS_0: [ClassRow; 422] = [
     ClassRow { first: 0x1E94A, last: 0x1E94A, class: 7 },
 ];
 
-/// Row `i` of the combining_class table: Non-zero Canonical_Combining_Class, as ranges.
+/// Row `i` of the combining_class table: Non-zero Canonical_Combining_Class, as ranges. Outside the table, a fixed dummy row.
 pub open spec fn combining_class_at(i: int) -> ClassRow {
-    COMBINING_CLASS_0@[i]
+    if i < 0 || i >= COMBINING_CLASS_LEN {
+        ClassRow { first: 0, last: 0, class: 0 }
+    } else {
+        COMBINING_CLASS_0@[i - 0]
+    }
 }
 
 /// Row `i` of the combining_class table.
 pub fn combining_class_at_exec(i: usize) -> (r: ClassRow)
-    requires
-        i < COMBINING_CLASS_LEN,
     ensures
         r == combining_class_at(i as int),
 {
-    {
+    if i >= COMBINING_CLASS_LEN {
+        ClassRow { first: 0, last: 0, class: 0 }
+    } else {
         let chunk: &[_] = &COMBINING_CLASS_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -14574,19 +14592,23 @@ pub const MARK_0: [RangeRow; 333] = [
     RangeRow { first: 0xE0100, last: 0xE01EF },
 ];
 
-/// Row `i` of the mark table: General_Category=Mark (Mn, Mc, Me), as ranges.
+/// Row `i` of the mark table: General_Category=Mark (Mn, Mc, Me), as ranges. Outside the table, a fixed dummy row.
 pub open spec fn mark_at(i: int) -> RangeRow {
-    MARK_0@[i]
+    if i < 0 || i >= MARK_LEN {
+        RangeRow { first: 0, last: 0 }
+    } else {
+        MARK_0@[i - 0]
+    }
 }
 
 /// Row `i` of the mark table.
 pub fn mark_at_exec(i: usize) -> (r: RangeRow)
-    requires
-        i < MARK_LEN,
     ensures
         r == mark_at(i as int),
 {
-    {
+    if i >= MARK_LEN {
+        RangeRow { first: 0, last: 0 }
+    } else {
         let chunk: &[_] = &MARK_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -15875,19 +15897,23 @@ pub const BIDI_CLASS_0: [BidiRow; 1272] = [
     BidiRow { first: 0x10FFFE, last: 0x10FFFF, class: BidiClass::BoundaryNeutral },
 ];
 
-/// Row `i` of the bidi_class table: Bidi_Class, as ranges covering U+0000..U+10FFFF.
+/// Row `i` of the bidi_class table: Bidi_Class, as ranges covering U+0000..U+10FFFF. Outside the table, a fixed dummy row.
 pub open spec fn bidi_class_at(i: int) -> BidiRow {
-    BIDI_CLASS_0@[i]
+    if i < 0 || i >= BIDI_CLASS_LEN {
+        BidiRow { first: 0, last: 0, class: BidiClass::LeftToRight }
+    } else {
+        BIDI_CLASS_0@[i - 0]
+    }
 }
 
 /// Row `i` of the bidi_class table.
 pub fn bidi_class_at_exec(i: usize) -> (r: BidiRow)
-    requires
-        i < BIDI_CLASS_LEN,
     ensures
         r == bidi_class_at(i as int),
 {
-    {
+    if i >= BIDI_CLASS_LEN {
+        BidiRow { first: 0, last: 0, class: BidiClass::LeftToRight }
+    } else {
         let chunk: &[_] = &BIDI_CLASS_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
@@ -16437,19 +16463,23 @@ pub const JOINING_TYPE_0: [JoiningRow; 533] = [
     JoiningRow { first: 0xE0100, last: 0xE01EF, joining_type: JoiningType::Transparent },
 ];
 
-/// Row `i` of the joining_type table: Joining_Type other than U (Non_Joining), as ranges.
+/// Row `i` of the joining_type table: Joining_Type other than U (Non_Joining), as ranges. Outside the table, a fixed dummy row.
 pub open spec fn joining_type_at(i: int) -> JoiningRow {
-    JOINING_TYPE_0@[i]
+    if i < 0 || i >= JOINING_TYPE_LEN {
+        JoiningRow { first: 0, last: 0, joining_type: JoiningType::Transparent }
+    } else {
+        JOINING_TYPE_0@[i - 0]
+    }
 }
 
 /// Row `i` of the joining_type table.
 pub fn joining_type_at_exec(i: usize) -> (r: JoiningRow)
-    requires
-        i < JOINING_TYPE_LEN,
     ensures
         r == joining_type_at(i as int),
 {
-    {
+    if i >= JOINING_TYPE_LEN {
+        JoiningRow { first: 0, last: 0, joining_type: JoiningType::Transparent }
+    } else {
         let chunk: &[_] = &JOINING_TYPE_0;
         match chunk.get(i.saturating_sub(0)) {
             Some(r) => *r,
