@@ -10,3 +10,5 @@ pub mod contract;
 pub mod spec;
 pub mod pattern;
 pub mod tables;
+pub mod signatures;
+pub mod algorithms;

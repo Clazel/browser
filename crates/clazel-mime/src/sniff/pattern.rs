@@ -54,10 +54,12 @@ pub fn contains_binary_data_byte_exec(bytes: &[u8]) -> (r: bool)
         proof {
             lemma_contains_binary_step(bytes@, i as int);
         }
-        if let Some(b) = bytes.get(i) {
-            if is_binary_data_byte_exec(*b) {
-                return true;
-            }
+        let binary = match bytes.get(i) {
+            Some(b) => is_binary_data_byte_exec(*b),
+            None => false,
+        };
+        if binary {
+            return true;
         }
         // Never saturates: i < bytes.len().
         i = i.saturating_add(1);

@@ -13,13 +13,13 @@ use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 use super::pattern::{mime_literal, row_matches};
-use crate::mime_type::record::{option_view, MimeType};
+use crate::mime_type::record::MimeType;
 
 verus! {
 /// The table in §6.1 (image type pattern matching algorithm).
 pub fn match_image_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, image_type_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, image_type_table(), 0),
 {
     let ghost table = image_type_table();
     assert(table.len() == 8);
@@ -118,7 +118,7 @@ pub fn match_image_table(input: &[u8]) -> (r: Option<MimeType>)
 /// The table in §6.2 (audio or video type pattern matching algorithm), step 1.
 pub fn match_audio_or_video_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, audio_or_video_type_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, audio_or_video_type_table(), 0),
 {
     let ghost table = audio_or_video_type_table();
     assert(table.len() == 6);
@@ -195,7 +195,7 @@ pub fn match_audio_or_video_table(input: &[u8]) -> (r: Option<MimeType>)
 /// The table in §6.3 (font type pattern matching algorithm).
 pub fn match_font_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, font_type_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, font_type_table(), 0),
 {
     let ghost table = font_type_table();
     assert(table.len() == 6);
@@ -272,7 +272,7 @@ pub fn match_font_table(input: &[u8]) -> (r: Option<MimeType>)
 /// The table in §6.4 (archive type pattern matching algorithm).
 pub fn match_archive_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, archive_type_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, archive_type_table(), 0),
 {
     let ghost table = archive_type_table();
     assert(table.len() == 3);
@@ -316,7 +316,7 @@ pub fn match_archive_table(input: &[u8]) -> (r: Option<MimeType>)
 /// The table in §7.1 step 1 (rules for identifying an unknown MIME type).
 pub fn match_unknown_scriptable_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, unknown_scriptable_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, unknown_scriptable_table(), 0),
 {
     let ghost table = unknown_scriptable_table();
     assert(table.len() == 36);
@@ -723,7 +723,7 @@ pub fn match_unknown_scriptable_table(input: &[u8]) -> (r: Option<MimeType>)
 /// The table in §7.1 step 2 (rules for identifying an unknown MIME type).
 pub fn match_unknown_non_scriptable_table(input: &[u8]) -> (r: Option<MimeType>)
     ensures
-        option_view(r) == match_table(input@, unknown_non_scriptable_table(), 0),
+        crate::mime_type::record::option_view(r) == match_table(input@, unknown_non_scriptable_table(), 0),
 {
     let ghost table = unknown_non_scriptable_table();
     assert(table.len() == 4);
