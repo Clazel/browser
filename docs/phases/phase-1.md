@@ -218,6 +218,33 @@ valid media types (HTAB in OWS, OWS before ";", empty parameters), so the
 differential test sticks to forms it takes; a second random test covers
 all forms against the RFC's expected values.
 
+**As built (sniffing):** `crates/clazel-mime/src/sniff/`. The exec code
+(`pattern.rs`, `tables.rs`, `signatures.rs`, `algorithms.rs`) is proven
+against `contract.rs`; `tables.rs` is one call per spec row, generated from
+`spec.rs` and proven equal to it. `independent.rs` re-reads every table row
+from its *note* column and the file-format spec it names (PNG, GIF, RIFF
+WebP/WAVE/AVI, ICO, JPEG, RFC 1952, ZIP APPNOTE, RAR, RFC 3533, SMF,
+OpenType/WOFF/EOT, Unicode BOMs, PDF/PostScript), MP4 from ISO/IEC 14496-12's
+`FileTypeBox`, and §7.2 from Unicode's BOMs; it is proven equal to the spec
+on every input for §6.1, §6.3, §6.4, both §7.1 tables, MP4, §6.2, §7.1 and
+§7.2. Not independent: the row order and how §6.2/§7.1 combine the tables
+(same standard), and WebM and MP3 without ID3, which no format spec
+defines; those take the spec's results as inputs, and `examples.rs`
+checks them on WPT's real media files (the MP3 file matches only with the
+§6.2.3 errata). The BOM rows' four-byte patterns need four bytes of input,
+which their notes do not say; the independent reading follows the
+patterns and says so. `lemmas.rs`: pattern matching never depends on bytes
+past the end of the input (the §6 erratum), a match survives appending
+bytes, every row meets §6 step 1, §7.1 never returns a scriptable type
+without the sniff-scriptable flag, and the check-for-apache-bug path only
+gives text/plain or application/octet-stream. Conformance: WPT
+`mimesniff/media/` (7 vectors; FLAC has no row in the standard) and
+`mimesniff/sniffing/` (mislabeled binary, feeds) run through the exec
+code; `test-file.zip` (gzip-encoded) and the tentative `<!--` test (a
+proposed change) are not converted. Differential against `infer` 0.19.0,
+format by format (same rule, looser, or stricter, as read off its
+matchers).
+
 ### 1.8 IDNA (L)
 
 Needed by the host parser ("domain to ASCII"). RFC 3492 punycode first
