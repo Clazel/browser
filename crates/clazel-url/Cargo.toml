@@ -1,0 +1,27 @@
+[package]
+name = "clazel-url"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "WHATWG URL Standard: hosts (§3) and, later, URLs (§4)."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# The host parser percent-decodes and UTF-8 decodes a domain (§3.5 steps 4
+# and 5) and the opaque-host parser UTF-8 percent-encodes (§3.5 step 4),
+# with these proven implementations rather than second copies.
+clazel-encoding = { path = "../clazel-encoding" }
+clazel-percent = { path = "../clazel-percent" }
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
