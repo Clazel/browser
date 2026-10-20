@@ -37,3 +37,73 @@ it evidently means. Each entry records what we specified instead.
   `crates/clazel-mime/src/mime_type/spec.rs`. (Parse a MIME type only calls
   it with extract-value true, which does not reach this step.)
 - **Reported upstream:** not yet.
+
+## MIME Sniffing §6 pattern matching reads past the end of input
+
+- **Spec:** MIME Sniffing Standard, Living Standard last updated 19 October
+  2026 (commit `ba4b3c385b9765ddfe4a994e2bb89e0ab96068e2`),
+  <https://mimesniff.spec.whatwg.org/#pattern-matching-algorithm>
+- **Text:** step 2 "If input's length is less than pattern's length,
+  return false", then step 4 skips ignored leading bytes, then step 6.1
+  "Let maskedData be the result of applying the bitwise AND operator to
+  input[s] and mask[p]."
+- **Problem:** the length check comes before the skip. With leading
+  whitespace bytes skipped, fewer than pattern's length bytes may remain,
+  and step 6.1 reads input[s] past the end.
+- **We specify:** return false when s reaches the end of input before the
+  pattern does. See `compare_pattern` in
+  `crates/clazel-mime/src/sniff/spec.rs`.
+- **Reported upstream:** not yet.
+
+## MIME Sniffing §6.2.2 signature for WebM and "parse a vint"
+
+- **Spec:** as above, <https://mimesniff.spec.whatwg.org/#signature-for-webm>
+- **Text and problems:**
+  - Step 6.1 compares "the two bytes from sequence[iter] to
+    sequence[iter + 1]" while only iter < length is known: when iter is
+    length − 1, sequence[iter + 1] does not exist.
+  - "parse a vint ... starting at index iter" then says "Let index be 0",
+    so it always reads sequence[0], the 0x1A its caller has already
+    checked.
+  - Its step 5.1 "abort these steps" would end the algorithm without the
+    return value of step 10.
+  - "Matching a padded sequence" is defined "starting at byte offset and
+    ending at by end", but the caller gives only the offset.
+- **We specify:** the two bytes are not 0x42 0x82 when only one remains;
+  index starts at iter; 5.1 (and 9.4) leave their loop; and end is the last
+  byte of the pattern after any run of 0x00 bytes from offset. See
+  `webm_loop`, `parse_a_vint` and `matches_padded_sequence` in
+  `crates/clazel-mime/src/sniff/spec.rs`.
+- **Reported upstream:** not by us. Already open: whatwg/mimesniff#93,
+  #126, #146, #167.
+
+## MIME Sniffing §6.2.3 signature for MP3 without ID3
+
+- **Spec:** as above, <https://mimesniff.spec.whatwg.org/#signature-for-mp3-without-id3>
+- **Text and problems** (the algorithm is Mozilla's `mp3sniff.c`, per
+  whatwg/mimesniff#70; we follow it where the text departs from it):
+  - "match an mp3 header" step 1 "If length is less than 4" ignores the
+    offset s at which it then reads four bytes (the second call has s > 0).
+    We require four bytes from s.
+  - Step 2 "If sequence[s] is not equal to 0xff and sequence[s + 1] & 0xe0
+    is not equal to 0xe0, return false" must be "or": a frame sync needs
+    both.
+  - "sequence[s + 1] & 0x06 >> 1" and the like: read with ">>" binding
+    first, they test other bits. We apply the AND first, as `mp3sniff.c`
+    does.
+  - Step 7 "skipped-bytes is greater than s - length": s − length is never
+    positive, so every input fails. We compare with length − s.
+  - "parse an mp3 frame" steps 3–4 pick the mp2.5-rates table when
+    version & 1 is non-zero, and "compute an mp3 frame size" picks scale 72
+    when version is 1. MPEG audio's version 3 (0b11) is MPEG-1, whose
+    Layer III bitrates are the mp3-rates table and whose frames use 144;
+    versions 2 and 0 (MPEG-2, 2.5) use mp2.5-rates and 72. Read literally,
+    an ordinary 128 kbit/s MPEG-1 file computes a 261-byte frame instead of
+    417 and is not recognised. We pick the table and scale by version & 1
+    as `mp3sniff.c` does.
+- **We specify:** each correction at its step in
+  `match_an_mp3_header`, `parse_an_mp3_frame`,
+  `compute_an_mp3_frame_size` and `matches_mp3_without_id3` in
+  `crates/clazel-mime/src/sniff/spec.rs`.
+- **Reported upstream:** not by us. Already open: whatwg/mimesniff#70,
+  #168. (The table and scale swap is not in either; not yet reported.)
