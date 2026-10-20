@@ -174,6 +174,25 @@ Infra "forgiving-base64 decode" and "forgiving-base64 encode".
 Independent: RFC 4648 §4. Conformance: WPT `fetch/data-urls/base64.any.js`
 table (vendored as data). Lemma: decode inverts encode.
 
+**As built:** `decode(&[u32]) -> Option<Vec<u8>>` and `encode(&[u8]) ->
+Vec<u32>`: strings are `u32` code points, as in `clazel-encoding`, so the
+encoder's output is the decoder's input type. Infra §7 at commit
+`459b782`; "forgiving-base64 encode" is RFC 4648 §4, transcribed in
+`spec.rs` too. Step 2's "ends with one or two `=`" is read as "remove two
+if there are two" (a modelling choice; reading it as one would make
+`ab==` fail, against WPT). `independent.rs` (RFC 4648 §3.3, §3.5, §4)
+is proven equal to the encoder everywhere and to the decoder on its
+`canonical` strings (padded, whitespace-free, zero pad bits), which are
+proven to be exactly the encoder's image. Lemmas: decode inverts encode,
+step 9's 12-or-18-bits assertion, a closed-form statement of when decode
+fails, and whitespace and stray-character insertion with the code points
+as literals. Conformance: all 80 rows of WPT
+`fetch/data-urls/resources/base64.json` (the `base64.any.js` there loads
+it), fed to decode directly; the converter refuses rows where the data:
+URL layer could change the result (none today). Differential against the
+`base64` crate 0.22.1: canonical encode and decode, and forgiving decode
+on every string up to 5 characters over a 10-character alphabet.
+
 ### 1.7 MIME types (M)
 
 MIME Sniffing §4.4 parse a MIME type, §4.5 serialize, and §4.6 the
@@ -246,7 +265,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.3 UTF-8 conformance | done: 57 WPT `encoding/` cases pass; differential test against std and `encoding_rs` 0.8.35 agrees on all inputs tried (exhaustive up to 3 bytes) |
 | 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; encode conformance added to `conformance_utf8.rs`; **`clazel-encoding` raised to tier 2** |
 | 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
-| 1.6–1.12 | not started |
+| 1.6 Forgiving base64 | done: 77 verified, 0 errors; `decode` and `encode` proven against their contracts; `independent.rs` (RFC 4648 §4) proven equal to the encoder and, on canonical input, the decoder; round trip `lemma_decode_encode`; all 23 mutations certified `killed`; all 80 WPT `fetch/data-urls` base64 rows pass; differential test against `base64` 0.22.1 agrees; **`clazel-base64` at tier 2** |
+| 1.7–1.12 | not started |
 
 ## Risks
 

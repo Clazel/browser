@@ -12,6 +12,7 @@
 //! (a full 40-hex commit) and `License:` lines.
 
 mod js;
+mod wpt_base64;
 mod wpt_encoding;
 mod wpt_url_percent;
 
@@ -25,6 +26,7 @@ type Convert = fn(&Path) -> Result<String, String>;
 /// Every suite the converter knows, by directory name, with the files it
 /// expects to find there.
 const CONVERTERS: &[(&str, Convert, &[&str])] = &[
+    ("wpt-base64", wpt_base64::convert, wpt_base64::FILES),
     ("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES),
     (
         "wpt-url-percent-encoding",
