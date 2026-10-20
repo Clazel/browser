@@ -12,6 +12,7 @@
 
 pub mod contract;
 pub mod groups;
+pub mod independent;
 pub mod lemmas;
 pub mod parse;
 pub mod record;
