@@ -15,6 +15,7 @@ mod js;
 mod wpt_base64;
 mod wpt_encoding;
 mod wpt_mime_types;
+mod wpt_url_hosts;
 mod wpt_url_percent;
 
 use std::path::{Path, PathBuf};
@@ -33,6 +34,11 @@ const CONVERTERS: &[(&str, Convert, &[&str])] = &[
         "wpt-mime-types",
         wpt_mime_types::convert,
         wpt_mime_types::FILES,
+    ),
+    (
+        "wpt-url-hosts",
+        wpt_url_hosts::convert,
+        wpt_url_hosts::FILES,
     ),
     (
         "wpt-url-percent-encoding",
