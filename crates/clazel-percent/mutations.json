@@ -1,0 +1,446 @@
+{
+  "mutations": [
+    {
+      "id": "hex-digits-lowercase",
+      "file": "src/spec.rs",
+      "find": "(0x37 + n) as u32",
+      "replace": "(0x57 + n) as u32",
+      "expect": "killed",
+      "reason": "Writes lower hex digits: the mutant percent-encodes 0xAB as \"%ab\", where RFC 3986 §2.1 (independent.rs) gives \"%AB\", so lemma_percent_encode_equals_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_percent_encode_equals_rfc3986(0xABu8)",
+        "witness": "percent_encode(0xABu8)[1] == 0x61u32"
+      }
+    },
+    {
+      "id": "hex-digit-boundary",
+      "file": "src/spec.rs",
+      "find": "if n < 10 {\n        (0x30 + n) as u32",
+      "replace": "if n < 9 {\n        (0x30 + n) as u32",
+      "expect": "killed",
+      "reason": "Maps 9 to '@': the mutant percent-encodes 0x09 as \"%0@\", where RFC 3986 §2.1 gives \"%09\", so lemma_percent_encode_equals_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_percent_encode_equals_rfc3986(0x09u8)",
+        "witness": "percent_encode(0x09u8)[2] == 0x40u32"
+      }
+    },
+    {
+      "id": "decimal-digit-offset",
+      "file": "src/spec.rs",
+      "find": "(0x30 + n) as u32",
+      "replace": "(0x31 + n) as u32",
+      "expect": "killed",
+      "reason": "Shifts the decimal digits: the mutant percent-encodes 0x23 as \"%34\", where the standard's example table gives \"%23\", so lemma_examples is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "percent_encode(0x23u8)[1] == 0x33u32"
+      }
+    },
+    {
+      "id": "nibble-order",
+      "file": "src/spec.rs",
+      "find": "seq![0x25u32, ascii_upper_hex_digit(byte / 16), ascii_upper_hex_digit(byte % 16)]",
+      "replace": "seq![0x25u32, ascii_upper_hex_digit(byte % 16), ascii_upper_hex_digit(byte / 16)]",
+      "expect": "killed",
+      "reason": "Writes the low nibble first: the mutant percent-encodes 0x12 as \"%21\", which decodes to 0x21, so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0x12u8)",
+        "witness": "percent_decode_string(percent_encode(0x12u8))[0] == 0x21u8"
+      }
+    },
+    {
+      "id": "percent-sign",
+      "file": "src/spec.rs",
+      "find": "seq![0x25u32, ascii_upper_hex_digit(byte / 16)",
+      "replace": "seq![0x24u32, ascii_upper_hex_digit(byte / 16)",
+      "expect": "killed",
+      "reason": "Starts the triplet with '$': the mutant percent-encodes 0x41 as \"$41\", which decodes to three bytes, so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0x41u8)",
+        "witness": "percent_decode_string(percent_encode(0x41u8)).len() == 3"
+      }
+    },
+    {
+      "id": "decode-range-upper-widened",
+      "file": "src/spec.rs",
+      "find": "(0x41 <= b <= 0x46)",
+      "replace": "(0x41 <= b <= 0x47)",
+      "expect": "killed",
+      "reason": "Treats G as a hex digit: the mutant decodes `%1G` to one byte, though it has no percent-encoded byte (Infra ASCII hex digit), so lemma_no_percent_encoded_bytes is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x25u8, 0x31u8, 0x47u8])",
+        "witness": "percent_decode(seq![0x25u8, 0x31u8, 0x47u8]).len() == 1"
+      }
+    },
+    {
+      "id": "decode-range-lower-widened",
+      "file": "src/spec.rs",
+      "find": "(0x61 <= b <= 0x66)",
+      "replace": "(0x61 <= b <= 0x67)",
+      "expect": "killed",
+      "reason": "Treats g as a hex digit: the mutant decodes `%1g` to one byte, though it has no percent-encoded byte, so lemma_no_percent_encoded_bytes is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x25u8, 0x31u8, 0x67u8])",
+        "witness": "percent_decode(seq![0x25u8, 0x31u8, 0x67u8]).len() == 1"
+      }
+    },
+    {
+      "id": "decode-range-digit-widened",
+      "file": "src/spec.rs",
+      "find": "(0x30 <= b <= 0x39)",
+      "replace": "(0x30 <= b <= 0x3A)",
+      "expect": "killed",
+      "reason": "Treats ':' as a hex digit: the mutant decodes `%1:` to one byte, though it has no percent-encoded byte, so lemma_no_percent_encoded_bytes is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x25u8, 0x31u8, 0x3Au8])",
+        "witness": "percent_decode(seq![0x25u8, 0x31u8, 0x3Au8]).len() == 1"
+      }
+    },
+    {
+      "id": "decode-range-upper-narrowed",
+      "file": "src/spec.rs",
+      "find": "(0x41 <= b <= 0x46)",
+      "replace": "(0x42 <= b <= 0x46)",
+      "expect": "killed",
+      "reason": "Rejects A as a hex digit: the mutant leaves \"%AA\" (the percent-encoding of 0xAA) undecoded, so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0xAAu8)",
+        "witness": "percent_decode_string(percent_encode(0xAAu8)).len() == 3"
+      }
+    },
+    {
+      "id": "decode-range-lower-narrowed",
+      "file": "src/spec.rs",
+      "find": "(0x61 <= b <= 0x66)",
+      "replace": "(0x62 <= b <= 0x66)",
+      "expect": "killed",
+      "reason": "Rejects a as a hex digit: the mutant leaves `%6a` undecoded (its first byte stays 0x25), where RFC 3986 §2.1 (HEXDIG is case-insensitive) decodes it to 0x6A, so lemma_percent_decode_equals_rfc3986_triplet is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_percent_decode_equals_rfc3986_triplet(0x36u8, 0x61u8)",
+        "witness": "percent_decode(seq![0x25u8, 0x36u8, 0x61u8])[0] == 0x25u8"
+      }
+    },
+    {
+      "id": "hex-value-digit",
+      "file": "src/spec.rs",
+      "find": "        b - 0x30\n",
+      "replace": "        b - 0x31\n",
+      "expect": "killed",
+      "reason": "Gets digit values wrong: the mutant decodes \"%12\" to 0x01, so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0x12u8)",
+        "witness": "percent_decode_string(percent_encode(0x12u8))[0] == 0x01u8"
+      }
+    },
+    {
+      "id": "hex-value-upper",
+      "file": "src/spec.rs",
+      "find": "        b - 0x37\n",
+      "replace": "        b - 0x36\n",
+      "expect": "killed",
+      "reason": "Gets A to F values wrong: the mutant decodes \"%AB\" to 0xBC, so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0xABu8)",
+        "witness": "percent_decode_string(percent_encode(0xABu8))[0] == 0xBCu8"
+      }
+    },
+    {
+      "id": "hex-value-lower",
+      "file": "src/spec.rs",
+      "find": "        b - 0x57\n",
+      "replace": "        b - 0x56\n",
+      "expect": "killed",
+      "reason": "Gets a to f values wrong: the mutant decodes `%6a` to 0x6B, where RFC 3986 gives 0x6A, so lemma_percent_decode_equals_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_percent_decode_equals_rfc3986_triplet(0x36u8, 0x61u8)",
+        "witness": "percent_decode(seq![0x25u8, 0x36u8, 0x61u8])[0] == 0x6Bu8"
+      }
+    },
+    {
+      "id": "decode-skip-one-byte",
+      "file": "src/spec.rs",
+      "find": "percent_decode_from(input, i + 3)",
+      "replace": "percent_decode_from(input, i + 2)",
+      "expect": "killed",
+      "reason": "Skips one byte instead of two: the mutant decodes \"%41\" to \"A1\", so lemma_decode_percent_encode is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_decode_percent_encode(0x41u8)",
+        "witness": "percent_decode_string(percent_encode(0x41u8)).len() == 2"
+      }
+    },
+    {
+      "id": "decode-drop-lone-percent",
+      "file": "src/spec.rs",
+      "find": "are not in the ranges.\n            seq![byte] + percent_decode_from(input, i + 1)",
+      "replace": "are not in the ranges.\n            percent_decode_from(input, i + 1)",
+      "expect": "killed",
+      "reason": "Drops a % that starts no percent-encoded byte (step 2.2): the mutant decodes \"%\" to nothing, so lemma_no_percent_encoded_bytes is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x25u8])",
+        "witness": "percent_decode(seq![0x25u8]).len() == 0"
+      }
+    },
+    {
+      "id": "decode-drop-plain-byte",
+      "file": "src/spec.rs",
+      "find": "append byte to output.\"\n            seq![byte] + percent_decode_from(input, i + 1)",
+      "replace": "append byte to output.\"\n            percent_decode_from(input, i + 1)",
+      "expect": "killed",
+      "reason": "Drops every byte other than % (step 2.1): the mutant decodes \"A\" to nothing, so lemma_no_percent_encoded_bytes is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x41u8])",
+        "witness": "percent_decode(seq![0x41u8]).len() == 0"
+      }
+    },
+    {
+      "id": "infra-lower-hex-narrowed",
+      "file": "src/spec.rs",
+      "find": "is_ascii_digit(c) || 0x61 <= c <= 0x66",
+      "replace": "is_ascii_digit(c) || 0x61 <= c <= 0x65",
+      "expect": "killed",
+      "reason": "Drops f from Infra's ASCII lower hex digit: then `%1f` has no percent-encoded byte, yet percent-decode (step 2.2's own ranges) decodes it, so lemma_no_percent_encoded_bytes is false for the mutant.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_no_percent_encoded_bytes(seq![0x25u8, 0x31u8, 0x66u8])",
+        "witness": "percent_decode(seq![0x25u8, 0x31u8, 0x66u8]).len() == 1"
+      }
+    },
+    {
+      "id": "c0-control-bound",
+      "file": "src/spec.rs",
+      "find": "is_c0_control(c) || (is_code_point(c) && c > 0x7E)",
+      "replace": "is_c0_control(c) || (is_code_point(c) && c > 0x7F)",
+      "expect": "killed",
+      "reason": "Leaves U+007F DELETE out of the C0 control set: RFC 3986 does not allow it in a URI and it is not in the listed disagreements, so lemma_c0_control_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_c0_control_set_vs_rfc3986(0x7Fu32)",
+        "witness": "!contains(PercentEncodeSet::C0Control, 0x7Fu32)"
+      }
+    },
+    {
+      "id": "c0-controls-end",
+      "file": "src/spec.rs",
+      "find": "    c <= 0x1F\n",
+      "replace": "    c <= 0x1E\n",
+      "expect": "killed",
+      "reason": "Leaves U+001F out of the C0 controls: RFC 3986 does not allow it in a URI and it is not a listed disagreement, so lemma_c0_control_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_c0_control_set_vs_rfc3986(0x1Fu32)",
+        "witness": "!contains(PercentEncodeSet::C0Control, 0x1Fu32)"
+      }
+    },
+    {
+      "id": "fragment-drop-backtick",
+      "file": "src/spec.rs",
+      "find": "c == 0x3C || c == 0x3E\n        || c == 0x60\n}",
+      "replace": "c == 0x3C || c == 0x3E\n}",
+      "expect": "killed",
+      "reason": "Leaves ` out of the fragment set: RFC 3986 §3.5 does not allow it and it is not a listed disagreement, so lemma_fragment_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_fragment_set_vs_rfc3986(0x60u32)",
+        "witness": "!contains(PercentEncodeSet::Fragment, 0x60u32)"
+      }
+    },
+    {
+      "id": "query-drop-hash",
+      "file": "src/spec.rs",
+      "find": "c == 0x22 || c == 0x23 || c == 0x3C",
+      "replace": "c == 0x22 || c == 0x3C",
+      "expect": "killed",
+      "reason": "Leaves # out of the query set: RFC 3986 §3.4 does not allow it and it is not a listed disagreement, so lemma_query_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_query_set_vs_rfc3986(0x23u32)",
+        "witness": "!contains(PercentEncodeSet::Query, 0x23u32)"
+      }
+    },
+    {
+      "id": "special-query-apostrophe",
+      "file": "src/spec.rs",
+      "find": "in_query_percent_encode_set(c) || c == 0x27",
+      "replace": "in_query_percent_encode_set(c) || c == 0x28",
+      "expect": "killed",
+      "reason": "Swaps ' for ( in the special-query set: ' becomes a point of agreement with RFC 3986 §3.4 where the list says they disagree, so lemma_special_query_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_special_query_set_vs_rfc3986(0x27u32)",
+        "witness": "!contains(PercentEncodeSet::SpecialQuery, 0x27u32)"
+      }
+    },
+    {
+      "id": "path-drop-question-mark",
+      "file": "src/spec.rs",
+      "find": "in_query_percent_encode_set(c) || c == 0x3F",
+      "replace": "in_query_percent_encode_set(c) || c == 0x3D",
+      "expect": "killed",
+      "reason": "Swaps ? for = in the path set: RFC 3986 §3.3 does not allow ? and it is not a listed disagreement, so lemma_path_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_path_set_vs_rfc3986(0x3Fu32)",
+        "witness": "!contains(PercentEncodeSet::Path, 0x3Fu32)"
+      }
+    },
+    {
+      "id": "userinfo-bracket-range",
+      "file": "src/spec.rs",
+      "find": "(0x5B <= c <= 0x5D)",
+      "replace": "(0x5B <= c <= 0x5C)",
+      "expect": "killed",
+      "reason": "Leaves ] out of the userinfo set: RFC 3986 §3.2.1 does not allow it and it is not a listed disagreement, so lemma_userinfo_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_userinfo_set_vs_rfc3986(0x5Du32)",
+        "witness": "!contains(PercentEncodeSet::Userinfo, 0x5Du32)"
+      }
+    },
+    {
+      "id": "userinfo-drop-pipe",
+      "file": "src/spec.rs",
+      "find": "(0x5B <= c <= 0x5D) || c == 0x7C",
+      "replace": "(0x5B <= c <= 0x5D)",
+      "expect": "killed",
+      "reason": "Leaves | out of the userinfo set: RFC 3986 §3.2.1 does not allow it and it is not a listed disagreement, so lemma_userinfo_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_userinfo_set_vs_rfc3986(0x7Cu32)",
+        "witness": "!contains(PercentEncodeSet::Userinfo, 0x7Cu32)"
+      }
+    },
+    {
+      "id": "component-dollar-range",
+      "file": "src/spec.rs",
+      "find": "(0x24 <= c <= 0x26)",
+      "replace": "(0x24 <= c <= 0x25)",
+      "expect": "killed",
+      "reason": "Leaves & out of the component set: it is reserved, not unreserved, and not a listed disagreement, so lemma_component_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_component_set_vs_rfc3986(0x26u32)",
+        "witness": "!contains(PercentEncodeSet::Component, 0x26u32)"
+      }
+    },
+    {
+      "id": "component-drop-plus",
+      "file": "src/spec.rs",
+      "find": "c == 0x2B || c == 0x2C",
+      "replace": "c == 0x2C",
+      "expect": "killed",
+      "reason": "Leaves + out of the component set: it is reserved and not a listed disagreement, so lemma_component_set_vs_rfc3986 is false.",
+      "certificate": {
+        "file": "src/independent.rs",
+        "lemma": "lemma_component_set_vs_rfc3986(0x2Bu32)",
+        "witness": "!contains(PercentEncodeSet::Component, 0x2Bu32)"
+      }
+    },
+    {
+      "id": "form-drop-tilde",
+      "file": "src/spec.rs",
+      "find": "(0x27 <= c <= 0x29) || c == 0x7E",
+      "replace": "(0x27 <= c <= 0x29)",
+      "expect": "killed",
+      "reason": "Leaves ~ out of the application/x-www-form-urlencoded set, which the standard's note says contains every code point but ASCII alphanumerics and * - . _, so lemma_form_set_note is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_form_set_note(0x7Eu32)",
+        "witness": "!contains(PercentEncodeSet::ApplicationXWwwFormUrlencoded, 0x7Eu32)"
+      }
+    },
+    {
+      "id": "form-paren-range",
+      "file": "src/spec.rs",
+      "find": "(0x27 <= c <= 0x29)",
+      "replace": "(0x27 <= c <= 0x28)",
+      "expect": "killed",
+      "reason": "Leaves ) out of the application/x-www-form-urlencoded set, against the note, so lemma_form_set_note is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_form_set_note(0x29u32)",
+        "witness": "!contains(PercentEncodeSet::ApplicationXWwwFormUrlencoded, 0x29u32)"
+      }
+    },
+    {
+      "id": "non-ascii-cut-off",
+      "file": "src/spec.rs",
+      "find": "(is_code_point(c) && c > 0x7E)",
+      "replace": "(c <= 0xFFFF && c > 0x7E)",
+      "expect": "killed",
+      "reason": "Leaves supplementary code points out of every set, against step 7.3.3's assertion, so lemma_sets_include_non_ascii is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "lemma_sets_include_non_ascii(PercentEncodeSet::C0Control, 0x10000u32)",
+        "witness": "!contains(PercentEncodeSet::C0Control, 0x10000u32)"
+      }
+    },
+    {
+      "id": "space-as-plus-wrong-set",
+      "file": "src/spec.rs",
+      "find": "percent_encode_set == PercentEncodeSet::ApplicationXWwwFormUrlencoded;",
+      "replace": "percent_encode_set == PercentEncodeSet::Component;",
+      "expect": "killed",
+      "reason": "Applies spaceAsPlus to the component set instead: the mutant encodes the form row's first space as \"%20\" rather than \"+\", so lemma_examples is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "utf8_percent_encode(seq![0x31u32, 0x2B, 0x31, 0x20, 0x2261, 0x20, 0x32, 0x25, 0x32, 0x30, 0x203D], PercentEncodeSet::ApplicationXWwwFormUrlencoded)[5] == 0x25u32"
+      }
+    },
+    {
+      "id": "space-as-plus-ignored",
+      "file": "src/spec.rs",
+      "find": "if space_as_plus && byte == 0x20 {",
+      "replace": "if false && byte == 0x20 {",
+      "expect": "killed",
+      "reason": "Ignores step 7.3.1: the mutant percent-encodes spaces in the form row, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "utf8_percent_encode(seq![0x31u32, 0x2B, 0x31, 0x20, 0x2261, 0x20, 0x32, 0x25, 0x32, 0x30, 0x203D], PercentEncodeSet::ApplicationXWwwFormUrlencoded)[5] == 0x25u32"
+      }
+    },
+    {
+      "id": "isomorph-branch-inverted",
+      "file": "src/spec.rs",
+      "find": "if !contains(set, isomorph) {",
+      "replace": "if contains(set, isomorph) {",
+      "expect": "killed",
+      "reason": "Swaps steps 7.3.4 and 7.3.5: the mutant outputs U+2261's first byte as the code point U+00E2, so lemma_examples is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "utf8_percent_encode_code_point(0x2261u32, PercentEncodeSet::Userinfo)[0] == 0xE2u32"
+      }
+    },
+    {
+      "id": "output-order",
+      "file": "src/spec.rs",
+      "find": "encode_output_byte(set, space_as_plus, bytes[i as int])\n            + encode_output_bytes(set, space_as_plus, bytes, i + 1)",
+      "replace": "encode_output_bytes(set, space_as_plus, bytes, i + 1)\n            + encode_output_byte(set, space_as_plus, bytes[i as int])",
+      "expect": "killed",
+      "reason": "Appends the bytes' outputs in reverse order: \"Say what‽\" starts with \"%BD\", so lemma_examples is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "utf8_percent_encode(seq![0x53u32, 0x61, 0x79, 0x20, 0x77, 0x68, 0x61, 0x74, 0x203D], PercentEncodeSet::Userinfo)[1] == 0x42u32"
+      }
+    }
+  ]
+}

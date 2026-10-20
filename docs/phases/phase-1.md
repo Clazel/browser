@@ -144,6 +144,30 @@ encode". Independent: RFC 3986 §2.1 for decode. Conformance: WPT
 `percent-encoding.json` (UTF-8 rows only; others are expected failures
 until legacy encodings exist). Lemma: decode inverts encode.
 
+**As built:** `crates/clazel-percent`, from `url.bs` at `845bafca`. There
+are eight percent-encode sets, not five: C0 control, fragment, query,
+special-query, path, userinfo, component and
+application/x-www-form-urlencoded. "Percent-encode after encoding" is
+transcribed for UTF-8 only, and the spec header lists that as a modelling
+choice. UTF-8 encode comes from `clazel-encoding`, a path dependency. The
+mutation sandbox therefore copies workspace path dependencies, and
+`cargo xtask mutate <crate>` runs one crate's mutations.
+`lemma_decode_inverts_encode` covers every set; its only exceptions are a
+`%` the set leaves alone and spaces in the form set. `independent.rs` was
+committed before `spec.rs` existed. It proves percent-encode equal to
+RFC 3986 §2.1 for every byte, and percent-decode equal on exactly the
+inputs RFC 3986 can decode. For each set, an iff lemma proves that the
+listed disagreement code points are exactly where its membership differs
+from the RFC 3986 rule for the matching component. WPT `percent-encoding.json`
+gives 23 checks, which pass; the 9 query checks in other encodings are
+expected failures, listed by name. Differential tests against
+`percent-encoding` 2.3.2 and `form_urlencoded` 1.2.2 (rust-url) cover every
+scalar value in all eight sets. rust-url 2.5.8's path set still lacks U+005E (^),
+which whatwg/url added in `9bc33c39` (March 2025), and the test asserts
+that this is the only difference. Compute-only examples live in
+`examples.rs` because Verus evaluates every `compute_only` assertion in a
+module, even under `--verify-function`.
+
 ### 1.6 Forgiving base64 (S)
 
 Infra "forgiving-base64 decode" and "forgiving-base64 encode".
@@ -221,7 +245,8 @@ per suite; `xtask report` adds a "Conformance" column.
 | 1.2 UTF-8 independent transcription | done: 54 verified, 0 errors; `utf8/independent.rs` (Unicode 18.0 Table 3-7, §3.9.6, C10) proven equal to all three hooks; all 10 mutations certified `killed` |
 | 1.3 UTF-8 conformance | done: 57 WPT `encoding/` cases pass; differential test against std and `encoding_rs` 0.8.35 agrees on all inputs tried (exhaustive up to 3 bytes) |
 | 1.4 UTF-8 encode | done: 81 verified, 0 errors; `utf8/encode.rs` proven against `encode_ensures`; `utf8/independent_encode.rs` (Unicode 18.0 Table 3-6) proven equal to `utf8_encode`; round trip `lemma_decode_encode`; 12 new mutations, all 22 certified `killed`; encode conformance added to `conformance_utf8.rs`; **`clazel-encoding` raised to tier 2** |
-| 1.5–1.12 | not started |
+| 1.5 Percent-encoding | done: 54 verified, 0 errors; all 34 mutations certified `killed`; `independent.rs` (RFC 3986) proven equal where the standards agree; 23 WPT checks pass (9 non-UTF-8 expected failures); rust-url differential; **`clazel-percent` raised to tier 2** |
+| 1.6–1.12 | not started |
 
 ## Risks
 

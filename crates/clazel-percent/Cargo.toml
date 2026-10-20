@@ -1,0 +1,37 @@
+[package]
+name = "clazel-percent"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "WHATWG URL Standard §1.3: percent-encoded bytes and the percent-encode sets."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# "UTF-8 percent-encode" and string percent-decode use the proven UTF-8
+# encoder (Encoding §6 "UTF-8 encode") rather than a second copy of it.
+clazel-encoding = { path = "../clazel-encoding" }
+
+# Test-only engines for the differential test in
+# tests/conformance_percent.rs (class `test` in docs/DEPENDENCIES.md: never
+# shipped).
+[dev-dependencies]
+form_urlencoded = "=1.2.2"
+percent-encoding = "=2.3.2"
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires. Tier 2:
+# every exec function is proven to meet its contract; independent.rs (RFC
+# 3986) is proven equal where the standards agree, with the disagreements
+# listed exactly; every mutation is certified killed; and the crate is
+# tested against WPT url/percent-encoding and rust-url
+# (tests/conformance_percent.rs).
+[package.metadata.clazel]
+tier = 2
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
