@@ -26,7 +26,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 | Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Spec review³ |
 |-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|
 | clazel-encoding | 2 (2) | 81 verified, 0 errors | no harnesses | 0 | 764 / 485 / 205 | 22 / 0 / 0 of 22 | 0 of 3 files current |
-| clazel-mime | 2 (2) | 164 verified, 0 errors | no harnesses | 0 | 1161 / 1381 / 651 | 15 / 0 / 0 of 15 | 0 of 3 files current |
+| clazel-mime | 2 (2) | 174 verified, 0 errors | no harnesses | 0 | 1963 / 1381 / 679 | 15 / 0 / 0 of 15 | 0 of 5 files current |
 | xtask | 0 (0) | not used | no harnesses | 0 | — | — | no spec files |
 
 ¹ From Verus's `line_count`; only code inside `verus!` is counted, and type definitions count as exec.

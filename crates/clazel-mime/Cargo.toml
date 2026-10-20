@@ -21,7 +21,7 @@ mime = "=0.3.17"
 # every valid media type without repeated parameter names; every mutation
 # is certified killed; and tests/conformance_mime_types.rs runs WPT
 # mimesniff/mime-types and a differential test against the mime crate.
-# Sniffing (§7) is not in the crate yet.
+# Sniffing (§7) has a spec and contract only, and no exec code yet.
 [package.metadata.clazel]
 tier = 2
 target-tier = 2
