@@ -538,6 +538,42 @@ pub open spec fn rfc5952_text(a: Seq<nat>) -> Seq<u32> {
     }
 }
 
+
+// ---------------------------------------------------------------------
+// RFC 3986 §3.2.2: reg-name. (Added after `spec.rs` existed, transcribed
+// from RFC 3986 alone.)
+// ---------------------------------------------------------------------
+
+/// `unreserved = ALPHA / DIGIT / "-" / "." / "_" / "~"` and `sub-delims =
+/// "!" / "$" / "&" / "'" / "(" / ")" / "*" / "+" / "," / ";" / "="`
+/// (RFC 3986 §2.3, §2.2).
+pub open spec fn is_unreserved_or_sub_delim(c: u32) -> bool {
+    is_alpha(c) || is_digit(c) || c == 0x2D || c == 0x2E || c == 0x5F || c == 0x7E || c == 0x21
+        || c == 0x24 || c == 0x26 || c == 0x27 || c == 0x28 || c == 0x29 || c == 0x2A || c == 0x2B
+        || c == 0x2C || c == 0x3B || c == 0x3D
+}
+
+/// `reg-name = *( unreserved / pct-encoded / sub-delims )`, with
+/// `pct-encoded = "%" HEXDIG HEXDIG` (§2.1), matched against `s` from
+/// index `i` to the end.
+pub open spec fn reg_name_from(s: Seq<u32>, i: nat) -> bool
+    decreases s.len() - i
+{
+    if i >= s.len() {
+        true
+    } else if is_unreserved_or_sub_delim(s[i as int]) {
+        reg_name_from(s, i + 1)
+    } else {
+        s[i as int] == 0x25 && i + 2 < s.len() && is_hexdig(s[i + 1int]) && is_hexdig(s[i + 2int])
+            && reg_name_from(s, i + 3)
+    }
+}
+
+/// `s` matches `reg-name`.
+pub open spec fn reg_name(s: Seq<u32>) -> bool {
+    reg_name_from(s, 0)
+}
+
 // =====================================================================
 // Theorems: what the RFC transcription and the URL Standard
 // transcription (`spec.rs`) are proven to agree on. Everything above was
@@ -1297,6 +1333,55 @@ pub proof fn lemma_ipv4address_split(s: Seq<u32>)
     }
 }
 
+/// The IPv4 parser's steps 5 to 14 on four `dec-octet` parts.
+pub proof fn lemma_ipv4_parser_four_parts(parts: Seq<Seq<u32>>)
+    requires
+        parts.len() == 4,
+        forall|k: int| 0 <= k < 4 ==> dec_octet(#[trigger] parts[k]) is Some,
+    ensures
+        ({
+            let o0 = dec_octet(parts[0]).unwrap();
+            let o1 = dec_octet(parts[1]).unwrap();
+            let o2 = dec_octet(parts[2]).unwrap();
+            let o3 = dec_octet(parts[3]).unwrap();
+            let numbers = seq![o0, o1, o2, o3];
+            &&& super::spec::ipv4_parse_parts(parts, 0, seq![]) == Some(numbers)
+            &&& !super::spec::any_greater_than_255(numbers, 0, 3)
+            &&& numbers.last() < super::spec::pow256(1)
+            &&& super::spec::ipv4_sum(numbers.drop_last(), 0, numbers.last()) == ((o0 * 256 + o1) * 256 + o2) * 256 + o3
+        }),
+{
+    let o0 = dec_octet(parts[0]).unwrap();
+    let o1 = dec_octet(parts[1]).unwrap();
+    let o2 = dec_octet(parts[2]).unwrap();
+    let o3 = dec_octet(parts[3]).unwrap();
+    assert(dec_octet(parts[0]) is Some && dec_octet(parts[1]) is Some && dec_octet(parts[2]) is Some && dec_octet(parts[3]) is Some);
+    lemma_ipv4_number_parser_dec_octet(parts[0]);
+    lemma_ipv4_number_parser_dec_octet(parts[1]);
+    lemma_ipv4_number_parser_dec_octet(parts[2]);
+    lemma_ipv4_number_parser_dec_octet(parts[3]);
+    lemma_dec_octet(parts[0]);
+    lemma_dec_octet(parts[1]);
+    lemma_dec_octet(parts[2]);
+    lemma_dec_octet(parts[3]);
+    let numbers = seq![o0, o1, o2, o3];
+    reveal_with_fuel(super::spec::ipv4_parse_parts, 5);
+    assert(seq![o0] =~= Seq::<nat>::empty().push(o0));
+    assert(seq![o0, o1] =~= seq![o0].push(o1));
+    assert(seq![o0, o1, o2] =~= seq![o0, o1].push(o2));
+    assert(numbers =~= seq![o0, o1, o2].push(o3));
+    reveal_with_fuel(super::spec::any_greater_than_255, 4);
+    reveal_with_fuel(super::spec::pow256, 5);
+    assert(super::spec::pow256(1) == 256);
+    assert(super::spec::pow256(2) == 0x1_0000);
+    assert(super::spec::pow256(3) == 0x100_0000);
+    let rest = numbers.drop_last();
+    assert(rest =~= seq![o0, o1, o2]);
+    reveal_with_fuel(super::spec::ipv4_sum, 4);
+    let total = o3 + o0 * 0x100_0000 + o1 * 0x1_0000 + o2 * 0x100;
+    assert(super::spec::ipv4_sum(rest, 3, total) == total);
+}
+
 /// **RFC 3986 §3.2.2 `IPv4address` agrees with the URL Standard's IPv4
 /// parser:** every dotted-decimal string of four `dec-octet`s parses to the
 /// same address. (The URL Standard's parser accepts more: fewer parts,
@@ -1319,35 +1404,9 @@ pub proof fn lemma_ipv4address_parses(s: Seq<u32>)
         s.subrange(d3 + 1int, s.len() as int),
     ];
     super::lemmas::lemma_strictly_split_join(parts, 0x2E);
-    let o = ipv4address_octets(s).unwrap();
-    lemma_ipv4_number_parser_dec_octet(parts[0]);
-    lemma_ipv4_number_parser_dec_octet(parts[1]);
-    lemma_ipv4_number_parser_dec_octet(parts[2]);
-    lemma_ipv4_number_parser_dec_octet(parts[3]);
-    lemma_dec_octet(parts[0]);
-    lemma_dec_octet(parts[1]);
-    lemma_dec_octet(parts[2]);
+    lemma_ipv4_parser_four_parts(parts);
     lemma_dec_octet(parts[3]);
-    assert(parts[3].len() > 0);
-    reveal_with_fuel(super::spec::ipv4_parse_parts, 5);
-    let numbers = seq![o[0], o[1], o[2], o[3]];
-    assert(super::spec::ipv4_parse_parts(parts, 0, seq![]) == Some(numbers)) by {
-        assert(seq![o[0]] =~= Seq::<nat>::empty().push(o[0]));
-        assert(seq![o[0], o[1]] =~= seq![o[0]].push(o[1]));
-        assert(seq![o[0], o[1], o[2]] =~= seq![o[0], o[1]].push(o[2]));
-        assert(numbers =~= seq![o[0], o[1], o[2]].push(o[3]));
-    }
-    reveal_with_fuel(super::spec::any_greater_than_255, 4);
-    reveal_with_fuel(super::spec::pow256, 5);
-    assert(super::spec::pow256(1) == 256);
-    assert(super::spec::pow256(2) == 0x1_0000);
-    assert(super::spec::pow256(3) == 0x100_0000);
-    let rest = numbers.drop_last();
-    assert(rest =~= seq![o[0], o[1], o[2]]);
-    reveal_with_fuel(super::spec::ipv4_sum, 4);
-    let total = o[3] + o[0] * 0x100_0000 + o[1] * 0x1_0000 + o[2] * 0x100;
-    assert(super::spec::ipv4_sum(rest, 3, total) == total);
-    assert(total == ((o[0] * 256 + o[1]) * 256 + o[2]) * 256 + o[3]);
+    assert(parts.last().len() > 0);
 }
 
 /// "Serialize an integer" writes a byte as its `dec-octet` text.
@@ -1538,6 +1597,80 @@ pub proof fn lemma_ipv6_serializer_rfc5952(a: Seq<nat>)
             }
         },
     }
+}
+
+// ---------------------------------------------------------------------
+// reg-name and the opaque-host parser.
+// ---------------------------------------------------------------------
+
+/// A `reg-name`'s code points are printable ASCII, and none is a
+/// forbidden host code point.
+pub proof fn lemma_reg_name_code_points(s: Seq<u32>, i: nat)
+    requires
+        reg_name_from(s, i),
+    ensures
+        forall|k: int| i <= k < s.len() ==> 0x21 <= #[trigger] s[k] <= 0x7E && !super::spec::is_forbidden_host_code_point(s[k]),
+    decreases s.len() - i
+{
+    if i < s.len() {
+        if is_unreserved_or_sub_delim(s[i as int]) {
+            lemma_reg_name_code_points(s, i + 1);
+        } else {
+            lemma_reg_name_code_points(s, i + 3);
+        }
+    }
+}
+
+/// No forbidden host code point from `i` on.
+proof fn lemma_no_forbidden_from(s: Seq<u32>, i: nat)
+    requires
+        forall|k: int| 0 <= k < s.len() ==> !super::spec::is_forbidden_host_code_point(#[trigger] s[k]),
+    ensures
+        !super::spec::contains_forbidden_host_code_point_from(s, i),
+    decreases s.len() - i
+{
+    if i < s.len() {
+        lemma_no_forbidden_from(s, i + 1);
+    }
+}
+
+/// Percent-encode after encoding's step 7.3 leaves printable ASCII bytes
+/// alone with the C0 control percent-encode set.
+proof fn lemma_c0_output_bytes_identity(bytes: Seq<u8>, i: nat)
+    requires
+        i <= bytes.len(),
+        forall|k: int| 0 <= k < bytes.len() ==> 0x21 <= #[trigger] bytes[k] <= 0x7E,
+    ensures
+        clazel_percent::spec::encode_output_bytes(clazel_percent::spec::PercentEncodeSet::C0Control, false, bytes, i)
+            == bytes.subrange(i as int, bytes.len() as int).map_values(|b: u8| b as u32),
+    decreases bytes.len() - i
+{
+    if i < bytes.len() {
+        lemma_c0_output_bytes_identity(bytes, i + 1);
+        assert(bytes.subrange(i as int, bytes.len() as int).map_values(|b: u8| b as u32) =~= seq![bytes[i as int] as u32]
+            + bytes.subrange(i + 1int, bytes.len() as int).map_values(|b: u8| b as u32));
+    } else {
+        assert(bytes.subrange(i as int, bytes.len() as int).map_values(|b: u8| b as u32) =~= Seq::<u32>::empty());
+    }
+}
+
+/// **RFC 3986 `reg-name` and the URL Standard's opaque-host parser:**
+/// every `reg-name` is accepted, unchanged. (The URL Standard accepts more:
+/// any code point but the forbidden host code points, percent-encoding the
+/// C0 controls and non-ASCII ones.)
+pub proof fn lemma_reg_name_opaque_host(s: Seq<u32>)
+    requires
+        reg_name(s),
+    ensures
+        super::spec::opaque_host_parser(s) == Some(s),
+{
+    lemma_reg_name_code_points(s, 0);
+    lemma_no_forbidden_from(s, 0);
+    assert(clazel_percent::lemmas::all_ascii(s));
+    clazel_percent::lemmas::lemma_utf8_encode_ascii(s);
+    let bytes = s.map_values(|c: u32| c as u8);
+    lemma_c0_output_bytes_identity(bytes, 0);
+    assert(bytes.subrange(0, bytes.len() as int).map_values(|b: u8| b as u32) =~= s);
 }
 
 } // verus!
