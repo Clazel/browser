@@ -6,3 +6,4 @@
 //! `docs/VERIFICATION.md`.
 
 pub mod punycode;
+pub mod uts46;
