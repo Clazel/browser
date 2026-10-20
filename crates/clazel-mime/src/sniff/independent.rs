@@ -879,7 +879,7 @@ pub proof fn lemma_agree_image(input: Seq<u8>)
     ensures
         image_type_pattern_matching(input) == indep_image(input),
 {
-    assert(rows_equal(image_type_table(), expand(image_entries(), 0), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_table(input, image_type_table(), image_entries());
 }
 
@@ -888,7 +888,7 @@ pub proof fn lemma_agree_font(input: Seq<u8>)
     ensures
         font_type_pattern_matching(input) == indep_font(input),
 {
-    assert(rows_equal(font_type_table(), expand(font_entries(), 0), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_table(input, font_type_table(), font_entries());
 }
 
@@ -897,7 +897,7 @@ pub proof fn lemma_agree_archive(input: Seq<u8>)
     ensures
         archive_type_pattern_matching(input) == indep_archive(input),
 {
-    assert(rows_equal(archive_type_table(), expand(archive_entries(), 0), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_table(input, archive_type_table(), archive_entries());
 }
 
@@ -907,8 +907,7 @@ pub proof fn lemma_agree_unknown_tables(input: Seq<u8>)
         match_table(input, unknown_scriptable_table(), 0) == first_match(input, scriptable_entries(), 0),
         match_table(input, unknown_non_scriptable_table(), 0) == first_match(input, non_scriptable_entries(), 0),
 {
-    assert(rows_equal(unknown_scriptable_table(), expand(scriptable_entries(), 0), 0)) by (compute_only);
-    assert(rows_equal(unknown_non_scriptable_table(), expand(non_scriptable_entries(), 0), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_table(input, unknown_scriptable_table(), scriptable_entries());
     lemma_table(input, unknown_non_scriptable_table(), non_scriptable_entries());
 }
@@ -976,7 +975,7 @@ pub proof fn lemma_agree_audio_or_video(input: Seq<u8>)
     ensures
         audio_or_video_type_pattern_matching(input) == indep_audio_or_video(input, matches_webm(input), matches_mp3_without_id3(input)),
 {
-    assert(rows_equal(audio_or_video_type_table(), expand(audio_or_video_entries(), 0), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_table(input, audio_or_video_type_table(), audio_or_video_entries());
     lemma_agree_mp4(input);
     assert(mime_type(seq![0x76u32, 0x69, 0x64, 0x65, 0x6F], seq![0x6Du32, 0x70, 0x34]) == literal(s_video(), seq![0x6Du32, 0x70, 0x34]));

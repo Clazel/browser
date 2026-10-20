@@ -181,12 +181,7 @@ pub proof fn lemma_tables_well_formed()
         forall|j: int| 0 <= j < unknown_scriptable_table().len() ==> (#[trigger] unknown_scriptable_table()[j]).pattern.len() == unknown_scriptable_table()[j].mask.len(),
         forall|j: int| 0 <= j < unknown_non_scriptable_table().len() ==> (#[trigger] unknown_non_scriptable_table()[j]).pattern.len() == unknown_non_scriptable_table()[j].mask.len(),
 {
-    assert(rows_well_formed(image_type_table(), 0)) by (compute_only);
-    assert(rows_well_formed(audio_or_video_type_table(), 0)) by (compute_only);
-    assert(rows_well_formed(font_type_table(), 0)) by (compute_only);
-    assert(rows_well_formed(archive_type_table(), 0)) by (compute_only);
-    assert(rows_well_formed(unknown_scriptable_table(), 0)) by (compute_only);
-    assert(rows_well_formed(unknown_non_scriptable_table(), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_rows_well_formed(image_type_table(), 0);
     lemma_rows_well_formed(audio_or_video_type_table(), 0);
     lemma_rows_well_formed(font_type_table(), 0);
@@ -237,8 +232,7 @@ pub proof fn lemma_text_or_binary_not_scriptable()
         !crate::mime_type::spec::is_scriptable_mime_type(text_plain()),
         !crate::mime_type::spec::is_scriptable_mime_type(application_octet_stream()),
 {
-    assert(!crate::mime_type::spec::is_scriptable_mime_type(text_plain())) by (compute_only);
-    assert(!crate::mime_type::spec::is_scriptable_mime_type(application_octet_stream())) by (compute_only);
+    super::checks::lemma_tables_evaluated();
 }
 
 /// The audio or video type pattern matching algorithm (§6.2) never returns
@@ -247,11 +241,8 @@ pub proof fn lemma_audio_or_video_not_scriptable(input: Seq<u8>)
     ensures
         audio_or_video_type_pattern_matching(input) matches Some(t) ==> !crate::mime_type::spec::is_scriptable_mime_type(t),
 {
-    assert(outputs_not_scriptable(audio_or_video_type_table(), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_match_table_not_scriptable(input, audio_or_video_type_table(), 0);
-    assert(!crate::mime_type::spec::is_scriptable_mime_type(mime_type(seq![0x76u32, 0x69, 0x64, 0x65, 0x6F], seq![0x6Du32, 0x70, 0x34]))) by (compute_only);
-    assert(!crate::mime_type::spec::is_scriptable_mime_type(mime_type(seq![0x76u32, 0x69, 0x64, 0x65, 0x6F], seq![0x77u32, 0x65, 0x62, 0x6D]))) by (compute_only);
-    assert(!crate::mime_type::spec::is_scriptable_mime_type(mime_type(seq![0x61u32, 0x75, 0x64, 0x69, 0x6F], seq![0x6Du32, 0x70, 0x65, 0x67]))) by (compute_only);
 }
 
 /// With the sniff-scriptable flag unset, the rules for identifying an
@@ -260,9 +251,7 @@ pub proof fn lemma_no_scriptable_without_flag(header: Seq<u8>)
     ensures
         !crate::mime_type::spec::is_scriptable_mime_type(identify_unknown_mime_type(header, false)),
 {
-    assert(outputs_not_scriptable(unknown_non_scriptable_table(), 0)) by (compute_only);
-    assert(outputs_not_scriptable(image_type_table(), 0)) by (compute_only);
-    assert(outputs_not_scriptable(archive_type_table(), 0)) by (compute_only);
+    super::checks::lemma_tables_evaluated();
     lemma_match_table_not_scriptable(header, unknown_non_scriptable_table(), 0);
     lemma_match_table_not_scriptable(header, image_type_table(), 0);
     lemma_match_table_not_scriptable(header, archive_type_table(), 0);

@@ -14,3 +14,5 @@ pub mod signatures;
 pub mod algorithms;
 pub mod lemmas;
 pub mod independent;
+pub mod checks;
+pub mod examples;
