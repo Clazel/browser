@@ -140,12 +140,12 @@ fn is_double_dot_segment_exec(s: &[u32]) -> (r: bool)
 }
 
 /// "path start state" (no state override)
-pub fn path_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn path_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is PathStart,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::path_start_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::path_start_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if is_special_scheme_exec(m.url.scheme.as_slice()) {
@@ -156,13 +156,13 @@ pub fn path_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut 
         } else {
             advance(m, input.len())
         }
-    } else if c == Some(0x3Fu32) {
+    } else if so.is_none() && c == Some(0x3Fu32) {
         // 2.
         m.url.query = Some(Vec::new());
         assert(crate::host::record::opt_seq(m.url.query) == Some(Seq::<u32>::empty()));
         m.state = State::Query;
         advance(m, input.len())
-    } else if c == Some(0x23u32) {
+    } else if so.is_none() && c == Some(0x23u32) {
         // 3.
         m.url.fragment = Some(Vec::new());
         assert(crate::host::record::opt_seq(m.url.fragment) == Some(Seq::<u32>::empty()));
@@ -176,23 +176,29 @@ pub fn path_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut 
         } else {
             advance(m, input.len())
         }
+    } else if so.is_some() && m.url.host.is_none() {
+        // 5.
+        let empty: Vec<u32> = Vec::new();
+        assert(empty@ =~= Seq::<u32>::empty());
+        path_append_exec(&mut m.url.path, empty);
+        advance(m, input.len())
     } else {
         advance(m, input.len())
     }
 }
 
 /// "path state" (no state override)
-pub fn path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is Path,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::path_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::path_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
     let slash = c == Some(0x2Fu32) || (special && c == Some(0x5Cu32));
-    if c.is_none() || slash || c == Some(0x3Fu32) || c == Some(0x23u32) {
+    if c.is_none() || slash || (so.is_none() && (c == Some(0x3Fu32) || c == Some(0x23u32))) {
         // 1.
         if is_double_dot_segment_exec(m.buffer.as_slice()) {
             // 1.2.1
@@ -257,12 +263,12 @@ pub fn path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
 }
 
 /// "opaque path state"
-pub fn opaque_path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn opaque_path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is OpaquePath,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::opaque_path_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::opaque_path_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if c == Some(0x3Fu32) {

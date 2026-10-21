@@ -12,17 +12,17 @@ use vstd::prelude::*;
 
 verus! {
 
-/// "query state" (no state override; the encoding is UTF-8)
-pub fn query_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+/// "query state" (the encoding is UTF-8)
+pub fn query_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is Query,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::query_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::query_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     match c {
-        Some(c) if c != 0x23 => {
+        Some(c) if c != 0x23 || so.is_some() => {
             // 3.3
             m.buffer.push(c);
             advance(m, input.len())
@@ -52,12 +52,12 @@ pub fn query_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecM
 }
 
 /// "fragment state"
-pub fn fragment_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn fragment_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is Fragment,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::fragment_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::fragment_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     if let Some(c) = c_at_exec(input, m.pointer) {
         // 1.3

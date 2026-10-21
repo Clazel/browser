@@ -4,8 +4,10 @@
 
 use super::machine::{ExecMachine, Flow, advance, back, c_at_exec, skip};
 use super::record::{
-    ParsedPath, ParsedUrl, clone_opt_str, clone_path, eq_str, is_file, is_special_scheme_exec,
+    ParsedPath, ParsedUrl, clone_opt_str, clone_path, default_port_exec, eq_str, is_file,
+    is_special_scheme_exec,
 };
+use crate::host::record::ParsedHost;
 #[allow(unused_imports)]
 use super::spec::*;
 use crate::host::record::copy;
@@ -15,14 +17,14 @@ use vstd::prelude::*;
 verus! {
 
 /// "scheme start state"
-pub fn scheme_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn scheme_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is SchemeStart,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::scheme_start_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::scheme_start_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
-    let ghost ctx = super::machine::ctx_of(input@, base);
+    let ghost ctx = super::machine::ctx_of(input@, base, *so);
     match c_at_exec(input, m.pointer) {
         Some(c) if super::machine::is_ascii_alpha_exec(c) => {
             let lower = super::machine::ascii_lowercase_exec(c);
@@ -32,6 +34,11 @@ pub fn scheme_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mu
         },
         _ => {},
     }
+    if so.is_some() {
+        // 3.
+        return Flow::Failure;
+    }
+    // 2.
     m.state = State::NoScheme;
     back()
 }
@@ -45,14 +52,14 @@ fn is_scheme_code_point(c: u32) -> (r: bool)
 }
 
 /// "scheme state"
-pub fn scheme_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn scheme_state(input: &[u32], base: Option<&ParsedUrl>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@),
         old(m).state is Scheme,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::scheme_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), super::spec::scheme_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@), old(m)@, final(m)@, flow),
 {
-    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base));
+    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so);
     let c = c_at_exec(input, m.pointer);
     if let Some(c) = c {
         if is_scheme_code_point(c) {
@@ -63,8 +70,12 @@ pub fn scheme_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine
         }
         if c == 0x3A {
             // 2.
-            return scheme_state_colon(input, base, m);
+            return scheme_state_colon(input, base, so, m);
         }
+    }
+    if so.is_some() {
+        // 4.
+        return Flow::Failure;
     }
     // 3. "start over": the next run is at the first code point.
     m.buffer = Vec::new();
@@ -74,16 +85,53 @@ pub fn scheme_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine
     Flow::Next
 }
 
-/// Scheme state step 2 (no state override).
-fn scheme_state_colon(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+/// Scheme state step 2.
+fn scheme_state_colon(input: &[u32], base: Option<&ParsedUrl>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@),
         old(m).state is Scheme,
         crate::host::spec::c_at(input@, old(m)@.pointer) == Some(0x3Au32),
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::scheme_state_colon(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), super::spec::scheme_state_colon(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@), old(m)@, final(m)@, flow),
 {
-    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base));
+    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so);
+    if so.is_some() {
+        // 2.1
+        let url_special = is_special_scheme_exec(m.url.scheme.as_slice());
+        let buffer_special = is_special_scheme_exec(m.buffer.as_slice());
+        if url_special && !buffer_special {
+            // 2.1.1
+            return Flow::Return;
+        }
+        if !url_special && buffer_special {
+            // 2.1.2
+            return Flow::Return;
+        }
+        if (!m.url.username.is_empty() || !m.url.password.is_empty() || m.url.port.is_some()) && is_file(
+            m.buffer.as_slice(),
+        ) {
+            // 2.1.3
+            return Flow::Return;
+        }
+        if is_file(m.url.scheme.as_slice()) && matches!(m.url.host, Some(ParsedHost::Empty)) {
+            // 2.1.4
+            return Flow::Return;
+        }
+        // 2.2
+        m.url.scheme = copy(m.buffer.as_slice());
+        // 2.3.1
+        let default = default_port_exec(m.url.scheme.as_slice());
+        let is_default = match (m.url.port, default) {
+            (Some(p), Some(d)) => p == d,
+            (None, None) => true,
+            _ => false,
+        };
+        if is_default {
+            m.url.port = None;
+        }
+        // 2.3.2
+        return Flow::Return;
+    }
     // 2.2
     m.url.scheme = copy(m.buffer.as_slice());
     // 2.4
@@ -119,14 +167,14 @@ fn scheme_state_colon(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachi
 }
 
 /// "no scheme state"
-pub fn no_scheme_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn no_scheme_state(input: &[u32], base: Option<&ParsedUrl>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@),
         old(m).state is NoScheme,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::no_scheme_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), super::spec::no_scheme_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@), old(m)@, final(m)@, flow),
 {
-    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base));
+    let ghost ctx = super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so);
     let c = c_at_exec(input, m.pointer);
     let is_hash = c == Some(0x23u32);
     match base {
