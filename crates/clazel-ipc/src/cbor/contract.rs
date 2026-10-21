@@ -21,6 +21,17 @@ pub open spec fn decode_ensures(input: Seq<u8>, output: Option<Seq<Token>>) -> b
     output == decode(input)
 }
 
+/// Contract on what `decode` allocates: the output never has more tokens
+/// than the input has bytes, so a declared array length of 2^64 cannot make
+/// the decoder reserve memory for elements that are not there. (The decoder
+/// pushes only tokens it has read; `lemmas::lemma_decode_alloc_bound`.)
+pub open spec fn decode_alloc_ensures(input_len: nat, output_len: Option<nat>) -> bool {
+    match output_len {
+        Some(n) => n <= input_len,
+        None => true,
+    }
+}
+
 /// Precondition of `encode(&[Token]) -> Vec<u8>`: the tokens are one data
 /// item of the profile (text strings valid UTF-8, every array followed by
 /// exactly its elements).
