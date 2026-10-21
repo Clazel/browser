@@ -252,6 +252,16 @@ pub open spec fn days_in_month(y: nat, m: nat) -> nat {
 // The algorithm.
 // ---------------------------------------------------------------------
 
+/// §5.1.1 steps 3 and 4, on a year-value.
+pub open spec fn two_digit_year_pivot(year_value: nat) -> nat {
+    // 3. "If the year-value is greater than or equal to 70 and less than or
+    //    equal to 99, increment the year-value by 1900."
+    let year_value = if 70 <= year_value <= 99 { year_value + 1900 } else { year_value };
+    // 4. "If the year-value is greater than or equal to 0 and less than or
+    //    equal to 69, increment the year-value by 2000."
+    if year_value <= 69 { year_value + 2000 } else { year_value }
+}
+
 /// §5.1.1 "parse a cookie-date": the date, or failure (`None`).
 pub open spec fn parse_a_cookie_date(input: Seq<u8>) -> Option<CookieDate> {
     // 1. Divide into date-tokens. 2. Process each date-token.
@@ -262,12 +272,8 @@ pub open spec fn parse_a_cookie_date(input: Seq<u8>) -> Option<CookieDate> {
     // nothing when a flag is missing, because the result is failure.)
     match (state.time, state.day_of_month, state.month, state.year) {
         (Some((hour, minute, second)), Some(day_of_month), Some(month), Some(year_value)) => {
-            // 3. "If the year-value is greater than or equal to 70 and less
-            //    than or equal to 99, increment the year-value by 1900."
-            let year_value = if 70 <= year_value <= 99 { year_value + 1900 } else { year_value };
-            // 4. "If the year-value is greater than or equal to 0 and less
-            //    than or equal to 69, increment the year-value by 2000."
-            let year_value = if year_value <= 69 { year_value + 2000 } else { year_value };
+            // 3. and 4.: the two-digit year pivot.
+            let year_value = two_digit_year_pivot(year_value);
             // 5. "Abort this algorithm and fail to parse the cookie-date if:
             //    ... the day-of-month-value is less than 1 or greater than
             //    31, the year-value is less than 1601, the hour-value is

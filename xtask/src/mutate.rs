@@ -458,10 +458,27 @@ fn make_sandbox(c: &Crate, root: &Path) -> Result<PathBuf, String> {
     // Workspace crates it depends on (e.g. `clazel-percent` on
     // `clazel-encoding`), so path dependencies resolve. They are only
     // built, never mutated; Cargo makes them members implicitly.
-    for (dep, _) in &c.deps {
-        let from = root.join("crates").join(dep);
+    // Transitive ones too (`clazel-cookie` on `clazel-url` on
+    // `clazel-encoding`): follow `path = "../<crate>"` lines.
+    let mut pending: Vec<String> = c.deps.iter().map(|(d, _)| d.clone()).collect();
+    let mut seen: Vec<String> = Vec::new();
+    while let Some(dep) = pending.pop() {
+        if seen.contains(&dep) {
+            continue;
+        }
+        seen.push(dep.clone());
+        let from = root.join("crates").join(&dep);
         if !from.join("Cargo.toml").is_file() {
             continue;
+        }
+        if let Ok(text) = std::fs::read_to_string(from.join("Cargo.toml")) {
+            for line in text.lines() {
+                if let Some(rest) = line.split("path = \"../").nth(1)
+                    && let Some(name) = rest.split('"').next()
+                {
+                    pending.push(name.to_owned());
+                }
+            }
         }
         let to = sandbox.join("crates").join(dep);
         if to.exists() {

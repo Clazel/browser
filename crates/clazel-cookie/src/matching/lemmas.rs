@@ -224,4 +224,15 @@ pub proof fn lemma_path_match_antisymmetric(a: Seq<u8>, b: Seq<u8>)
     }
 }
 
+/// A domain-match that is not identity has a "." just before the domain.
+pub proof fn lemma_domain_match_boundary(string: Seq<u8>, string_is_host_name: bool, domain: Seq<u8>)
+    requires
+        domain_matches(string, string_is_host_name, domain),
+        string != domain,
+    ensures
+        string.len() > domain.len(),
+        string[string.len() - domain.len() - 1] == 0x2E,
+{
+}
+
 } // verus!

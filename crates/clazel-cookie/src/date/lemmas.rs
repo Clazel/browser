@@ -219,4 +219,25 @@ pub proof fn lemma_epoch_is_zero()
 {
 }
 
+/// The two-digit year pivot of steps 3 and 4: 70 to 99 are 1970 to 1999
+/// and 0 to 69 are 2000 to 2069 (RFC 6265bis §5.1.1 notes that other user
+/// agents differ).
+pub proof fn lemma_two_digit_year_pivot()
+    ensures
+        two_digit_year_pivot(70) == 1970,
+        two_digit_year_pivot(99) == 1999,
+        two_digit_year_pivot(0) == 2000,
+        two_digit_year_pivot(69) == 2069,
+        forall|y: nat| 100 <= y ==> two_digit_year_pivot(y) == y,
+{
+}
+
+/// "nov" names November.
+pub proof fn lemma_november()
+    ensures
+        month_of_abbreviation(seq![0x4Eu8, 0x6F, 0x76]) == Some(11nat),
+{
+    assert(crate::ascii::ascii_lowercase(seq![0x4Eu8, 0x6F, 0x76]) =~= seq![0x6Eu8, 0x6F, 0x76]);
+}
+
 } // verus!
