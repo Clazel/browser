@@ -17,6 +17,13 @@ clazel-encoding = { path = "../clazel-encoding" }
 clazel-idna = { path = "../clazel-idna" }
 clazel-percent = { path = "../clazel-percent" }
 
+[dev-dependencies]
+# Test-only reference engine for the differential test in
+# tests/conformance_url.rs (class `test`; never shipped). rust-url, used by
+# Servo; its dependencies are already in the allowlist for clazel-idna's and
+# clazel-percent's differential tests.
+url = { version = "=2.5.8", default-features = false }
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. Tier 2
 # for what ships, which is URL §3.5 and §3.6 (hosts): every exec function
