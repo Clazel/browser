@@ -20,14 +20,15 @@
 //! `xtask/src/conformance.rs`).
 
 use clazel_origin::exec::{
-    ParsedOrigin, same_origin_domain_exec, same_origin_exec, same_site_exec, schemelessly_same_site_exec,
-    serialization_of_origin_exec, url_origin_exec,
+    ParsedOrigin, same_origin_domain_exec, same_origin_exec, same_site_exec,
+    schemelessly_same_site_exec, serialization_of_origin_exec, url_origin_exec,
 };
 use clazel_url::host::parse::host_parser_full;
 use clazel_url::host::record::ParsedHost;
 use clazel_url::url::parse::basic_url_parser;
 
-const URLTESTDATA: &str = include_str!("../../clazel-url/tests/data/wpt-urltestdata/urltestdata.json");
+const URLTESTDATA: &str =
+    include_str!("../../clazel-url/tests/data/wpt-urltestdata/urltestdata.json");
 
 // ---------------------------------------------------------------------
 // A small JSON reader (the file is ours to parse; no dependency).
@@ -51,7 +52,11 @@ struct Reader<'a> {
 
 impl<'a> Reader<'a> {
     fn new(text: &'a str) -> Self {
-        Reader { chars: text.chars().collect(), at: 0, _text: text }
+        Reader {
+            chars: text.chars().collect(),
+            at: 0,
+            _text: text,
+        }
     }
     fn peek(&self) -> Option<char> {
         self.chars.get(self.at).copied()
@@ -107,7 +112,7 @@ impl<'a> Reader<'a> {
                         }
                         // A lone surrogate is U+FFFD, as the URL API's USVString conversion makes it.
                         out.push(char::from_u32(hi).unwrap_or(char::REPLACEMENT_CHARACTER));
-                    },
+                    }
                     other => out.push(other),
                 },
                 c => out.push(c),
@@ -133,7 +138,7 @@ impl<'a> Reader<'a> {
                         self.bump();
                     }
                 }
-            },
+            }
             '{' => {
                 self.bump();
                 let mut items = Vec::new();
@@ -154,25 +159,27 @@ impl<'a> Reader<'a> {
                         self.bump();
                     }
                 }
-            },
+            }
             't' => {
                 self.at = self.at.saturating_add(4);
                 Some(Json::Bool)
-            },
+            }
             'f' => {
                 self.at = self.at.saturating_add(5);
                 Some(Json::Bool)
-            },
+            }
             'n' => {
                 self.at = self.at.saturating_add(4);
                 Some(Json::Null)
-            },
+            }
             _ => {
-                while self.peek().is_some_and(|c| c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E' || c.is_ascii_digit()) {
+                while self.peek().is_some_and(|c| {
+                    c == '-' || c == '+' || c == '.' || c == 'e' || c == 'E' || c.is_ascii_digit()
+                }) {
                     self.at = self.at.saturating_add(1);
                 }
                 Some(Json::Number)
-            },
+            }
         }
     }
 }
@@ -200,13 +207,20 @@ fn rows() -> (usize, Vec<Row>) {
     let Some(Json::Array(items)) = reader.value() else {
         return (0, Vec::new());
     };
-    let total_objects = items.iter().filter(|j| matches!(j, Json::Object(_))).count();
+    let total_objects = items
+        .iter()
+        .filter(|j| matches!(j, Json::Object(_)))
+        .count();
     let mut out = Vec::new();
     for item in &items {
         if let Json::Object(obj) = item
             && let (Some(input), Some(origin)) = (str_field(obj, "input"), str_field(obj, "origin"))
         {
-            out.push(Row { input, base: str_field(obj, "base"), origin });
+            out.push(Row {
+                input,
+                base: str_field(obj, "base"),
+                origin,
+            });
         }
     }
     (total_objects, out)
@@ -217,7 +231,9 @@ fn scalars(s: &str) -> Vec<u32> {
 }
 
 fn string(v: &[u32]) -> String {
-    v.iter().map(|&c| char::from_u32(c).unwrap_or(char::REPLACEMENT_CHARACTER)).collect()
+    v.iter()
+        .map(|&c| char::from_u32(c).unwrap_or(char::REPLACEMENT_CHARACTER))
+        .collect()
 }
 
 /// `new URL(input, base)` with our parser.
@@ -272,7 +288,8 @@ fn differential_rust_url() {
     let mut xfail_blob = 0usize;
     for r in &rows {
         let theirs = match &r.base {
-            Some(b) => url::Url::parse(b).and_then(|b| url::Url::options().base_url(Some(&b)).parse(&r.input)),
+            Some(b) => url::Url::parse(b)
+                .and_then(|b| url::Url::options().base_url(Some(&b)).parse(&r.input)),
             None => url::Url::parse(&r.input),
         }
         .map(|u| u.origin().ascii_serialization());
@@ -284,14 +301,19 @@ fn differential_rust_url() {
             // difference is clazel-url's conformance suites' business.
             xfail_parse += 1;
         } else if r.input.starts_with("blob:")
-            && !["blob:http:", "blob:https:", "blob:file:"].iter().any(|p| r.input.starts_with(p))
+            && !["blob:http:", "blob:https:", "blob:file:"]
+                .iter()
+                .any(|p| r.input.starts_with(p))
             && ours.as_deref() == Some("null")
         {
             // rust-url returns the inner URL's origin for any scheme; URL 4.7
             // step 4 returns it only for http, https and file (WPT agrees).
             xfail_blob += 1;
         } else {
-            failures.push(format!("{:?} (base {:?}): ours {ours:?}, rust-url {theirs:?}", r.input, r.base));
+            failures.push(format!(
+                "{:?} (base {:?}): ours {ours:?}, rust-url {theirs:?}",
+                r.input, r.base
+            ));
         }
     }
     let xfail = xfail_parse + xfail_blob;
@@ -299,7 +321,9 @@ fn differential_rust_url() {
         "clazel-conformance: suite=\"differential vs rust-url Url::origin()\" pass={pass} xfail={xfail} fail={} total={total}",
         failures.len()
     );
-    println!("expected failures: {xfail_parse} where rust-url rejects the URL (IDNA), {xfail_blob} blob: URLs with an inner scheme other than http, https, file");
+    println!(
+        "expected failures: {xfail_parse} where rust-url rejects the URL (IDNA), {xfail_blob} blob: URLs with an inner scheme other than http, https, file"
+    );
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
@@ -317,15 +341,30 @@ fn tuple(scheme: &str, host: &str, port: Option<u16>, domain: Option<&str>) -> P
 fn html_examples() {
     // (A, B, same origin, same origin-domain): the table in HTML 7.1.1.
     let origin_cases = [
-        (tuple("https", "example.org", None, None), tuple("https", "example.org", None, None), true, true),
-        (tuple("https", "example.org", Some(314), None), tuple("https", "example.org", Some(420), None), false, false),
+        (
+            tuple("https", "example.org", None, None),
+            tuple("https", "example.org", None, None),
+            true,
+            true,
+        ),
+        (
+            tuple("https", "example.org", Some(314), None),
+            tuple("https", "example.org", Some(420), None),
+            false,
+            false,
+        ),
         (
             tuple("https", "example.org", Some(314), Some("example.org")),
             tuple("https", "example.org", Some(420), Some("example.org")),
             false,
             true,
         ),
-        (tuple("https", "example.org", None, None), tuple("https", "example.org", None, Some("example.org")), true, false),
+        (
+            tuple("https", "example.org", None, None),
+            tuple("https", "example.org", None, Some("example.org")),
+            true,
+            false,
+        ),
         (
             tuple("https", "example.org", None, Some("example.org")),
             tuple("http", "example.org", None, Some("example.org")),
@@ -338,12 +377,42 @@ fn html_examples() {
     // rules (`museum` has many second-level rules, and `wildlife.museum` is
     // not one of them): checked by the exact rows below.
     let site_cases = [
-        (tuple("https", "example.com", None, None), tuple("https", "sub.example.com", None, None), true, true),
-        (tuple("https", "example.com", None, None), tuple("https", "sub.other.example.com", None, None), true, true),
-        (tuple("https", "example.com", None, None), tuple("http", "non-secure.example.com", None, None), true, false),
-        (tuple("https", "example.com", None, None), tuple("https", "example.com.", None, None), false, false),
-        (tuple("https", "com", None, None), tuple("https", "com", None, None), true, true),
-        (tuple("https", "com", None, None), tuple("https", "example.com", None, None), false, false),
+        (
+            tuple("https", "example.com", None, None),
+            tuple("https", "sub.example.com", None, None),
+            true,
+            true,
+        ),
+        (
+            tuple("https", "example.com", None, None),
+            tuple("https", "sub.other.example.com", None, None),
+            true,
+            true,
+        ),
+        (
+            tuple("https", "example.com", None, None),
+            tuple("http", "non-secure.example.com", None, None),
+            true,
+            false,
+        ),
+        (
+            tuple("https", "example.com", None, None),
+            tuple("https", "example.com.", None, None),
+            false,
+            false,
+        ),
+        (
+            tuple("https", "com", None, None),
+            tuple("https", "com", None, None),
+            true,
+            true,
+        ),
+        (
+            tuple("https", "com", None, None),
+            tuple("https", "example.com", None, None),
+            false,
+            false,
+        ),
     ];
     let mut pass = 0usize;
     let mut failures = Vec::new();
