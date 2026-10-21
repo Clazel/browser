@@ -339,7 +339,26 @@ vendored from the same commit. Differential against the `publicsuffix`
 crate loaded with the same vendored list (a `test` row), on every rule's
 domain plus random labels above it.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial, `clazel-psl` stays at tier 0):** `data/publicsuffix-5dd321ff/`
+vendors `public_suffix_list.dat`, `tests.txt` and the licence from
+`publicsuffix/list` at `5dd321ff` with SHA-256 in `SOURCE.md`; `cargo xtask
+tables` (`xtask/src/psl.rs`) generates `src/data.rs` (10396 rules, 24423
+labels, chunked opaque tables; Unicode labels become A-labels with an RFC 3492
+encoder in xtask), and `check` fails if it is stale. `spec.rs` transcribes the
+formal algorithm and URL §3.2 over any `Seq<Rule>`, with the cookie root as 2.4
+defines it; modelling choices (empty labels give null, one-pass prevailing
+rule, trailing dot) are at its top. `exec.rs` is proven equal to the spec on
+the generated list (73 Verus obligations, 0 errors). It scans every rule
+instead of bisecting, because Verus cannot see that the opaque tables are
+sorted and the spec is "match against all rules"; a rule that cannot beat the
+best so far is skipped before matching. Evidence: `tests.txt` 78/78 (inputs
+canonicalized by the proven host parser) and a differential against
+`publicsuffix` 2.3.0 on every ASCII rule plus labels above it, 49685/49685.
+**Not done:** `independent.rs` (the formal-algorithm transcription proven
+equal), `mutations.json` and its certificates, `examples.rs`, and the lemma
+2.9 needs that a non-public-suffix suffix of a domain has the same cookie root
+(`lemma_root_of_suffix`). So the crate is at tier 0 and `cargo xtask check`
+would reject a higher claim.
 
 ### 2.5 Origins and sites (M)
 
@@ -720,7 +739,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.1 IPC wire format: spec | not started |
 | 2.2 IPC wire format: implementation | not started |
 | 2.3 IPC frames and messages | not started |
-| 2.4 Public Suffix List | not started |
+| 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance and differential done; independent transcription, mutations and the root lemma not done (tier 0) |
 | 2.5 Origins and sites | not started |
 | 2.6 Origin of a URL | not started |
 | 2.7 Cookie primitives | not started |
