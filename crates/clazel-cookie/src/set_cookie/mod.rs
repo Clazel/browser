@@ -4,7 +4,9 @@
 //! - [`spec`]: a step-by-step transcription of the algorithms.
 //! - [`termination`]: why the spec's loop terminates.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`exec`]: the executable algorithms, each proven against [`contract`].
 
 pub mod contract;
+pub mod exec;
 pub mod spec;
 pub mod termination;
