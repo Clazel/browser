@@ -27,6 +27,9 @@ Quark-style process model. A small kernel process owns all network, cookie
 and storage access. Each tab is a sandboxed renderer process that can only
 send typed messages. Same-origin policy is a proven property of the kernel.
 *Exit:* two renderer processes that provably cannot read each other's cookies.
+Detailed plan: [phases/phase-2.md](phases/phase-2.md).
+**Status: planned. Items that do not wait on the URL parser (1.10) or on
+the sandbox decision (2.0) may start.**
 
 ## Phase 3: Networking
 Verified HTTP/1.1 parser, DNS, and TLS via rustls with verified crypto.
