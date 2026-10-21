@@ -13,8 +13,9 @@ Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
 started: UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`),
 forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`),
 IDNA (`clazel-idna`) and URLs (`clazel-url`: host parsing with the real domain
-parser, the basic URL parser and the URL serializer) are at Tier 2. The URL
-API setters (state override) are next.
+parser, the basic URL parser with state override, the URL serializer and the
+URL API setters) are at Tier 2. A green Linux run on CI, which completes the
+phase, is next.
 Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh
@@ -34,7 +35,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 | clazel-idna | 2 (2) | 375 verified, 0 errors | no harnesses | 0 | 2406 / 2887 / 17549 | 69 / 0 / 0 of 69 | RFC 3492 section 7.1 samples: 19 / 19<br>WPT url/ IdnaTestV2.json: 2675 / 2675<br>WPT url/ toascii.json: 87 / 87 | 0 of 5 files current |
 | clazel-mime | 2 (2) | 288 verified, 0 errors | no harnesses | 0 | 2584 / 2122 / 1640 | 35 / 0 / 0 of 35 | WPT mimesniff/media: 6 / 7 (1 expected failures)<br>WPT mimesniff/mime-types: 955 / 955<br>WPT mimesniff/sniffing feeds: 2 / 2<br>WPT mimesniff/sniffing mislabeled binary: 3 / 3 | 0 of 5 files current |
 | clazel-percent | 2 (2) | 54 verified, 0 errors | no harnesses | 0 | 520 / 297 / 173 | 34 / 0 / 0 of 34 | WPT url/ percent-encoding: 23 / 32 (9 expected failures) | 0 of 3 files current |
-| clazel-url | 2 (2) | 448 verified, 0 errors | no harnesses | 0 | 4935 / 4440 / 1788 | 98 / 0 / 0 of 98 | WPT url/ toascii.json: 87 / 87<br>WPT url/ urltestdata.json: 896 / 896<br>WPT url/ urltestdata.json hosts: 359 / 359 | 0 of 5 files current |
+| clazel-url | 2 (2) | 565 verified, 0 errors | no harnesses | 0 | 5725 / 5260 / 2026 | 144 / 0 / 0 of 144 | WPT url/ setters_tests.json: 278 / 278<br>WPT url/ toascii.json: 87 / 87<br>WPT url/ urltestdata.json: 896 / 896<br>WPT url/ urltestdata.json hosts: 359 / 359 | 0 of 7 files current |
 | xtask | 0 (0) | not used | no harnesses | 0 | — | — | none | no spec files |
 
 ¹ From Verus's `line_count`; only code inside `verus!` is counted, and type definitions count as exec.

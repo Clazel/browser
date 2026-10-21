@@ -1430,6 +1430,788 @@
         ]
       },
       "module": "url::examples"
+    },
+    {
+      "id": "url-so-scheme-special-to-non",
+      "file": "src/url/spec.rs",
+      "find": "if ctx.state_override is Some && is_special_scheme(url.scheme) && !is_special_scheme(buffer) {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Drops scheme state step 2.1.1 (a state override may not make a special URL non-special): Scheme state step 2.1.1: special to non-special is refused: <https://example.net>.protocol = 's' is <https://example.net/> in lemma_example_protocol_special_to_non, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_special_to_non()",
+        "witness": "!(super::examples::protocol(seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x73u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-scheme-non-to-special",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is Some && !is_special_scheme(url.scheme) && is_special_scheme(buffer) {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops scheme state step 2.1.2 (a state override may not make a non-special URL special): WPT, scheme state step 2.1.2: non-special to special is refused: <ssh://me@example.net>.protocol = 'http' is <ssh://me@example.net> in lemma_example_protocol_non_to_special, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_non_to_special()",
+        "witness": "!(super::examples::protocol(seq![0x73u32, 0x73, 0x68, 0x3A, 0x2F, 0x2F, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x68u32, 0x74, 0x74, 0x70]) == seq![0x73u32, 0x73, 0x68, 0x3A, 0x2F, 0x2F, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-scheme-credentials-file",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is Some && (includes_credentials(url) || url.port is Some) && buffer\n        == file_str() {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops scheme state step 2.1.3 (no \"file\" for a URL with credentials or a port): WPT, scheme state step 2.1.3: no \"file\" with credentials: <http://test@example.net>.protocol = 'file' is <http://test@example.net/> in lemma_example_protocol_credentials_file, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_credentials_file()",
+        "witness": "!(super::examples::protocol(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x66u32, 0x69, 0x6C, 0x65]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-scheme-file-empty-host",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is Some && url.scheme == file_str() && url.host == Some(crate::host::spec::Host::Empty) {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops scheme state step 2.1.4 (a \"file\" URL with an empty host keeps its scheme): Scheme state step 2.1.4: a \"file\" URL with an empty host keeps its scheme: <file:///test>.protocol = 'https' is <file:///test> in lemma_example_protocol_file_empty_host, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_file_empty_host()",
+        "witness": "!(super::examples::protocol(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74], seq![0x68u32, 0x74, 0x74, 0x70, 0x73]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-scheme-default-port",
+      "file": "src/url/spec.rs",
+      "find": "let url = if url.port == default_port(url.scheme) {",
+      "replace": "let url = if false {",
+      "expect": "killed",
+      "reason": "Drops scheme state step 2.3.1 (the new scheme's default port becomes null): WPT, scheme state step 2.3.1: the new default port becomes null: <http://foo.com:443/>.protocol = 'https' is <https://foo.com/> in lemma_example_protocol_default_port, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_default_port()",
+        "witness": "!(super::examples::protocol(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x66, 0x6F, 0x6F, 0x2E, 0x63, 0x6F, 0x6D, 0x3A, 0x34, 0x34, 0x33, 0x2F], seq![0x68u32, 0x74, 0x74, 0x70, 0x73]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x66, 0x6F, 0x6F, 0x2E, 0x63, 0x6F, 0x6D, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-host-file",
+      "file": "src/url/spec.rs",
+      "find": "if ctx.state_override is Some && url.scheme == file_str() {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Drops host state step 1 (with a state override, a \"file\" URL goes to the file host state): Host state step 1, file host state step 1.3.3: \"localhost\" is the empty host: <file://y/>.host = 'localhost' is <file:///> in lemma_example_host_file_localhost, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_file_localhost()",
+        "witness": "!(super::examples::host(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x79, 0x2F], seq![0x6Cu32, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x74]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-hostname-colon",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override == Some(State::Hostname) {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops host state step 2.2 (the hostname state override fails at \":\"): WPT, host state step 2.2: the hostname setter fails at \":\": <http://example.net/path>.hostname = 'example.com:8080' is <http://example.net/path> in lemma_example_hostname_port, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_hostname_port()",
+        "witness": "!(super::examples::hostname(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x3A, 0x38, 0x30, 0x38, 0x30]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-host-empty-credentials",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is Some && m.buffer.len() == 0 && (includes_credentials(url)",
+      "replace": "} else if false && m.buffer.len() == 0 && (includes_credentials(url)",
+      "expect": "killed",
+      "reason": "Drops host state step 3.2 (no empty host for a URL with credentials or a port): Host state step 3.2: no empty host with credentials: <sc://user@x/>.host = '' is <sc://user@x/> in lemma_example_host_empty_credentials, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_empty_credentials()",
+        "witness": "!(super::examples::host(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x75, 0x73, 0x65, 0x72, 0x40, 0x78, 0x2F], seq![]) == seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x75, 0x73, 0x65, 0x72, 0x40, 0x78, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-host-return",
+      "file": "src/url/spec.rs",
+      "find": "                    if ctx.state_override is Some {\n                        // 3.6 \"If state override is given, then return.\"",
+      "replace": "                    if false {\n                        // 3.6 \"If state override is given, then return.\"",
+      "expect": "killed",
+      "reason": "Drops host state step 3.6 (return after the host with a state override): Host state step 3.6: return after the host: <sc://x/a>.host = 'y/b' is <sc://y/a> in lemma_example_host_then_path, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_then_path()",
+        "witness": "!(super::examples::host(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x78, 0x2F, 0x61], seq![0x79u32, 0x2F, 0x62]) == seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x79, 0x2F, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-port-ends",
+      "file": "src/url/spec.rs",
+      "find": "} else if ends_authority(ctx, m) || ctx.state_override is Some {",
+      "replace": "} else if ends_authority(ctx, m) {",
+      "expect": "killed",
+      "reason": "Drops \"or state override is given\" from port state step 2 (any non-digit ends the port in a setter): WPT, port state step 2: a non-digit ends the port with a state override: <http://example.net/path>.port = '8080stuff' is <http://example.net:8080/path> in lemma_example_port_stuff, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_port_stuff()",
+        "witness": "!(super::examples::port(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![0x38u32, 0x30, 0x38, 0x30, 0x73, 0x74, 0x75, 0x66, 0x66]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F, 0x70, 0x61, 0x74, 0x68])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-port-return",
+      "file": "src/url/spec.rs",
+      "find": "                if ctx.state_override is Some {\n                    // 2.1.5 \"If state override is given, then return.\"",
+      "replace": "                if false {\n                    // 2.1.5 \"If state override is given, then return.\"",
+      "expect": "killed",
+      "reason": "Drops port state step 2.1.5 (return after the port with a state override): Port state step 2.1.5: return after the port: <http://example.net/path>.port = '8080/x' is <http://example.net:8080/path> in lemma_example_port_then_path, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_port_then_path()",
+        "witness": "!(super::examples::port(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![0x38u32, 0x30, 0x38, 0x30, 0x2F, 0x78]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F, 0x70, 0x61, 0x74, 0x68])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-port-no-digits",
+      "file": "src/url/spec.rs",
+      "find": "        } else if ctx.state_override is Some {\n            // 2.2 \"If state override is given, then return failure.\"",
+      "replace": "        } else if false {\n            // 2.2 \"If state override is given, then return failure.\"",
+      "expect": "killed",
+      "reason": "Drops port state step 2.2 (no digits is failure with a state override): Port state step 2.2: no digits is failure: <http://example.net:8080>.port = 'a' is <http://example.net:8080/> in lemma_example_port_no_digits, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_port_no_digits()",
+        "witness": "!(super::examples::port(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x3A, 0x38, 0x30, 0x38, 0x30], seq![0x61u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-file-host-drive-letter",
+      "file": "src/url/spec.rs",
+      "find": "if ctx.state_override is None && is_windows_drive_letter(m.buffer) {",
+      "replace": "if is_windows_drive_letter(m.buffer) {",
+      "expect": "killed",
+      "reason": "Drops \"state override is not given\" from file host state step 1.1: File host state step 1.1 needs no state override, so \"c:\" is host parsed (the stand-in domain parser accepts it; clazel-idna's rejects \":\", leaving <file://y/>, as WPT <file://y/>.host = 'x:123' does): <file://y/>.host = 'c:' is <file://c:/> in lemma_example_host_file_drive_letter, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_file_drive_letter()",
+        "witness": "!(super::examples::host(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x79, 0x2F], seq![0x63u32, 0x3A]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x63, 0x3A, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-file-host-empty-return",
+      "file": "src/url/spec.rs",
+      "find": "            if ctx.state_override is Some {\n                // 1.2.2 \"If state override is given, then return.\"",
+      "replace": "            if false {\n                // 1.2.2 \"If state override is given, then return.\"",
+      "expect": "killed",
+      "reason": "Drops file host state step 1.2.2 (return after the empty host): WPT, file host state steps 1.2.1 and 1.2.2: <file://hi/x>.host = '' is <file:///x> in lemma_example_host_file_empty, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_file_empty()",
+        "witness": "!(super::examples::host(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x68, 0x69, 0x2F, 0x78], seq![]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x78])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-file-host-return",
+      "file": "src/url/spec.rs",
+      "find": "                    if ctx.state_override is Some {\n                        // 1.3.5 \"If state override is given, then return.\"",
+      "replace": "                    if false {\n                        // 1.3.5 \"If state override is given, then return.\"",
+      "expect": "killed",
+      "reason": "Drops file host state step 1.3.5 (return after the host): File host state step 1.3.5: return after the host: <file://y/>.host = 'x/z' is <file://x/> in lemma_example_host_file_then_path, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_file_then_path()",
+        "witness": "!(super::examples::host(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x79, 0x2F], seq![0x78u32, 0x2F, 0x7A]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x78, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-path-start-question",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is None && c_is(ctx, m, 0x3F) {",
+      "replace": "} else if c_is(ctx, m, 0x3F) {",
+      "expect": "killed",
+      "reason": "Drops \"state override is not given\" from path start state step 2: Path start state step 2 needs no state override: <sc://h/a>.pathname = '?x' is <sc://h/%3Fx> in lemma_example_pathname_question, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_question()",
+        "witness": "!(super::examples::pathname(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61], seq![0x3Fu32, 0x78]) == seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x25, 0x33, 0x46, 0x78])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-path-start-hash",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is None && c_is(ctx, m, 0x23) {",
+      "replace": "} else if c_is(ctx, m, 0x23) {",
+      "expect": "killed",
+      "reason": "Drops \"state override is not given\" from path start state step 3: Path start state step 3 needs no state override: <sc://h/a>.pathname = '#x' is <sc://h/%23x> in lemma_example_pathname_hash, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_hash()",
+        "witness": "!(super::examples::pathname(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61], seq![0x23u32, 0x78]) == seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x25, 0x32, 0x33, 0x78])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-path-start-null-host",
+      "file": "src/url/spec.rs",
+      "find": "} else if ctx.state_override is Some && m.url.host is None {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Drops path start state step 5 (an empty segment for a URL with a null host): WPT, path start state step 5: <foo:/some/path>.pathname = '' is <foo:/> in lemma_example_pathname_null_host, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_null_host()",
+        "witness": "!(super::examples::pathname(seq![0x66u32, 0x6F, 0x6F, 0x3A, 0x2F, 0x73, 0x6F, 0x6D, 0x65, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![]) == seq![0x66u32, 0x6F, 0x6F, 0x3A, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-path-segment-end",
+      "file": "src/url/spec.rs",
+      "find": "(is_special(m.url) && c_is(ctx, m, 0x5C)) || (ctx.state_override is None",
+      "replace": "(is_special(m.url) && c_is(ctx, m, 0x5C)) || (true",
+      "expect": "killed",
+      "reason": "Drops \"state override is not given\" from path state step 1 (\"?\" and \"#\" end a segment): Path state step 1: \"?\" ends a segment only without a state override: <http://h/a>.pathname = 'a?b' is <http://h/a%3Fb> in lemma_example_pathname_question_mid, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_question_mid()",
+        "witness": "!(super::examples::pathname(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61], seq![0x61u32, 0x3F, 0x62]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x25, 0x33, 0x46, 0x62])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-so-query-hash",
+      "file": "src/url/spec.rs",
+      "find": "if (ctx.state_override is None && c_is(ctx, m, 0x23)) || c_is_eof(ctx, m) {",
+      "replace": "if c_is(ctx, m, 0x23) || c_is_eof(ctx, m) {",
+      "expect": "killed",
+      "reason": "Drops \"state override is not given\" from query state step 2: Query state step 2: \"#\" ends the query only without a state override: <http://h/>.search = 'a#b' is <http://h/?a%23b> in lemma_example_search_hash, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_hash()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x61u32, 0x23, 0x62]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x61, 0x25, 0x32, 0x33, 0x62])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-in-place-tab",
+      "file": "src/url/spec.rs",
+      "find": "//    leading and trailing C0 control or space)\n    // 2. \"If input contains any ASCII tab or newline, invalid-URL-unit\n    //    validation error.\" (validation error only)\n    // 3. \"Remove all ASCII tab or newline from input.\"\n    let input = remove_ascii_tab_or_newline(input);",
+      "replace": "//    leading and trailing C0 control or space)\n    // 2. \"If input contains any ASCII tab or newline, invalid-URL-unit\n    //    validation error.\" (validation error only)\n    // 3. \"Remove all ASCII tab or newline from input.\"\n    let input = input;",
+      "expect": "killed",
+      "reason": "Drops basic URL parser step 3 when url is given: Basic URL parser step 3 with url given: <http://h/>.search = 'a\\\\tb' is <http://h/?ab> in lemma_example_search_tab, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_tab()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x61u32, 0x09, 0x62]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x61, 0x62])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-in-place-trim",
+      "file": "src/url/spec.rs",
+      "find": "//    leading and trailing C0 control or space)\n    // 2. \"If input contains any ASCII tab or newline, invalid-URL-unit\n    //    validation error.\" (validation error only)\n    // 3. \"Remove all ASCII tab or newline from input.\"\n    let input = remove_ascii_tab_or_newline(input);",
+      "replace": "//    leading and trailing C0 control or space)\n    // 2. \"If input contains any ASCII tab or newline, invalid-URL-unit\n    //    validation error.\" (validation error only)\n    // 3. \"Remove all ASCII tab or newline from input.\"\n    let input = remove_ascii_tab_or_newline(strip_trailing_c0_control_or_space(strip_leading_c0_control_or_space(input)));",
+      "expect": "killed",
+      "reason": "Runs basic URL parser step 1.3 (trimming) when url is given, where step 1 applies only when it is not: Basic URL parser step 1: with url given, input is not trimmed: <http://h/>.search = ' a' is <http://h/?%20a> in lemma_example_search_space, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_space()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x20u32, 0x61]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x25, 0x32, 0x30, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-in-place-failure",
+      "file": "src/url/spec.rs",
+      "find": "Step::Failure => m.url,",
+      "replace": "Step::Failure => new_url(),",
+      "expect": "killed",
+      "reason": "Loses the url modified in place when the parser returns failure: WPT: the port state fails, and the host it set stays: <http://example.net/path>.host = 'example.com:65536' is <http://example.com/path> in lemma_example_host_port_overflow, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_port_overflow()",
+        "witness": "!(super::examples::host(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x36]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x70, 0x61, 0x74, 0x68])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-cannot-have-file",
+      "file": "src/url/spec.rs",
+      "find": "url.host is None || url.host == Some(crate::host::spec::Host::Empty) || url.scheme == file_str()",
+      "replace": "url.host is None || url.host == Some(crate::host::spec::Host::Empty)",
+      "expect": "killed",
+      "reason": "Drops \"or its scheme is \"file\"\" from \"cannot have a username/password/port\": Password setter step 1: a \"file\" URL: <file://test/>.password = 'x' is <file://test/> in lemma_example_password_file, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_password_file()",
+        "witness": "!(super::examples::password(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F], seq![0x78u32]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-cannot-have-empty-host",
+      "file": "src/url/spec.rs",
+      "find": "url.host is None || url.host == Some(crate::host::spec::Host::Empty) || url.scheme == file_str()",
+      "replace": "url.host is None || url.scheme == file_str()",
+      "expect": "killed",
+      "reason": "Drops \"or the empty string\" from \"cannot have a username/password/port\": Username setter step 1: an empty host: <sc:///x>.username = 'me' is <sc:///x> in lemma_example_username_empty_host, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_username_empty_host()",
+        "witness": "!(super::examples::username(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x2F, 0x78], seq![0x6Du32, 0x65]) == seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x2F, 0x78])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-cannot-have-null-host",
+      "file": "src/url/spec.rs",
+      "find": "url.host is None || url.host == Some(crate::host::spec::Host::Empty) || url.scheme == file_str()",
+      "replace": "url.host == Some(crate::host::spec::Host::Empty) || url.scheme == file_str()",
+      "expect": "killed",
+      "reason": "Drops \"host is null\" from \"cannot have a username/password/port\": Username setter step 1: a null host (the username stays empty): <sc:/x>.username = 'me' is username '' in lemma_example_username_null_host, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_username_null_host()",
+        "witness": "!(super::examples::username_field(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x78], seq![0x6Du32, 0x65]) == seq![])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-set-username-set",
+      "file": "src/url/spec.rs",
+      "find": "username: clazel_percent::spec::utf8_percent_encode(username, clazel_percent::spec::PercentEncodeSet::Userinfo),",
+      "replace": "username: clazel_percent::spec::utf8_percent_encode(username, clazel_percent::spec::PercentEncodeSet::Path),",
+      "expect": "killed",
+      "reason": "Set the username with the path percent-encode set instead of the userinfo set: Set the username: \":\" is in the userinfo set: <http://h/>.username = 'a:b' is <http://a%3Ab@h/> in lemma_example_username_encode, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_username_encode()",
+        "witness": "!(super::examples::username(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x61u32, 0x3A, 0x62]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x61, 0x25, 0x33, 0x41, 0x62, 0x40, 0x68, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "url-set-password-set",
+      "file": "src/url/spec.rs",
+      "find": "password: clazel_percent::spec::utf8_percent_encode(password, clazel_percent::spec::PercentEncodeSet::Userinfo),",
+      "replace": "password: clazel_percent::spec::utf8_percent_encode(password, clazel_percent::spec::PercentEncodeSet::Path),",
+      "expect": "killed",
+      "reason": "Set the password with the path percent-encode set instead of the userinfo set: Set the password: \"@\" is in the userinfo set: <http://h/>.password = 'a@b' is <http://:a%40b@h/> in lemma_example_password_encode, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_password_encode()",
+        "witness": "!(super::examples::password(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x61u32, 0x40, 0x62]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x3A, 0x61, 0x25, 0x34, 0x30, 0x62, 0x40, 0x68, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-href-setter-throws",
+      "file": "src/api/spec.rs",
+      "find": "        None => None,\n        // 3. \"Set this's URL to parsedURL.\"",
+      "replace": "        None => Some(url),\n        // 3. \"Set this's URL to parsedURL.\"",
+      "expect": "killed",
+      "reason": "Drops href setter step 2 (failure throws): Href setter step 2: failure throws: <http://h/>.href = 'http://' throws in lemma_example_href_throws, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_href_throws()",
+        "witness": "!super::examples::href_throws(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-protocol-setter-colon",
+      "file": "src/api/spec.rs",
+      "find": "value.push(0x3Au32), url, crate::url::spec::State::SchemeStart",
+      "replace": "value, url, crate::url::spec::State::SchemeStart",
+      "expect": "killed",
+      "reason": "Drops \"followed by U+003A (:)\" from the protocol setter: WPT: a non-special scheme to another: <a://example.net>.protocol = 'b' is <b://example.net> in lemma_example_protocol_b, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_protocol_b()",
+        "witness": "!(super::examples::protocol(seq![0x61u32, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x62u32]) == seq![0x62u32, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-username-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else {\n        // 2. \"Set the username given",
+      "replace": "        crate::url::spec::set_the_username(url, value)\n    } else {\n        // 2. \"Set the username given",
+      "expect": "killed",
+      "reason": "Drops username setter step 1 (a URL that cannot have a username): WPT, username setter step 1: a \"file\" URL: <file:///home/you/index.html>.username = 'me' is <file:///home/you/index.html> in lemma_example_username_file, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_username_file()",
+        "witness": "!(super::examples::username(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x68, 0x6F, 0x6D, 0x65, 0x2F, 0x79, 0x6F, 0x75, 0x2F, 0x69, 0x6E, 0x64, 0x65, 0x78, 0x2E, 0x68, 0x74, 0x6D, 0x6C], seq![0x6Du32, 0x65]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x68, 0x6F, 0x6D, 0x65, 0x2F, 0x79, 0x6F, 0x75, 0x2F, 0x69, 0x6E, 0x64, 0x65, 0x78, 0x2E, 0x68, 0x74, 0x6D, 0x6C])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-password-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else {\n        // 2. \"Set the password given",
+      "replace": "        crate::url::spec::set_the_password(url, value)\n    } else {\n        // 2. \"Set the password given",
+      "expect": "killed",
+      "reason": "Drops password setter step 1 (a URL that cannot have a password): Password setter step 1: a \"file\" URL: <file://test/>.password = 'x' is <file://test/> in lemma_example_password_file, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_password_file()",
+        "witness": "!(super::examples::password(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F], seq![0x78u32]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-host-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else {\n        // 2. \"Basic URL parse the given value with this's URL as url and\n        //    host state as state override.\"",
+      "replace": "        crate::url::spec::basic_url_parse_in_place(value, url, crate::url::spec::State::Host, domain_parser)\n    } else {\n        // 2. \"Basic URL parse the given value with this's URL as url and\n        //    host state as state override.\"",
+      "expect": "killed",
+      "reason": "Drops host setter step 1 (an opaque path has no host): WPT, host setter step 1: an opaque path has no host: <mailto:me@example.net>.host = 'example.com' is <mailto:me@example.net> in lemma_example_host_opaque_path, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_opaque_path()",
+        "witness": "!(super::examples::host(seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D]) == seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-hostname-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else {\n        // 2. \"Basic URL parse the given value with this's URL as url and\n        //    hostname state as state override.\"",
+      "replace": "        crate::url::spec::basic_url_parse_in_place(value, url, crate::url::spec::State::Hostname, domain_parser)\n    } else {\n        // 2. \"Basic URL parse the given value with this's URL as url and\n        //    hostname state as state override.\"",
+      "expect": "killed",
+      "reason": "Drops hostname setter step 1 (an opaque path has no host): WPT, hostname setter step 1: <mailto:me@example.net>.hostname = 'example.com' is <mailto:me@example.net> in lemma_example_hostname_opaque_path, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_hostname_opaque_path()",
+        "witness": "!(super::examples::hostname(seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D]) == seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-host-setter-state",
+      "file": "src/api/spec.rs",
+      "find": "basic_url_parse_in_place(value, url, crate::url::spec::State::Host, domain_parser)",
+      "replace": "basic_url_parse_in_place(value, url, crate::url::spec::State::Hostname, domain_parser)",
+      "expect": "killed",
+      "reason": "The host setter passes hostname state as the state override: WPT: the host setter sets host and port: <http://example.net/path>.host = 'example.com:8080' is <http://example.com:8080/path> in lemma_example_host_port, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_host_port()",
+        "witness": "!(super::examples::host(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F, 0x70, 0x61, 0x74, 0x68], seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x3A, 0x38, 0x30, 0x38, 0x30]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F, 0x70, 0x61, 0x74, 0x68])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-port-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else if value.len() == 0 {",
+      "replace": "        crate::url::spec::basic_url_parse_in_place(value, url, crate::url::spec::State::Port, domain_parser)\n    } else if value.len() == 0 {",
+      "expect": "killed",
+      "reason": "Drops port setter step 1 (a URL that cannot have a port): Port setter step 1: a \"file\" URL: <file://test/>.port = '12' is <file://test/> in lemma_example_port_file, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_port_file()",
+        "witness": "!(super::examples::port(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F], seq![0x31u32, 0x32]) == seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x74, 0x65, 0x73, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-port-setter-step-2",
+      "file": "src/api/spec.rs",
+      "find": "    } else if value.len() == 0 {\n        // 2. \"If the given value is the empty string, then set this's URL's\n        //    port to null.\"",
+      "replace": "    } else if false {\n        // 2. \"If the given value is the empty string, then set this's URL's\n        //    port to null.\"",
+      "expect": "killed",
+      "reason": "Drops port setter step 2 (the empty string sets the port to null): WPT, port setter step 2: the empty string is null: <http://example.net:8080>.port = '' is <http://example.net/> in lemma_example_port_empty, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_port_empty()",
+        "witness": "!(super::examples::port(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x3A, 0x38, 0x30, 0x38, 0x30], seq![]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-pathname-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "        url\n    } else {\n        // 2. \"Empty this's URL's path.\"",
+      "replace": "        crate::url::spec::basic_url_parse_in_place(value, crate::url::spec::Url { path: crate::url::spec::UrlPath::List(seq![]), ..url }, crate::url::spec::State::PathStart, domain_parser)\n    } else {\n        // 2. \"Empty this's URL's path.\"",
+      "expect": "killed",
+      "reason": "Drops pathname setter step 1 (an opaque path is left as it is): WPT, pathname setter step 1: <mailto:me@example.net>.pathname = '/foo' is <mailto:me@example.net> in lemma_example_pathname_opaque, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_opaque()",
+        "witness": "!(super::examples::pathname(seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74], seq![0x2Fu32, 0x66, 0x6F, 0x6F]) == seq![0x6Du32, 0x61, 0x69, 0x6C, 0x74, 0x6F, 0x3A, 0x6D, 0x65, 0x40, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x6E, 0x65, 0x74])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-pathname-setter-step-2",
+      "file": "src/api/spec.rs",
+      "find": "let url = crate::url::spec::Url { path: crate::url::spec::UrlPath::List(seq![]), ..url };",
+      "replace": "let url = url;",
+      "expect": "killed",
+      "reason": "Drops pathname setter step 2 (empty the path first): Pathname setter step 2: the path is emptied first: <http://h/a/b>.pathname = 'c' is <http://h/c> in lemma_example_pathname_replace, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_pathname_replace()",
+        "witness": "!(super::examples::pathname(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x62], seq![0x63u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x63])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-search-setter-step-2",
+      "file": "src/api/spec.rs",
+      "find": "    if value.len() == 0 {\n        // 2. \"If the given value is the empty string, then set url's query",
+      "replace": "    if false {\n        // 2. \"If the given value is the empty string, then set url's query",
+      "expect": "killed",
+      "reason": "Drops search setter step 2 (the empty string sets the query to null): Search setter step 2: <http://h/?q>.search = '' is <http://h/> in lemma_example_search_empty, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_empty()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x71], seq![]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-search-setter-step-3",
+      "file": "src/api/spec.rs",
+      "find": "let input = remove_single_leading(value, 0x3F);",
+      "replace": "let input = value;",
+      "expect": "killed",
+      "reason": "Drops search setter step 3 (one leading \"?\" is removed): Search setter step 3: <http://h/>.search = '?a' is <http://h/?a> in lemma_example_search_leading, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_leading()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x3Fu32, 0x61]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-search-setter-step-4",
+      "file": "src/api/spec.rs",
+      "find": "let url = crate::url::spec::Url { query: Some(seq![]), ..url };",
+      "replace": "let url = url;",
+      "expect": "killed",
+      "reason": "Drops search setter step 4 (the query is emptied first): Search setter step 4: <http://h/?q>.search = 'a' is <http://h/?a> in lemma_example_search_replace, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_replace()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x71], seq![0x61u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-hash-setter-step-1",
+      "file": "src/api/spec.rs",
+      "find": "    if value.len() == 0 {\n        // 1. \"If the given value is the empty string, then set this's URL's\n        //    fragment",
+      "replace": "    if false {\n        // 1. \"If the given value is the empty string, then set this's URL's\n        //    fragment",
+      "expect": "killed",
+      "reason": "Drops hash setter step 1 (the empty string sets the fragment to null): Hash setter step 1: <http://h/#f>.hash = '' is <http://h/> in lemma_example_hash_empty, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_hash_empty()",
+        "witness": "!(super::examples::hash(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x66], seq![]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-hash-setter-step-2",
+      "file": "src/api/spec.rs",
+      "find": "let input = remove_single_leading(value, 0x23);",
+      "replace": "let input = value;",
+      "expect": "killed",
+      "reason": "Drops hash setter step 2 (one leading \"#\" is removed): Hash setter step 2: <http://h/>.hash = '#a' is <http://h/#a> in lemma_example_hash_leading, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_hash_leading()",
+        "witness": "!(super::examples::hash(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F], seq![0x23u32, 0x61]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-hash-setter-step-3",
+      "file": "src/api/spec.rs",
+      "find": "let url = crate::url::spec::Url { fragment: Some(seq![]), ..url };",
+      "replace": "let url = url;",
+      "expect": "killed",
+      "reason": "Drops hash setter step 3 (the fragment is emptied first): Hash setter step 3: <http://h/#f>.hash = 'a' is <http://h/#a> in lemma_example_hash_replace, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_hash_replace()",
+        "witness": "!(super::examples::hash(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x66], seq![0x61u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
+    },
+    {
+      "id": "setter-remove-single-leading-code-point",
+      "file": "src/api/spec.rs",
+      "find": "if value.len() > 0 && value[0] == c {",
+      "replace": "if value.len() > 0 {",
+      "expect": "killed",
+      "reason": "Removes any first code point, not only the given one, in search setter step 3 and hash setter step 2: Search setter step 4: <http://h/?q>.search = 'a' is <http://h/?a> in lemma_example_search_replace, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/api/lemmas.rs",
+        "lemma": "super::examples::lemma_example_search_replace()",
+        "witness": "!(super::examples::search(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x71], seq![0x61u32]) == seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x61])",
+        "reveal": [
+          "crate::url::spec::state_step"
+        ]
+      },
+      "module": "api::examples"
     }
   ]
 }
