@@ -33,7 +33,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 | clazel-idna | 2 (2) | 375 verified, 0 errors | no harnesses | 0 | 2406 / 2887 / 17549 | 69 / 0 / 0 of 69 | RFC 3492 section 7.1 samples: 19 / 19<br>WPT url/ IdnaTestV2.json: 2675 / 2675<br>WPT url/ toascii.json: 87 / 87 | 0 of 5 files current |
 | clazel-mime | 2 (2) | 288 verified, 0 errors | no harnesses | 0 | 2584 / 2122 / 1640 | 35 / 0 / 0 of 35 | WPT mimesniff/media: 6 / 7 (1 expected failures)<br>WPT mimesniff/mime-types: 955 / 955<br>WPT mimesniff/sniffing feeds: 2 / 2<br>WPT mimesniff/sniffing mislabeled binary: 3 / 3 | 0 of 5 files current |
 | clazel-percent | 2 (2) | 54 verified, 0 errors | no harnesses | 0 | 520 / 297 / 173 | 34 / 0 / 0 of 34 | WPT url/ percent-encoding: 23 / 32 (9 expected failures) | 0 of 3 files current |
-| clazel-url | 2 (2) | 183 verified, 0 errors | no harnesses | 0 | 1937 / 1789 / 648 | 57 / 0 / 0 of 57 | WPT url/ toascii.json: 24 / 87 (63 expected failures)<br>WPT url/ urltestdata.json hosts: 333 / 359 (26 expected failures) | 0 of 3 files current |
+| clazel-url | 2 (2) | 186 verified, 0 errors | no harnesses | 0 | 1956 / 1803 / 661 | 59 / 0 / 0 of 59 | WPT url/ toascii.json: 87 / 87<br>WPT url/ urltestdata.json hosts: 359 / 359 | 0 of 3 files current |
 | xtask | 0 (0) | not used | no harnesses | 0 | — | — | none | no spec files |
 
 ¹ From Verus's `line_count`; only code inside `verus!` is counted, and type definitions count as exec.
