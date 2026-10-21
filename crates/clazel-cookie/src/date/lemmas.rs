@@ -169,6 +169,18 @@ pub proof fn lemma_days_before_year_nonnegative(y: nat)
     }
 }
 
+/// The instant of a date from 1601 is not negative.
+pub proof fn lemma_seconds_nonnegative(d: CookieDate)
+    requires
+        d.year >= 1601,
+        1 <= d.month <= 12,
+        1 <= d.day_of_month,
+    ensures
+        seconds_since_1601(d) >= 0,
+{
+    lemma_days_before_year_nonnegative(d.year);
+}
+
 /// The first of a month is the previous month's length after the first of
 /// the previous month.
 pub proof fn lemma_days_before_month_step(y: nat, m: nat)

@@ -261,7 +261,7 @@ fn max_age_value_acceptable_exec(v: &[u8]) -> (r: bool)
     while i < v.len()
         invariant
             1 <= i <= v.len(),
-            forall|k: int| 1 <= k < i ==> crate::ascii::is_digit(#[trigger] v@[k]),
+            all_digits_from(v@, 1) == all_digits_from(v@, i as nat),
         decreases v.len() - i,
     {
         match at(v, i) {
@@ -321,6 +321,19 @@ fn capped_digits_value(s: &[u8], start: usize) -> (r: u64)
     acc
 }
 
+/// `all_digits_from` gives every digit from the index.
+proof fn lemma_all_digits_from(s: Seq<u8>, i: nat)
+    requires
+        all_digits_from(s, i),
+    ensures
+        forall|k: int| i <= k < s.len() ==> crate::ascii::is_digit(#[trigger] s[k]),
+    decreases s.len() - i
+{
+    if i < s.len() {
+        lemma_all_digits_from(s, i + 1);
+    }
+}
+
 /// §5.6.2: process a Max-Age attribute-value.
 fn process_max_age_exec(attribute_value: &[u8], now: u64) -> (r: Option<AttributeExec>)
     requires
@@ -339,6 +352,9 @@ fn process_max_age_exec(attribute_value: &[u8], now: u64) -> (r: Option<Attribut
             assert(crate::ascii::is_digit(attribute_value@[0]));
         }
         assert(attribute_value@.skip(1) =~= attribute_value@.subrange(1, attribute_value@.len() as int));
+    }
+    proof {
+        lemma_all_digits_from(attribute_value@, 1);
     }
     let magnitude = capped_digits_value(attribute_value, start);
     // delta-seconds is -magnitude when negative, else magnitude; capped at
@@ -561,7 +577,7 @@ fn contains_ctl_exec(s: &[u8]) -> (r: bool)
     while i < s.len()
         invariant
             i <= s.len(),
-            forall|k: int| 0 <= k < i ==> !is_ctl_excluding_htab(#[trigger] s@[k]),
+            contains_ctl_from(s@, 0) == contains_ctl_from(s@, i as nat),
         decreases s.len() - i,
     {
         let c = at(s, i).unwrap_or(0x20);

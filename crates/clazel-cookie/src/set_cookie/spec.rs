@@ -132,9 +132,23 @@ pub open spec fn is_ctl_excluding_htab(c: u8) -> bool {
     c <= 0x08 || (0x0A <= c <= 0x1F) || c == 0x7F
 }
 
+/// `s` contains a CTL character excluding HTAB at index `i` or later.
+pub open spec fn contains_ctl_from(s: Seq<u8>, i: nat) -> bool
+    decreases s.len() - i
+{
+    i < s.len() && (is_ctl_excluding_htab(s[i as int]) || contains_ctl_from(s, i + 1))
+}
+
 /// `s` contains a CTL character excluding HTAB.
 pub open spec fn contains_ctl_excluding_htab(s: Seq<u8>) -> bool {
-    exists|i: int| 0 <= i < s.len() && is_ctl_excluding_htab(#[trigger] s[i])
+    contains_ctl_from(s, 0)
+}
+
+/// Every octet of `s` from index `i` is a DIGIT.
+pub open spec fn all_digits_from(s: Seq<u8>, i: nat) -> bool
+    decreases s.len() - i
+{
+    i >= s.len() || (crate::ascii::is_digit(s[i as int]) && all_digits_from(s, i + 1))
 }
 
 /// §5.6.1: process an Expires attribute-value. `None`: "ignore the cookie-av".
@@ -177,7 +191,7 @@ pub open spec fn max_age_value_acceptable(attribute_value: Seq<u8>) -> bool {
         && crate::ascii::is_digit(attribute_value[1])))
     // 3. "If the remainder of attribute-value contains a non-DIGIT
     //    character, ignore the cookie-av."
-    && forall|i: int| 1 <= i < attribute_value.len() ==> crate::ascii::is_digit(#[trigger] attribute_value[i])
+    && all_digits_from(attribute_value, 1)
 }
 
 /// §5.6.2 step 4: "Let delta-seconds be the attribute-value converted to a

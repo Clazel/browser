@@ -119,6 +119,136 @@
         "lemma": "lemma_domain_match_boundary(seq![0x61u8, 0x2D, 0x62], true, seq![0x62u8])",
         "witness": "domain_matches(seq![0x61u8, 0x2D, 0x62], true, seq![0x62u8])"
       }
+    },
+    {
+      "id": "age-limit-400-days-plus-one",
+      "file": "src/set_cookie/spec.rs",
+      "find": "34560000\n}",
+      "replace": "34560001\n}",
+      "expect": "killed",
+      "reason": "The lifetime limit is one second over 400 days: lemma_cookie_age_limit_is_400_days is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_cookie_age_limit_is_400_days()",
+        "witness": "cookie_age_limit() == 34560001int"
+      }
+    },
+    {
+      "id": "max-age-zero-is-now",
+      "file": "src/set_cookie/spec.rs",
+      "find": "if delta <= 0 { earliest_representable() }",
+      "replace": "if delta < 0 { earliest_representable() }",
+      "expect": "killed",
+      "reason": "Max-Age=0 expires at now instead of the earliest instant: lemma_max_age_limited is false for Max-Age=0.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_max_age_limited(seq![0x30u8], 5int)",
+        "witness": "process_max_age(seq![0x30u8], 5int) == Some(Attribute::MaxAge(5int))"
+      }
+    },
+    {
+      "id": "expires-limit-plus-one",
+      "file": "src/set_cookie/spec.rs",
+      "find": "if expiry_time > limit { limit } else { expiry_time }",
+      "replace": "if expiry_time > limit { limit + 1 } else { expiry_time }",
+      "expect": "killed",
+      "reason": "An Expires far in the future is limited to one second too late: lemma_expires_limited is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_expires_limited(seq![0x46u8, 0x72u8, 0x69u8, 0x2Cu8, 0x20u8, 0x33u8, 0x31u8, 0x20u8, 0x44u8, 0x65u8, 0x63u8, 0x20u8, 0x39u8, 0x39u8, 0x39u8, 0x39u8, 0x20u8, 0x32u8, 0x33u8, 0x3Au8, 0x35u8, 0x39u8, 0x3Au8, 0x35u8, 0x39u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8], 0int)",
+        "witness": "process_expires(seq![0x46u8, 0x72u8, 0x69u8, 0x2Cu8, 0x20u8, 0x33u8, 0x31u8, 0x20u8, 0x44u8, 0x65u8, 0x63u8, 0x20u8, 0x39u8, 0x39u8, 0x39u8, 0x39u8, 0x20u8, 0x32u8, 0x33u8, 0x3Au8, 0x35u8, 0x39u8, 0x3Au8, 0x35u8, 0x39u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8], 0int) == Some(Attribute::Expires(34560001int))"
+      }
+    },
+    {
+      "id": "domain-keeps-leading-dot",
+      "file": "src/set_cookie/spec.rs",
+      "find": "attribute_value.len() > 0 && attribute_value[0] == 0x2E",
+      "replace": "attribute_value.len() > 0 && attribute_value[0] == 0x2F",
+      "expect": "killed",
+      "reason": "The leading \".\" of a Domain attribute is kept: lemma_domain_strips_leading_dot is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_domain_strips_leading_dot(seq![0x61u8])",
+        "witness": "process_domain(seq![0x2Eu8] + seq![0x61u8]) == Some(Attribute::Domain(seq![0x2Eu8] + seq![0x61u8]))"
+      }
+    },
+    {
+      "id": "domain-not-lowercased",
+      "file": "src/set_cookie/spec.rs",
+      "find": "Some(Attribute::Domain(crate::ascii::ascii_lowercase(cookie_domain)))",
+      "replace": "Some(Attribute::Domain(cookie_domain))",
+      "expect": "killed",
+      "reason": "A Domain attribute keeps its capitals: lemma_domain_is_lowercase is false for \"A\".",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_domain_is_lowercase(seq![0x41u8], 0int)",
+        "witness": "process_domain(seq![0x41u8]) == Some(Attribute::Domain(seq![0x41u8]))"
+      }
+    },
+    {
+      "id": "path-relative-kept",
+      "file": "src/set_cookie/spec.rs",
+      "find": "attribute_value.len() == 0 || attribute_value[0] != 0x2F",
+      "replace": "attribute_value.len() == 0 || attribute_value[0] == 0x2F",
+      "expect": "killed",
+      "reason": "A Path value not starting with \"/\" is kept: lemma_path_is_absolute is false for \"a\".",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_path_is_absolute(seq![0x61u8], seq![0x2Fu8])",
+        "witness": "process_path(seq![0x61u8], seq![0x2Fu8]) == Some(Attribute::Path(seq![0x61u8]))"
+      }
+    },
+    {
+      "id": "secure-prefix-needs-nothing",
+      "file": "src/set_cookie/spec.rs",
+      "find": "lit_secure_prefix()) ==> secure_only_flag)",
+      "replace": "lit_secure_prefix()) ==> true)",
+      "expect": "killed",
+      "reason": "__Secure- no longer needs the secure-only-flag: lemma_secure_prefix_needs_secure is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_secure_prefix_needs_secure(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }, true)",
+        "witness": "crate::ascii::begins_with_case_insensitive_match(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }.name, lit_secure_prefix()) && name_prefix_requirements_met(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }, false, true)"
+      }
+    },
+    {
+      "id": "same-site-none-is-lax",
+      "file": "src/set_cookie/spec.rs",
+      "find": "lit_none()) {\n        SameSite::None",
+      "replace": "lit_none()) {\n        SameSite::Lax",
+      "expect": "killed",
+      "reason": "SameSite=None gives Lax: lemma_same_site_none is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_same_site_none(lit_none())",
+        "witness": "crate::ascii::case_insensitive_match(lit_none(), lit_none()) && process_same_site(lit_none()) == Some(Attribute::SameSite(SameSite::Lax))"
+      }
+    },
+    {
+      "id": "del-is-not-ctl",
+      "file": "src/set_cookie/spec.rs",
+      "find": "|| (0x0A <= c <= 0x1F) || c == 0x7F",
+      "replace": "|| (0x0A <= c <= 0x1F)",
+      "expect": "killed",
+      "reason": "DEL is no longer a CTL character: lemma_ctl_characters is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_ctl_characters()",
+        "witness": "!is_ctl_excluding_htab(0x7Fu8)"
+      }
+    },
+    {
+      "id": "attributes-replace-list",
+      "file": "src/set_cookie/spec.rs",
+      "find": "Some(attribute) => list.push(attribute),",
+      "replace": "Some(attribute) => seq![attribute],",
+      "expect": "killed",
+      "reason": "A new attribute replaces the list so far: lemma_attributes_extend is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_attributes_keep(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure], 0int)",
+        "witness": "parse_attributes(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure]) == seq![Attribute::HttpOnly]"
+      }
     }
   ]
 }
