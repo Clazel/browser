@@ -205,7 +205,7 @@ proof fn lemma_serialize_join(l: Seq<Seq<u32>>)
 
 /// The path state appends segments that are not dot segments as they
 /// are.
-proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>, special: bool)
+pub proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>, special: bool)
     requires
         forall|i: int| 0 <= i < segs.len() ==> round_trip_segment(#[trigger] segs[i], special),
     ensures
@@ -230,7 +230,7 @@ proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>, special: 
 
 /// `join(segs)` holds no "?", "#", ":" or "@", and no code point at or
 /// below U+0020 SPACE.
-proof fn lemma_join_plain(segs: Seq<Seq<u32>>, special: bool)
+pub proof fn lemma_join_plain(segs: Seq<Seq<u32>>, special: bool)
     requires
         forall|i: int| 0 <= i < segs.len() ==> super::runs::path_segment_ok(#[trigger] segs[i], special),
     ensures

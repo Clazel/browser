@@ -308,7 +308,7 @@ pub proof fn lemma_setters_keep_special(url: crate::url::spec::Url, value: Seq<u
 // ---------------------------------------------------------------------
 
 /// The query state with a state override changes only url's query.
-proof fn lemma_query_frame(ctx: crate::url::spec::Ctx, m: crate::url::spec::Machine)
+pub proof fn lemma_query_frame(ctx: crate::url::spec::Ctx, m: crate::url::spec::Machine)
     requires
         ctx.state_override is Some,
         m.state is Query,
@@ -449,7 +449,7 @@ pub open spec fn colon_url(url: crate::url::spec::Url, buffer: Seq<u32>) -> crat
 
 /// The scheme state with a state override: failure, or step 2 with the
 /// buffer [`scheme_buffer`] gives.
-proof fn lemma_scheme_run(ctx: crate::url::spec::Ctx, m: crate::url::spec::Machine)
+pub proof fn lemma_scheme_run(ctx: crate::url::spec::Ctx, m: crate::url::spec::Machine)
     requires
         ctx.state_override is Some,
         m.state is Scheme,
