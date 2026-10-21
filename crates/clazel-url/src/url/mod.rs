@@ -12,8 +12,12 @@
 //!   [`states_query`]: one proven exec function per state.
 //! - [`path_ops`]: appending, shortening, Windows drive letters.
 //! - [`parse`]: the exec basic URL parser; [`serialize`]: the serializers.
+//! - [`lemmas`]: facts proven about the spec (totality, §4.1's record
+//!   invariants); [`examples`]: the standard's examples, evaluated.
 
 pub mod contract;
+pub mod examples;
+pub mod lemmas;
 pub mod machine;
 pub mod parse;
 pub mod path_ops;
