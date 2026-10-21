@@ -414,7 +414,7 @@ proof fn lemma_scheme_run(ctx: Ctx, m: Machine, n: int)
     }
 }
 
-/// `c` is the end of an authority: "/", "?", "#" (or "\\" in a special
+/// `c` is the end of an authority: "/", "?", "#" (or U+005C (\) in a special
 /// URL).
 pub open spec fn authority_end(c: u32, special: bool) -> bool {
     super::independent::is_slash_question_hash(c) || (special && c == 0x5C)

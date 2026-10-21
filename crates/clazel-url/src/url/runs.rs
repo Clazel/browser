@@ -31,11 +31,6 @@ pub open spec fn segment_ok(s: Seq<u32>) -> bool {
     all_alphanumeric(s) || s == seq![0x2Eu32] || s == seq![0x2Eu32, 0x2E]
 }
 
-/// `s[i..j)` holds ASCII alphanumerics and U+002E (.).
-pub open spec fn segment_chars_between(s: Seq<u32>, i: int, j: int) -> bool {
-    forall|k: int| i <= k < j ==> (is_ascii_alphanumeric(#[trigger] s[k]) || s[k] == 0x2E)
-}
-
 /// `c` is an ASCII code point outside `set`: what UTF-8 percent-encoding
 /// with `set` leaves as it is.
 pub open spec fn outside(c: u32, set: clazel_percent::spec::PercentEncodeSet) -> bool {
@@ -197,24 +192,6 @@ pub proof fn lemma_encode_code_point_identity(c: u32, set: clazel_percent::spec:
         clazel_percent::spec::utf8_percent_encode_code_point(c, set) == seq![c],
 {
     lemma_encode_identity(seq![c], set);
-}
-
-/// Percent-encoding a string of ASCII alphanumerics with the query or
-/// special-query set gives the string itself.
-pub proof fn lemma_encode_alphanumeric(s: Seq<u32>, set: clazel_percent::spec::PercentEncodeSet)
-    requires
-        all_alphanumeric(s),
-        set == clazel_percent::spec::PercentEncodeSet::Query || set == clazel_percent::spec::PercentEncodeSet::SpecialQuery,
-    ensures
-        clazel_percent::spec::percent_encode_after_encoding_utf8(s, set) == s,
-{
-    assert forall|k: int| 0 <= k < s.len() implies #[trigger] s[k] <= 0x7F && !clazel_percent::spec::contains(
-        set,
-        s[k],
-    ) by {
-        lemma_alphanumeric_not_in_sets(s[k]);
-    }
-    lemma_encode_identity(s, set);
 }
 
 // ---------------------------------------------------------------------
