@@ -55,31 +55,68 @@ pub enum Message {
     /// Renderer to kernel: read `document.cookie`.
     CookieGet,
     /// Renderer to kernel: write `document.cookie`.
-    CookieSet { cookie_string: Seq<u8> },
+    CookieSet {
+        /// The cookie string.
+        cookie_string: Seq<u8>,
+    },
     /// Renderer to kernel: `localStorage.getItem(key)`.
-    StorageGetItem { key: Seq<u8> },
+    StorageGetItem {
+        /// The key.
+        key: Seq<u8>,
+    },
     /// Renderer to kernel: `localStorage.setItem(key, value)`.
-    StorageSetItem { key: Seq<u8>, value: Seq<u8> },
+    StorageSetItem {
+        /// The key.
+        key: Seq<u8>,
+        /// The value.
+        value: Seq<u8>,
+    },
     /// Renderer to kernel: `localStorage.removeItem(key)`.
-    StorageRemoveItem { key: Seq<u8> },
+    StorageRemoveItem {
+        /// The key.
+        key: Seq<u8>,
+    },
     /// Renderer to kernel: `localStorage.clear()`.
     StorageClear,
     /// Renderer to kernel: `localStorage.key(index)`.
-    StorageKey { index: u64 },
+    StorageKey {
+        /// The index.
+        index: u64,
+    },
     /// Renderer to kernel: `localStorage.length`.
     StorageLength,
     /// Renderer to kernel: navigate to a URL.
-    Navigate { url: Seq<u8> },
+    Navigate {
+        /// The URL to go to (not the sender's).
+        url: Seq<u8>,
+    },
     /// Kernel to renderer: the document to run.
-    Commit { url: Seq<u8>, script: Seq<u8> },
+    Commit {
+        /// The committed URL.
+        url: Seq<u8>,
+        /// The script to run.
+        script: Seq<u8>,
+    },
     /// Kernel to renderer: the value of `document.cookie`.
-    CookieValue { cookie_string: Seq<u8> },
+    CookieValue {
+        /// The cookie string.
+        cookie_string: Seq<u8>,
+    },
     /// Kernel to renderer: a storage value, if there is one.
-    StorageValue { value: Option<Seq<u8>> },
+    StorageValue {
+        /// The value, or `None` if there is none.
+        value: Option<Seq<u8>>,
+    },
     /// Kernel to renderer: `localStorage.length`.
-    StorageLengthValue { length: u64 },
+    StorageLengthValue {
+        /// The length.
+        length: u64,
+    },
     /// Kernel to renderer: a request failed.
-    Error { code: u64 },
+    Error {
+        /// The error code.
+        code: u64,
+    },
 }
 
 /// Whether `m` is sent by a renderer to the kernel.
