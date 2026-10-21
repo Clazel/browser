@@ -1,0 +1,37 @@
+[package]
+name = "clazel-sys"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The one crate with unsafe: safe wrappers around the calls that enter the OS sandbox."
+
+# Only on Linux, for struct layouts and constants (`sock_filter`, `CLONE_NEW*`,
+# `SYS_seccomp`, ...). macOS needs no dependency: `sandbox_init` is declared in
+# `src/macos.rs`. Pinned exactly; the allowlist row is in docs/DEPENDENCIES.md.
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = { version = "=0.2.190", default-features = false }
+
+# Tier 0 only: Miri cannot run foreign calls, so the evidence for them is the
+# audit (docs/SYS-AUDITS.md) and the sandbox integration tests of Phase 2.
+[package.metadata.clazel]
+tier = 0
+target-tier = 0
+
+# The workspace lints, copied, with `unsafe_code` the one change (CLAUDE.md
+# rule 1). A crate cannot both inherit `[workspace.lints]` and override one of
+# them, so `cargo xtask check` compares this list with the workspace's.
+[lints.rust]
+unsafe_code = "allow"
+missing_docs = "warn"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(verus_only)"] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+arithmetic_side_effects = "deny"
+todo = "deny"
+unimplemented = "deny"
+dbg_macro = "deny"
