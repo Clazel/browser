@@ -13,7 +13,7 @@ verus! {
 
 /// Append the `width` bytes spelling `value` in network byte order, most
 /// significant first ([`be_bytes`]'s recursion).
-fn push_be(out: &mut Vec<u8>, value: u64, width: usize)
+pub(crate) fn push_be(out: &mut Vec<u8>, value: u64, width: usize)
     requires
         width <= 8,
         (value as nat) < super::lemmas::pow256(width as nat),

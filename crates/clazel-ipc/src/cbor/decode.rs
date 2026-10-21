@@ -15,7 +15,7 @@ verus! {
 /// §3: the `width` bytes at `pos` as an unsigned integer in network byte
 /// order. The recursion is [`be_value`]'s: the last byte is the least
 /// significant.
-fn read_be(input: &[u8], pos: usize, width: usize) -> (value: u64)
+pub(crate) fn read_be(input: &[u8], pos: usize, width: usize) -> (value: u64)
     requires
         width <= 8,
         pos + width <= input.len(),
