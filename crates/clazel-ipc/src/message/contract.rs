@@ -34,4 +34,14 @@ pub open spec fn decode_framed_ensures(frame: Seq<u8>, output: Option<Message>) 
     output == decode_framed(frame)
 }
 
+/// Contract for `encode_framed(&Msg) -> Option<Vec<u8>>`: the message's
+/// frame, or `None` if its bytes are over `MAX_FRAME`.
+pub open spec fn encode_framed_ensures(m: Message, output: Option<Seq<u8>>) -> bool {
+    output == if crate::frame::spec::payload_ok(encode_message(m)) {
+        Some(crate::frame::spec::encode_frame(encode_message(m)))
+    } else {
+        None
+    }
+}
+
 } // verus!
