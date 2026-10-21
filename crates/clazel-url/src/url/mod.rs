@@ -14,3 +14,4 @@ pub mod machine;
 pub mod states_scheme;
 pub mod path_ops;
 pub mod states_authority;
+pub mod states_path;
