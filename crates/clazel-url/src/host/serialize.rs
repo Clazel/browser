@@ -11,7 +11,7 @@ use vstd::prelude::*;
 verus! {
 
 /// Appends `n`, serialized (URL §1 "serialize an integer"), to `out`.
-fn push_decimal(n: u32, out: &mut Vec<u32>)
+pub fn push_decimal(n: u32, out: &mut Vec<u32>)
     ensures
         final(out)@ == old(out)@ + serialize_integer(n as nat),
     decreases n,

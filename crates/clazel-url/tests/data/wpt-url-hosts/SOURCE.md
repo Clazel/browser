@@ -23,15 +23,15 @@ The `.js` files are vendored because they say what the JSON means (a URL's
 `hostname` is its serialized host; a `toascii.json` input is the host of
 `https://<input>/x`); the converter fails if the lines that say so change.
 
-**Not converted yet:** rows where something other than the host parser
-decides the outcome, because the URL parser that would run them is item
-1.10. The converter keeps a `urltestdata.json` row only when its input is
+**Not converted here:** rows where something other than the host parser
+decides the outcome. This suite tests the host parser alone; every
+`urltestdata.json` row, these included, also runs through the whole URL
+parser in `../wpt-urltestdata/` (item 1.10). The converter keeps a `urltestdata.json` row only when its input is
 an absolute `scheme://authority...` URL (lowercase scheme, not `file`) with
 no credentials, no port, no tab or newline and no leading or trailing C0
 control or space, and, for a special scheme, a non-empty authority; and a
 `toascii.json` row only when the input contains none of `/ ? # \ @` and no
-port. The generated file's header gives the counts. The rest arrive with
-item 1.10.
+port. The generated file's header gives the counts.
 
 **Expected failures:** none. Rows whose domain (host parser step 5) is not
 ASCII go through `clazel-idna`'s domain parser (UTS #46 ToASCII, URL §3.3)
