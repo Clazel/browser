@@ -2,9 +2,9 @@
 //! parser and serializer share. Each helper is proven equal to its spec
 //! definition.
 
-use crate::host::record::{ParsedHost, append, at32, copy};
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::host::record::{ParsedHost, append, at32, copy};
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -134,10 +134,10 @@ pub fn clone_opt_host(h: &Option<ParsedHost>) -> (out: Option<ParsedHost>)
     ensures
         crate::host::record::option_view(out) == crate::host::record::option_view(*h),
 {
-    match h {
-        Some(h) => Some(clone_host(h)),
-        None => None,
-    }
+    let Some(h) = h else {
+        return None;
+    };
+    Some(clone_host(h))
 }
 
 /// A copy of an optional string.
@@ -145,14 +145,23 @@ pub fn clone_opt_str(s: &Option<Vec<u32>>) -> (out: Option<Vec<u32>>)
     ensures
         crate::host::record::opt_seq(out) == crate::host::record::opt_seq(*s),
 {
-    match s {
-        Some(s) => Some(copy(s.as_slice())),
-        None => None,
-    }
+    let Some(s) = s else {
+        return None;
+    };
+    Some(copy(s.as_slice()))
+}
+
+/// Segment `i` of `l`, if there is one.
+pub fn segment(l: &[Vec<u32>], i: usize) -> (r: Option<&Vec<u32>>)
+    ensures
+        i < l@.len() ==> (r matches Some(s) && *s == l@[i as int]),
+        i >= l@.len() ==> r is None,
+{
+    l.get(i)
 }
 
 /// A copy of a list of segments ("a clone of base's path").
-pub fn clone_segments(l: &Vec<Vec<u32>>) -> (out: Vec<Vec<u32>>)
+pub fn clone_segments(l: &[Vec<u32>]) -> (out: Vec<Vec<u32>>)
     ensures
         segments_view(out@) == segments_view(l@),
 {
@@ -165,7 +174,10 @@ pub fn clone_segments(l: &Vec<Vec<u32>>) -> (out: Vec<Vec<u32>>)
         decreases l.len() - i,
     {
         let ghost before = out@;
-        let s = copy(l[i].as_slice());
+        let Some(t) = l.get(i) else {
+            return out;
+        };
+        let s = copy(t.as_slice());
         out.push(s);
         assert(out@ == before.push(s));
         assert(segments_view(before).len() == before.len());
@@ -179,7 +191,8 @@ pub fn clone_segments(l: &Vec<Vec<u32>>) -> (out: Vec<Vec<u32>>)
                 assert(segments_view(l@)[k] == l@[k]@);
             }
         }
-        i = i + 1;
+        // Never saturates: i is below a length.
+        i = i.saturating_add(1);
         assert(segments_view(out@) =~= segments_view(l@).subrange(0, i as int));
     }
     assert(segments_view(l@).subrange(0, l@.len() as int) =~= segments_view(l@));
@@ -233,7 +246,8 @@ pub fn eq_str(a: &[u32], b: &[u32]) -> (r: bool)
         if at32(a, i) != at32(b, i) {
             return false;
         }
-        i = i + 1;
+        // Never saturates: i is below a length.
+        i = i.saturating_add(1);
         assert(a@.subrange(0, i as int) =~= b@.subrange(0, i as int));
     }
     assert(a@ =~= a@.subrange(0, a@.len() as int));

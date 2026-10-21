@@ -266,6 +266,7 @@ pub proof fn lemma_state_step_shape(ctx: Ctx, m: Machine)
     ensures
         step_ok(m, state_step(ctx, m)),
 {
+    reveal(state_step);
     match m.state {
         State::SchemeStart => lemma_shape_scheme_start_state(ctx, m),
         State::Scheme => lemma_shape_scheme_state(ctx, m),

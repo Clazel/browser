@@ -5,13 +5,23 @@
 //!   function per parser state.
 //! - [`termination`]: why the parser's state machine terminates.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`record`]: the exec URL record, `ParsedUrl`, and string helpers.
+//! - [`machine`]: the exec parser's variables and how one exec run relates
+//!   to one spec run.
+//! - [`states_scheme`], [`states_authority`], [`states_path`],
+//!   [`states_query`]: one proven exec function per state.
+//! - [`path_ops`]: appending, shortening, Windows drive letters.
+//! - [`parse`]: the exec basic URL parser; [`serialize`]: the serializers.
 
 pub mod contract;
-pub mod spec;
-pub mod termination;
-pub mod record;
 pub mod machine;
-pub mod states_scheme;
+pub mod parse;
 pub mod path_ops;
+pub mod record;
+pub mod serialize;
+pub mod spec;
 pub mod states_authority;
 pub mod states_path;
+pub mod states_query;
+pub mod states_scheme;
+pub mod termination;

@@ -3,12 +3,14 @@
 //! ([`super::machine::flow_ok`]). The step comments live in
 //! [`super::spec`].
 
-use super::machine::{ExecMachine, Flow, advance, back, c_at_exec, ctx_of, flow_ok, wf};
-use super::path_ops::{is_windows_drive_letter_exec, opaque_path_append_exec, path_append_exec, shorten_exec};
-use super::record::{ParsedPath, ParsedUrl, is_file, is_special_scheme_exec, opt_ref_url_view};
-use crate::host::record::{append, at32, copy};
+use super::machine::{ExecMachine, Flow, advance, back, c_at_exec};
+use super::path_ops::{
+    is_windows_drive_letter_exec, opaque_path_append_exec, path_append_exec, shorten_exec,
+};
+use super::record::{ParsedPath, is_file, is_special_scheme_exec};
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::host::record::{append, at32, copy};
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -60,7 +62,8 @@ fn ascii_case_insensitive_match(s: &[u32], t: &[u32]) -> (r: bool)
             assert(ascii_lowercase_string(s@)[i as int] != ascii_lowercase_string(t@)[i as int]);
             return false;
         }
-        i = i + 1;
+        // Never saturates: i is below a length.
+        i = i.saturating_add(1);
     }
     assert(ascii_lowercase_string(s@) =~= ascii_lowercase_string(t@));
     true
@@ -71,11 +74,9 @@ fn lit3(a: u32, b: u32, c: u32) -> (v: Vec<u32>)
     ensures
         v@ == seq![a, b, c],
 {
-    let mut v: Vec<u32> = Vec::new();
-    v.push(a);
-    v.push(b);
-    v.push(c);
-    assert(v@ =~= seq![a, b, c]);
+    let a: [u32; 3] = [a, b, c];
+    let v = copy(&a);
+    assert(v@ =~= seq![a[0], a[1], a[2]]);
     v
 }
 
@@ -139,19 +140,19 @@ fn is_double_dot_segment_exec(s: &[u32]) -> (r: bool)
 }
 
 /// "path start state" (no state override)
-pub fn path_start_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn path_start_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        wf(ctx_of(input@, opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
         old(m).state is PathStart,
     ensures
-        flow_ok(ctx_of(input@, opt_ref_url_view(base)), super::spec::path_start_state(ctx_of(input@, opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::path_start_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if is_special_scheme_exec(m.url.scheme.as_slice()) {
         // 1.
         m.state = State::Path;
         if c != Some(0x2Fu32) && c != Some(0x5Cu32) {
-            back(m)
+            back()
         } else {
             advance(m, input.len())
         }
@@ -171,7 +172,7 @@ pub fn path_start_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMac
         // 4.
         m.state = State::Path;
         if c != Some(0x2Fu32) {
-            back(m)
+            back()
         } else {
             advance(m, input.len())
         }
@@ -181,12 +182,12 @@ pub fn path_start_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMac
 }
 
 /// "path state" (no state override)
-pub fn path_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        wf(ctx_of(input@, opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
         old(m).state is Path,
     ensures
-        flow_ok(ctx_of(input@, opt_ref_url_view(base)), super::spec::path_state(ctx_of(input@, opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::path_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
@@ -213,7 +214,7 @@ pub fn path_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) 
             // 1.4.1
             let mut buffer = copy(m.buffer.as_slice());
             let empty = match &m.url.path {
-                ParsedPath::List(l) => l.len() == 0,
+                ParsedPath::List(l) => l.is_empty(),
                 ParsedPath::Opaque(_) => false,
             };
             assert(empty == (m.url.path@ == UrlPath::List(seq![]))) by {
@@ -256,12 +257,12 @@ pub fn path_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) 
 }
 
 /// "opaque path state"
-pub fn opaque_path_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn opaque_path_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        wf(ctx_of(input@, opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
         old(m).state is OpaquePath,
     ensures
-        flow_ok(ctx_of(input@, opt_ref_url_view(base)), super::spec::opaque_path_state(ctx_of(input@, opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::opaque_path_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if c == Some(0x3Fu32) {
@@ -282,10 +283,9 @@ pub fn opaque_path_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMa
             opaque_path_append_exec(&mut m.url.path, lit3(0x25, 0x32, 0x30).as_slice());
         } else {
             // 3.3
-            let mut space: Vec<u32> = Vec::new();
-            space.push(0x20);
+            let space: [u32; 1] = [0x20];
             assert(space@ =~= seq![0x20u32]);
-            opaque_path_append_exec(&mut m.url.path, space.as_slice());
+            opaque_path_append_exec(&mut m.url.path, &space);
         }
     } else if let Some(c) = c {
         // 4.3

@@ -2,10 +2,10 @@
 //! a path, and Windows drive letters. Each is proven equal to its spec
 //! definition.
 
-use super::record::{ParsedPath, ParsedUrl, is_file, segments_view};
-use crate::host::record::at32;
+use super::record::{ParsedPath, ParsedUrl, is_file};
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::host::record::at32;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -14,10 +14,10 @@ verus! {
 /// The view of a list with one more segment.
 pub proof fn lemma_segments_push(v: Seq<Vec<u32>>, s: Vec<u32>)
     ensures
-        segments_view(v.push(s)) == segments_view(v).push(s@),
+        super::record::segments_view(v.push(s)) == super::record::segments_view(v).push(s@),
 {
-    assert(segments_view(v.push(s)) =~= segments_view(v).push(s@)) by {
-        assert forall|k: int| 0 <= k < v.len() + 1 implies #[trigger] segments_view(v.push(s))[k] == segments_view(
+    assert(super::record::segments_view(v.push(s)) =~= super::record::segments_view(v).push(s@)) by {
+        assert forall|k: int| 0 <= k < v.len() + 1 implies #[trigger] super::record::segments_view(v.push(s))[k] == super::record::segments_view(
             v,
         ).push(s@)[k] by {
             if k < v.len() {
@@ -32,9 +32,9 @@ pub proof fn lemma_segments_drop_last(v: Seq<Vec<u32>>)
     requires
         v.len() > 0,
     ensures
-        segments_view(v.drop_last()) == segments_view(v).drop_last(),
+        super::record::segments_view(v.drop_last()) == super::record::segments_view(v).drop_last(),
 {
-    assert(segments_view(v.drop_last()) =~= segments_view(v).drop_last());
+    assert(super::record::segments_view(v.drop_last()) =~= super::record::segments_view(v).drop_last());
 }
 
 /// "Append" `segment` to a path that is a list.
@@ -103,12 +103,14 @@ pub fn starts_with_windows_drive_letter_at(input: &[u32], p: usize) -> (r: bool)
         r == starts_with_windows_drive_letter(input@.subrange(p as int, input@.len() as int)),
 {
     let ghost s = input@.subrange(p as int, input@.len() as int);
-    let n = input.len() - p;
+    // Never saturates: p <= input.len().
+    let n = input.len().saturating_sub(p);
     if n < 2 {
         return false;
     }
     let c0 = at32(input, p);
-    let c1 = at32(input, p + 1);
+    // Never saturates: p + 1 < input.len().
+    let c1 = at32(input, p.saturating_add(1));
     assert(s.subrange(0, 2) =~= seq![c0, c1]);
     if !(super::machine::is_ascii_alpha_exec(c0) && (c1 == 0x3A || c1 == 0x7C)) {
         return false;
@@ -116,7 +118,8 @@ pub fn starts_with_windows_drive_letter_at(input: &[u32], p: usize) -> (r: bool)
     if n == 2 {
         return true;
     }
-    let c2 = at32(input, p + 2);
+    // Never saturates: p + 2 < input.len().
+    let c2 = at32(input, p.saturating_add(2));
     assert(s[2] == c2);
     c2 == 0x2F || c2 == 0x5C || c2 == 0x3F || c2 == 0x23
 }
@@ -130,8 +133,11 @@ pub fn shorten_exec(url: &mut ParsedUrl)
     match &mut url.path {
         ParsedPath::Opaque(_) => {},
         ParsedPath::List(l) => {
-            let keep = file && l.len() == 1 && is_normalized_windows_drive_letter_exec(l[0].as_slice());
-            if !keep && l.len() > 0 {
+            let keep = file && l.len() == 1 && match super::record::segment(l.as_slice(), 0) {
+                Some(s) => is_normalized_windows_drive_letter_exec(s.as_slice()),
+                None => false,
+            };
+            if !keep && !l.is_empty() {
                 proof {
                     lemma_segments_drop_last(l@);
                 }

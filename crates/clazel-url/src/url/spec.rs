@@ -89,6 +89,9 @@
 //!   anything (item 1.11 does that through `setters_tests.json`). Of
 //!   "return" with no value, the setters only need the modified url, so a
 //!   "return" is [`Step::Return`] with the url.
+//! - [`state_step`], the switch on state, is `#[verifier::opaque]`: a
+//!   proof aid only (proofs that need its body `reveal` it), so that
+//!   reasoning about [`run`] does not unfold all twenty states at once.
 //! - Assertions ("Assert: base's scheme is not "file"") are comments; the
 //!   lemmas prove the ones that matter for the results.
 
@@ -1516,7 +1519,10 @@ pub open spec fn fragment_state(ctx: Ctx, m: Machine) -> Step {
 // §4.4 The basic URL parser.
 // ---------------------------------------------------------------------
 
-/// Step 9, "switching on state": one run of the state machine.
+/// Step 9, "switching on state": one run of the state machine. (Opaque to
+/// the prover, so that proofs about [`run`] do not unfold every state;
+/// see the header.)
+#[verifier::opaque]
 pub open spec fn state_step(ctx: Ctx, m: Machine) -> Step {
     match m.state {
         State::SchemeStart => scheme_start_state(ctx, m),

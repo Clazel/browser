@@ -113,10 +113,8 @@ pub fn c_at_exec(input: &[u32], p: usize) -> (c: Option<u32>)
     ensures
         c == crate::host::spec::c_at(input@, p as int),
 {
-    match input.get(p) {
-        Some(c) => Some(*c),
-        None => None,
-    }
+    let c = input.get(p)?;
+    Some(*c)
 }
 
 /// "remaining starts with" `x`.
@@ -126,7 +124,8 @@ pub fn remaining_starts_with_exec(input: &[u32], p: usize, x: u32) -> (r: bool)
     ensures
         r == remaining_starts_with(input@, p as int, x),
 {
-    p < input.len() && match input.get(p + 1) {
+    // Never saturates: p < input.len().
+    p < input.len() && match input.get(p.saturating_add(1)) {
         Some(c) => *c == x,
         None => false,
     }
@@ -137,7 +136,7 @@ pub fn is_ascii_alpha_exec(c: u32) -> (r: bool)
     ensures
         r == is_ascii_alpha(c),
 {
-    (0x41 <= c && c <= 0x5A) || (0x61 <= c && c <= 0x7A)
+    (0x41..=0x5A).contains(&c) || (0x61..=0x7A).contains(&c)
 }
 
 /// ASCII lowercase a code point (Infra §4.6).
@@ -146,8 +145,9 @@ pub fn ascii_lowercase_exec(c: u32) -> (r: u32)
         r == ascii_lowercase(c),
         clazel_encoding::utf8::spec::is_scalar_value(c) ==> clazel_encoding::utf8::spec::is_scalar_value(r),
 {
-    if 0x41 <= c && c <= 0x5A {
-        c + 0x20
+    if (0x41..=0x5A).contains(&c) {
+        // Never saturates: c <= 0x5A.
+        c.saturating_add(0x20)
     } else {
         c
     }
@@ -163,29 +163,31 @@ pub fn advance(m: &mut ExecMachine, len: usize) -> (flow: Flow)
     if m.pointer >= len {
         Flow::Stop
     } else {
-        m.pointer = m.pointer + 1;
+        // Never saturates: m.pointer < len.
+        m.pointer = m.pointer.saturating_add(1);
         Flow::Next
     }
 }
 
 /// End a run that decreased pointer by 1: step 9 increases it again, so
 /// the next run reads the same code point.
-pub fn back(m: &mut ExecMachine) -> (flow: Flow)
+pub fn back() -> (flow: Flow)
     ensures
-        flow is Next && final(m)@ == old(m)@,
+        flow is Next,
 {
     Flow::Next
 }
 
 /// End a run that increased pointer by 1 ("remaining starts with" made
 /// sure there is a code point there): step 9 increases it once more.
-pub fn skip(m: &mut ExecMachine, len: usize) -> (flow: Flow)
+pub fn skip(m: &mut ExecMachine, Ghost(len): Ghost<nat>) -> (flow: Flow)
     requires
-        old(m).pointer + 1 < len,
+        old(m).pointer + 1 < len <= usize::MAX,
     ensures
         flow is Next && final(m)@ == (Machine { pointer: old(m)@.pointer + 2, ..old(m)@ }),
 {
-    m.pointer = m.pointer + 2;
+    // Never saturates: m.pointer + 2 <= len.
+    m.pointer = m.pointer.saturating_add(2);
     Flow::Next
 }
 
