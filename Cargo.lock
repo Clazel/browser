@@ -68,6 +68,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-sandbox"
+version = "0.0.0"
+
+[[package]]
 name = "clazel-sys"
 version = "0.0.0"
 dependencies = [

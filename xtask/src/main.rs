@@ -468,19 +468,18 @@ fn kani(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             continue;
         }
         any = true;
-        let res =
-            run(Command::new("cargo").args(["kani", "--locked", "-p", &c.name])).and_then(|out| {
-                let summary = out
-                    .lines()
-                    .filter(|l| l.starts_with("Complete -"))
-                    .collect::<Vec<_>>()
-                    .join("\n");
-                if summary.contains(" 0 failures") {
-                    Ok(vec![summary])
-                } else {
-                    Err(format!("unexpected Kani summary:\n{out}"))
-                }
-            });
+        let res = run(Command::new("cargo").args(["kani", "-p", &c.name])).and_then(|out| {
+            let summary = out
+                .lines()
+                .filter(|l| l.starts_with("Complete -"))
+                .collect::<Vec<_>>()
+                .join("\n");
+            if summary.contains(" 0 failures") {
+                Ok(vec![summary])
+            } else {
+                Err(format!("unexpected Kani summary:\n{out}"))
+            }
+        });
         if let Ok(lines) = &res {
             let summary = lines.join(" ");
             let summary = summary
