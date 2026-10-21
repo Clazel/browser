@@ -1,10 +1,11 @@
 //! The executable opaque-host parser and host parser (URL §3.5), proven to
 //! meet [`super::contract`]. The step comments live in [`super::spec`].
 //!
-//! The host parser is two functions until item 1.8 provides the domain
-//! parser (URL §3.3) that its step 6 runs: [`host_parser_start`] runs steps
-//! 1 to 5, and [`host_parser_finish`] steps 7 to 9 on the domain parser's
-//! result. See [`super::contract`].
+//! The host parser is two proven halves around the domain parser (URL
+//! §3.3) that its step 6 runs: [`host_parser_start`] runs steps 1 to 5, and
+//! [`host_parser_finish`] steps 7 to 9 on the domain parser's result.
+//! [`host_parser_full`] joins them with `clazel-idna`'s domain parser. See
+//! [`super::contract`].
 
 use super::record::{ParsedHost, at32};
 #[allow(unused_imports)]
@@ -183,13 +184,41 @@ pub fn host_parser_finish(
     output
 }
 
+/// The host parser (URL §3.5), steps 1 to 9, with step 6 running the URL
+/// §3.3 domain parser from `clazel-idna`.
+pub fn host_parser_full(input: &[u32], is_opaque: bool) -> (output: Option<ParsedHost>)
+    requires
+        super::contract::host_parser_full_requires(input@, is_opaque),
+    ensures
+        super::contract::host_parser_full_ensures(input@, is_opaque, super::record::option_view(output)),
+{
+    match host_parser_start(input, is_opaque) {
+        // Steps 1 to 5 (the result is the same for every domain parser).
+        HostParserStart::Done(host) => {
+            assert(host_parser(input@, is_opaque, super::contract::url_domain_parser()) == super::record::option_view(host));
+            host
+        },
+        HostParserStart::Domain(domain) => {
+            // 6. "Let asciiDomain be the result of running domain parser with
+            //    domain and false."
+            let ascii_domain = clazel_idna::uts46::process::domain_parser(domain.as_slice(), false);
+            // Domain parser step 7: a successful, non-strict result is not
+            // the empty string.
+            assert(super::record::opt_seq(ascii_domain) matches Some(a) ==> a.len() > 0);
+            let ghost ascii_view = super::record::opt_seq(ascii_domain);
+            let output = host_parser_finish(Ghost(input@), Ghost(is_opaque), Ghost(domain@), ascii_domain);
+            assert((super::contract::url_domain_parser())(domain@, false) == ascii_view);
+            output
+        },
+    }
+}
+
 } // verus!
 
 #[cfg(test)]
 mod tests {
-    use super::{HostParserStart, host_parser_finish, host_parser_start};
+    use super::host_parser_full;
     use crate::host::record::ParsedHost;
-    use vstd::prelude::Ghost;
 
     fn scalars(s: &str) -> Vec<u32> {
         s.chars().map(u32::from).collect()
@@ -199,40 +228,13 @@ mod tests {
         v.iter().filter_map(|&c| char::from_u32(c)).collect()
     }
 
-    /// Host parse then serialize, with an ASCII-only stand-in for the
-    /// domain parser (the real one is item 1.8): lowercase, as URL §3.3
-    /// step 5 does for ASCII input with beStrict false.
     fn roundtrip(input: &str, is_opaque: bool) -> Option<String> {
-        let host = match host_parser_start(&scalars(input), is_opaque) {
-            HostParserStart::Done(h) => h,
-            HostParserStart::Domain(d) => {
-                if d.iter().any(|&c| c > 0x7F) {
-                    return None;
-                }
-                let ascii: Vec<u32> = d
-                    .iter()
-                    .map(|&c| {
-                        if (0x41..=0x5A).contains(&c) {
-                            c | 0x20
-                        } else {
-                            c
-                        }
-                    })
-                    .collect();
-                host_parser_finish(
-                    Ghost::assume_new(),
-                    Ghost::assume_new(),
-                    Ghost::assume_new(),
-                    Some(ascii),
-                )
-            }
-        };
-        host.map(|h: ParsedHost| string(&h.serialize()))
+        host_parser_full(&scalars(input), is_opaque).map(|h: ParsedHost| string(&h.serialize()))
     }
 
     #[test]
     fn standard_examples() {
-        // URL §3, the parse-serialize table (the rows without IDNA).
+        // URL §3, the parse-serialize table.
         assert_eq!(
             roundtrip("EXAMPLE.COM", false).as_deref(),
             Some("example.com")

@@ -12,8 +12,8 @@ instead of trust.
 Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
 started: UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`),
 forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`),
-IDNA (`clazel-idna`) and URL host parsing (`clazel-url`, except domains) are at
-Tier 2. Wiring IDNA into the host parser and the URL parser itself are next.
+IDNA (`clazel-idna`) and URL host parsing (`clazel-url`, with the real domain
+parser) are at Tier 2. The URL parser itself is next.
 Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh

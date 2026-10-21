@@ -38,8 +38,8 @@
 //!   opaque-host parser, unchanged. The URL Standard accepts more (any
 //!   code point but the forbidden host code points).
 //!
-//! Not related here: domains, since the host parser's domain branch
-//! waits on the domain parser (item 1.8).
+//! Not related here: domains, which go through the domain parser (URL
+//! §3.3, `clazel-idna`).
 //!
 //! Modelling choices (each a deviation in form, not in meaning):
 //! - A string is a `Seq<u32>` of code points. An address is a `nat` (IPv4)

@@ -189,6 +189,16 @@ pub proof fn lemma_step_examples()
     assert(host_parser(seq![0x31u32, 0x2E, 0x32, 0x2E, 0x33, 0x2E, 0x34], false, |d: Seq<u32>, b: bool| Some(d)) == Some(Host::Ipv4(0x0102_0304nat)) && host_parser(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65], false, |d: Seq<u32>, b: bool| Some(d)) == Some(Host::Domain(seq![0x65u32, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65]))) by (compute_only);
 }
 
+/// Host parser step 6 passes beStrict false: with a domain parser that fails
+/// when beStrict is true, "A_B" parses. (The real domain parser's examples
+/// are in [`super::domain_examples`], which evaluates its tables.)
+pub proof fn lemma_step6_be_strict_example()
+    ensures
+        host_parser(seq![0x41u32, 0x5F, 0x42], false, |d: Seq<u32>, b: bool| if b { None::<Seq<u32>> } else { Some(d) }) == Some(Host::Domain(seq![0x41u32, 0x5F, 0x42])),
+{
+    assert(host_parser(seq![0x41u32, 0x5F, 0x42], false, |d: Seq<u32>, b: bool| if b { None::<Seq<u32>> } else { Some(d) }) == Some(Host::Domain(seq![0x41u32, 0x5F, 0x42]))) by (compute_only);
+}
+
 /// The RFCs' own examples, evaluated on the independent transcription
 /// (RFC 4291 §2.2, RFC 5952 §4), and inputs each rule must reject.
 pub proof fn lemma_rfc_examples()

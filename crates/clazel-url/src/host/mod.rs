@@ -10,10 +10,11 @@
 //!   4291 §2.2 and RFC 5952 §4, and what it and the spec are proven to
 //!   agree on.
 //!
-//! The domain parser (URL §3.3) comes from item 1.8; see [`contract`] for
-//! how the host parser is split around it.
+//! The domain parser (URL §3.3) comes from `clazel-idna` (item 1.8); see
+//! [`contract`] for how the host parser is split around it.
 
 pub mod contract;
+pub mod domain_examples;
 pub mod examples;
 pub mod independent;
 pub mod ipv4;

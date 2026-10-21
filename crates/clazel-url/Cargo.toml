@@ -23,9 +23,10 @@ clazel-percent = { path = "../clazel-percent" }
 # is proven to meet its contract; independent.rs (RFC 3986, RFC 4291, RFC
 # 5952) is proven to agree where the standards do; every mutation is
 # certified killed; tests/conformance_hosts.rs runs WPT url/ host rows and
-# a differential test against std::net. The host parser's domain branch
-# waits on the domain parser (item 1.8): it ships as two proven halves
-# around it. The URL parser (§4) is item 1.10.
+# a differential test against std::net. The host parser's step 6 runs
+# clazel-idna's domain parser: host_parser_full is proven equal to the
+# spec instantiated with it (and the two halves around it are proven for
+# every domain parser). The URL parser (§4) is item 1.10.
 [package.metadata.clazel]
 tier = 2
 target-tier = 2
