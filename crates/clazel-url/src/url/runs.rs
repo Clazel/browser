@@ -61,17 +61,21 @@ pub open spec fn query_set(url: Url) -> clazel_percent::spec::PercentEncodeSet {
     }
 }
 
-/// A path segment the path state reads as it is: code points outside the
-/// path percent-encode set, none of them U+002F (/). (The set holds "?"
-/// and "#".)
-pub open spec fn path_segment_ok(s: Seq<u32>) -> bool {
-    forall|k: int| 0 <= k < s.len() ==> outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path) && s[k]
-        != 0x2F
+/// A code point the path state appends to buffer as it is: outside the
+/// path percent-encode set (which holds "?" and "#"), not U+002F (/), and,
+/// if url is special, not U+005C (\).
+pub open spec fn path_char(c: u32, special: bool) -> bool {
+    outside(c, clazel_percent::spec::PercentEncodeSet::Path) && c != 0x2F && !(special && c == 0x5C)
+}
+
+/// A path segment the path state reads as it is.
+pub open spec fn path_segment_ok(s: Seq<u32>, special: bool) -> bool {
+    forall|k: int| 0 <= k < s.len() ==> path_char(#[trigger] s[k], special)
 }
 
 /// `s[i..j)` holds code points a path segment may hold.
-pub open spec fn path_chars_between(s: Seq<u32>, i: int, j: int) -> bool {
-    forall|k: int| i <= k < j ==> outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path) && s[k] != 0x2F
+pub open spec fn path_chars_between(s: Seq<u32>, i: int, j: int, special: bool) -> bool {
+    forall|k: int| i <= k < j ==> path_char(#[trigger] s[k], special)
 }
 
 /// ASCII alphanumerics are outside the fragment, query, special-query and
@@ -95,17 +99,16 @@ pub proof fn lemma_alphanumeric_outside(s: Seq<u32>, i: int, j: int)
 
 /// The segments of the RFC 3986 agreement class are path segments the
 /// path state reads as they are.
-pub proof fn lemma_segments_path_ok(segs: Seq<Seq<u32>>)
+pub proof fn lemma_segments_path_ok(segs: Seq<Seq<u32>>, special: bool)
     requires
         forall|i: int| 0 <= i < segs.len() ==> segment_ok(#[trigger] segs[i]),
     ensures
-        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i]),
+        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i], special),
 {
-    assert forall|i: int| 0 <= i < segs.len() implies path_segment_ok(#[trigger] segs[i]) by {
+    assert forall|i: int| 0 <= i < segs.len() implies path_segment_ok(#[trigger] segs[i], special) by {
         let s = segs[i];
         assert(segment_ok(s));
-        assert forall|k: int| 0 <= k < s.len() implies outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path)
-            && s[k] != 0x2F by {
+        assert forall|k: int| 0 <= k < s.len() implies path_char(#[trigger] s[k], special) by {
             if !all_alphanumeric(s) {
                 assert(s == seq![0x2Eu32] || s == seq![0x2Eu32, 0x2E]);
             }
@@ -404,10 +407,10 @@ pub open spec fn path_model(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>) -> Seq<Seq<u3
     }
 }
 
-/// A url the path lemmas apply to: not special (so U+005C (\) is not a
-/// slash and its scheme is not "file") and with a list path.
+/// A url the path lemmas apply to: its scheme is not "file" (no Windows
+/// drive letter rules) and its path is a list.
 pub open spec fn plain_path_url(url: Url) -> bool {
-    !is_special(url) && url.path is List
+    url.scheme != file_str() && url.path is List
 }
 
 /// The path state over the code points of one segment (ASCII
@@ -418,7 +421,7 @@ pub proof fn lemma_path_chars(ctx: Ctx, m: Machine, k: int)
         ctx.state_override is None,
         plain_path_url(m.url),
         0 <= m.pointer <= k <= ctx.input.len(),
-        path_chars_between(ctx.input, m.pointer, k),
+        path_chars_between(ctx.input, m.pointer, k, is_special(m.url)),
     ensures
         run(ctx, m) == run(ctx, Machine { buffer: m.buffer + ctx.input.subrange(m.pointer, k), pointer: k, ..m }),
     decreases k - m.pointer,
@@ -513,7 +516,7 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
         m.url.path == UrlPath::List(l),
         m.buffer == Seq::<u32>::empty(),
         segs.len() > 0,
-        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i]),
+        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i], is_special(m.url)),
         0 <= m.pointer,
         m.pointer + join(segs).len() <= ctx.input.len(),
         ctx.input.subrange(m.pointer, m.pointer + join(segs).len()) == join(segs),
@@ -552,10 +555,9 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
     let s = segs[0];
     let k = p + s.len();
     // The first segment's code points.
-    assert(path_chars_between(ctx.input, p, k)) by {
-        assert forall|j: int| p <= j < k implies outside(#[trigger] ctx.input[j], clazel_percent::spec::PercentEncodeSet::Path)
-            && ctx.input[j] != 0x2F by {
-            assert(path_segment_ok(segs[0]));
+    assert(path_chars_between(ctx.input, p, k, is_special(m.url))) by {
+        assert forall|j: int| p <= j < k implies path_char(#[trigger] ctx.input[j], is_special(m.url)) by {
+            assert(path_segment_ok(segs[0], is_special(m.url)));
             if segs.len() == 1 {
                 assert(join(segs) == s);
             } else {
@@ -595,7 +597,7 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
             pointer: k + 1,
             ..m
         };
-        assert forall|i: int| 0 <= i < rest.len() implies path_segment_ok(#[trigger] rest[i]) by {
+        assert forall|i: int| 0 <= i < rest.len() implies path_segment_ok(#[trigger] rest[i], is_special(m.url)) by {
             assert(rest[i] == segs[i + 1]);
         }
         assert(ctx.input.subrange(k + 1, k + 1 + join(rest).len()) =~= join(rest)) by {

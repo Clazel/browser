@@ -3,29 +3,35 @@
 //! parse-then-serialize operations applied to it"), proven for a class of
 //! URL records.
 //!
-//! [`lemma_serialize_parse`]: for every URL in [`round_trip_url`] and every
-//! domain parser, the basic URL parser on its serialization (with no base)
-//! returns exactly that URL. [`lemma_idempotent`] is the Goals sentence as
-//! a corollary: if parsing any input gives a URL in the class, a further
-//! parse-then-serialize does not change its serialization.
+//! [`lemma_serialize_parse`]: for every domain parser and every URL in
+//! [`round_trip_url`], the basic URL parser on its serialization (with no
+//! base) returns exactly that URL. [`lemma_idempotent`] is the Goals
+//! sentence as a corollary: if parsing any input gives a URL in the class,
+//! a further parse-then-serialize does not change its serialization.
 //!
-//! **The class** is the URLs whose scheme is not special, with an opaque
-//! host, and whose every component is already in the form the parser
-//! writes it in: a scheme of an ASCII lower alpha then lower alphas,
-//! digits, "+", "-", "."; an empty username and password; a non-empty
-//! opaque host of ASCII code points that are neither forbidden host code
-//! points nor in the C0 control percent-encode set; any port (below
-//! 2^16); a path that is a list of segments of ASCII code points outside
-//! the path percent-encode set, without "/", none a single-dot or
-//! double-dot segment; a query of ASCII code points outside the query
-//! percent-encode set; a fragment outside the fragment percent-encode set.
-//! Percent-encoded bytes ("%41") are allowed everywhere: "%" is in no set.
+//! **The class** is the URLs whose every component is already in the form
+//! the parser writes it in: a scheme other than "file", of an ASCII lower
+//! alpha then lower alphas, digits, "+", "-", "."; an empty username and
+//! password; a host of ASCII code points that are neither forbidden host
+//! code points nor in the C0 control percent-encode set, which is an
+//! opaque host if the scheme is not special, and otherwise a domain with
+//! no "%", that does not end in a number, and that the domain parser
+//! returns unchanged (a hypothesis about the domain parser, which is a
+//! parameter: `clazel-idna`'s does this for lowercase ASCII domains with no
+//! "xn--" label); a port below 2^16 that is not the scheme's default port;
+//! a path that is a list of segments (at least one if the scheme is
+//! special) of ASCII code points outside the path percent-encode set,
+//! without "/" (or "\" if special), none a single-dot or double-dot
+//! segment; a query outside the (special-)query percent-encode set; a
+//! fragment outside the fragment percent-encode set. Percent-encoded
+//! bytes ("%41") are allowed in the path, query and fragment: "%" is in no
+//! set.
 //!
-//! **Not covered** (a gap, recorded in docs/phases/phase-1.md): special
-//! schemes (their hosts go through the domain parser, which is a parameter
-//! here), credentials, an empty or null host, opaque paths, and "file"
-//! URLs. `tests/conformance_url.rs` checks the property on every WPT row
-//! and 200,000 random inputs, through the proven parser.
+//! **Not covered** (a gap, recorded in docs/phases/phase-1.md):
+//! credentials, IPv4 and IPv6 hosts, an empty or null host, opaque paths,
+//! "file" URLs, and domains the domain parser changes.
+//! `tests/conformance_url.rs` checks the property on every WPT row and
+//! 200,000 random inputs, through the proven parser.
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -42,29 +48,55 @@ pub open spec fn scheme_ok(s: Seq<u32>) -> bool {
         || s[k] == 0x2B || s[k] == 0x2D || s[k] == 0x2E)
 }
 
-/// An opaque host of the class: non-empty, ASCII, no forbidden host code
-/// point, nothing in the C0 control percent-encode set.
+/// Host code points of the class: ASCII, no forbidden host code point,
+/// nothing in the C0 control percent-encode set.
+pub open spec fn host_chars_ok(h: Seq<u32>) -> bool {
+    forall|k: int| 0 <= k < h.len() ==> (super::runs::outside(#[trigger] h[k], clazel_percent::spec::PercentEncodeSet::C0Control)
+        && !crate::host::spec::is_forbidden_host_code_point(h[k]))
+}
+
+/// An opaque host of the class.
 pub open spec fn opaque_host_ok(h: Seq<u32>) -> bool {
-    h.len() > 0 && forall|k: int| 0 <= k < h.len() ==> (super::runs::outside(
-        #[trigger] h[k],
-        clazel_percent::spec::PercentEncodeSet::C0Control,
-    ) && !crate::host::spec::is_forbidden_host_code_point(h[k]))
+    h.len() > 0 && host_chars_ok(h)
+}
+
+/// A domain of the class, for the domain parser `dp`: host code points
+/// with no "%", not ending in a number, and returned unchanged by `dp`.
+pub open spec fn domain_ok(d: Seq<u32>, dp: crate::host::spec::DomainParser) -> bool {
+    &&& d.len() > 0 && host_chars_ok(d)
+    &&& forall|k: int| 0 <= k < d.len() ==> #[trigger] d[k] != 0x25
+    &&& !crate::host::spec::ends_in_a_number(d)
+    &&& dp(d, false) == Some(d)
+}
+
+/// The host string of a URL of the class.
+pub open spec fn host_str(u: Url) -> Seq<u32> {
+    match u.host {
+        Some(crate::host::spec::Host::Opaque(h)) => h,
+        Some(crate::host::spec::Host::Domain(d)) => d,
+        _ => seq![],
+    }
 }
 
 /// A path segment of the class.
-pub open spec fn round_trip_segment(s: Seq<u32>) -> bool {
-    super::runs::path_segment_ok(s) && !is_single_dot_segment(s) && !is_double_dot_segment(s)
+pub open spec fn round_trip_segment(s: Seq<u32>, special: bool) -> bool {
+    super::runs::path_segment_ok(s, special) && !is_single_dot_segment(s) && !is_double_dot_segment(s)
 }
 
-/// The URLs this module proves the round trip for (see the module
-/// comment).
-pub open spec fn round_trip_url(u: Url) -> bool {
-    &&& scheme_ok(u.scheme) && !is_special_scheme(u.scheme)
+/// The URLs this module proves the round trip for, with the domain
+/// parser `dp` (see the module comment).
+pub open spec fn round_trip_url(u: Url, dp: crate::host::spec::DomainParser) -> bool {
+    &&& scheme_ok(u.scheme) && u.scheme != file_str()
     &&& u.username.len() == 0 && u.password.len() == 0
-    &&& u.host matches Some(crate::host::spec::Host::Opaque(h)) && opaque_host_ok(h)
-    &&& u.port matches Some(p) ==> p <= 0xFFFF
-    &&& u.path matches UrlPath::List(segs) && forall|i: int| 0 <= i < segs.len() ==> round_trip_segment(#[trigger] segs[i])
-    &&& u.query matches Some(q) ==> super::runs::outside_all(q, clazel_percent::spec::PercentEncodeSet::Query)
+    &&& if is_special(u) {
+        u.host matches Some(crate::host::spec::Host::Domain(d)) && domain_ok(d, dp)
+    } else {
+        u.host matches Some(crate::host::spec::Host::Opaque(h)) && opaque_host_ok(h)
+    }
+    &&& u.port matches Some(p) ==> p <= 0xFFFF && default_port(u.scheme) != Some(p)
+    &&& u.path matches UrlPath::List(segs) && (is_special(u) ==> segs.len() > 0) && forall|i: int|
+        0 <= i < segs.len() ==> round_trip_segment(#[trigger] segs[i], is_special(u))
+    &&& u.query matches Some(q) ==> super::runs::outside_all(q, super::runs::query_set(u))
     &&& u.fragment matches Some(f) ==> super::runs::outside_all(f, clazel_percent::spec::PercentEncodeSet::Fragment)
 }
 
@@ -83,20 +115,20 @@ pub open spec fn port_part(port: Option<nat>) -> Seq<u32> {
 /// The serialization's authority-and-path head: scheme "://" host
 /// [":" port] path.
 pub open spec fn head(u: Url) -> Seq<u32> {
-    let h = u.host->Some_0->Opaque_0;
+    let h = host_str(u);
     let segs = u.path->List_0;
     u.scheme + seq![0x3Au32, 0x2F, 0x2F] + h + port_part(u.port) + serialize_segments(segs)
 }
 
 /// The URL serializer on a URL of the class.
-proof fn lemma_serialization(u: Url)
+proof fn lemma_serialization(u: Url, dp: crate::host::spec::DomainParser)
     requires
-        round_trip_url(u),
+        round_trip_url(u, dp),
     ensures
         url_serializer(u, false) == super::independent::with_fragment(super::independent::with_query(head(u), u.query), u.fragment),
 {
-    let h = u.host->Some_0->Opaque_0;
-    assert(crate::host::spec::host_serializer(crate::host::spec::Host::Opaque(h)) == h);
+    let h = host_str(u);
+    assert(crate::host::spec::host_serializer(u.host->Some_0) == h);
     assert(u.scheme + seq![0x3Au32] + seq![0x2Fu32, 0x2F] + h =~= u.scheme + seq![0x3Au32, 0x2F, 0x2F] + h);
     match u.port {
         Some(p) => {
@@ -173,9 +205,9 @@ proof fn lemma_serialize_join(l: Seq<Seq<u32>>)
 
 /// The path state appends segments that are not dot segments as they
 /// are.
-proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>)
+proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>, special: bool)
     requires
-        forall|i: int| 0 <= i < segs.len() ==> round_trip_segment(#[trigger] segs[i]),
+        forall|i: int| 0 <= i < segs.len() ==> round_trip_segment(#[trigger] segs[i], special),
     ensures
         super::runs::path_model(l, segs) == l + segs,
     decreases segs.len(),
@@ -183,44 +215,41 @@ proof fn lemma_path_model_plain(l: Seq<Seq<u32>>, segs: Seq<Seq<u32>>)
     if segs.len() == 0 {
         assert(l + segs =~= l);
     } else if segs.len() == 1 {
-        assert(round_trip_segment(segs[0]));
+        assert(round_trip_segment(segs[0], special));
         assert(l.push(segs[0]) =~= l + segs);
     } else {
         let rest = segs.subrange(1, segs.len() as int);
-        assert(round_trip_segment(segs[0]));
-        assert forall|i: int| 0 <= i < rest.len() implies round_trip_segment(#[trigger] rest[i]) by {
+        assert(round_trip_segment(segs[0], special));
+        assert forall|i: int| 0 <= i < rest.len() implies round_trip_segment(#[trigger] rest[i], special) by {
             assert(rest[i] == segs[i + 1]);
         }
-        lemma_path_model_plain(l.push(segs[0]), rest);
+        lemma_path_model_plain(l.push(segs[0]), rest, special);
         assert(l.push(segs[0]) + rest =~= l + segs);
     }
 }
 
 /// `join(segs)` holds no "?", "#", ":" or "@", and no code point at or
 /// below U+0020 SPACE.
-proof fn lemma_join_plain(segs: Seq<Seq<u32>>)
+proof fn lemma_join_plain(segs: Seq<Seq<u32>>, special: bool)
     requires
-        forall|i: int| 0 <= i < segs.len() ==> super::runs::path_segment_ok(#[trigger] segs[i]),
+        forall|i: int| 0 <= i < segs.len() ==> super::runs::path_segment_ok(#[trigger] segs[i], special),
     ensures
-        forall|k: int| 0 <= k < super::runs::join(segs).len() ==> (super::runs::outside(
+        forall|k: int| 0 <= k < super::runs::join(segs).len() ==> (super::runs::path_char(
             #[trigger] super::runs::join(segs)[k],
-            clazel_percent::spec::PercentEncodeSet::Path,
+            special,
         ) || super::runs::join(segs)[k] == 0x2F),
     decreases segs.len(),
 {
     if segs.len() > 1 {
         let rest = segs.subrange(1, segs.len() as int);
-        assert forall|i: int| 0 <= i < rest.len() implies super::runs::path_segment_ok(#[trigger] rest[i]) by {
+        assert forall|i: int| 0 <= i < rest.len() implies super::runs::path_segment_ok(#[trigger] rest[i], special) by {
             assert(rest[i] == segs[i + 1]);
         }
-        lemma_join_plain(rest);
+        lemma_join_plain(rest, special);
         let j = super::runs::join(segs);
         assert(j == segs[0] + seq![0x2Fu32] + super::runs::join(rest));
-        assert(super::runs::path_segment_ok(segs[0]));
-        assert forall|k: int| 0 <= k < j.len() implies (super::runs::outside(
-            #[trigger] j[k],
-            clazel_percent::spec::PercentEncodeSet::Path,
-        ) || j[k] == 0x2F) by {
+        assert(super::runs::path_segment_ok(segs[0], special));
+        assert forall|k: int| 0 <= k < j.len() implies (super::runs::path_char(#[trigger] j[k], special) || j[k] == 0x2F) by {
             if k < segs[0].len() {
                 assert(j[k] == segs[0][k]);
             } else if k > segs[0].len() {
@@ -228,7 +257,7 @@ proof fn lemma_join_plain(segs: Seq<Seq<u32>>)
             }
         }
     } else if segs.len() == 1 {
-        assert(super::runs::path_segment_ok(segs[0]));
+        assert(super::runs::path_segment_ok(segs[0], special));
     }
 }
 
@@ -245,6 +274,44 @@ proof fn lemma_opaque_host(h: Seq<u32>, dp: crate::host::spec::DomainParser)
     }
     super::runs::lemma_encode_identity(h, clazel_percent::spec::PercentEncodeSet::C0Control);
     assert(!crate::host::spec::is_forbidden_host_code_point(h[0]));
+}
+
+/// Host parser steps 4 and 5 on a domain of the class: percent-decoding
+/// and UTF-8 decoding give it back.
+proof fn lemma_domain_decode(d: Seq<u32>)
+    requires
+        forall|k: int| 0 <= k < d.len() ==> #[trigger] d[k] <= 0x7F && d[k] != 0x25,
+    ensures
+        crate::host::contract::host_parser_domain(d) == d,
+{
+    assert(clazel_percent::lemmas::all_ascii(d));
+    clazel_percent::lemmas::lemma_utf8_encode_ascii(d);
+    let bytes = clazel_encoding::utf8::spec::utf8_encode(d);
+    assert(clazel_percent::spec::isomorphic_decode(bytes) =~= d) by {
+        assert forall|k: int| 0 <= k < d.len() implies clazel_percent::spec::isomorphic_decode(bytes)[k] == d[k] by {
+            assert(bytes[k] as u32 == d[k]);
+        }
+    }
+    assert forall|k: int| !clazel_percent::spec::is_percent_encoded_byte_at(clazel_percent::spec::isomorphic_decode(bytes), k) by {
+        if 0 <= k < d.len() {
+            assert(d[k] != 0x25);
+        }
+    }
+    clazel_percent::lemmas::lemma_no_percent_encoded_bytes(bytes);
+    assert(clazel_encoding::utf8::spec::all_scalar_values(d));
+    clazel_encoding::utf8::lemmas::lemma_decode_encode(d);
+}
+
+/// The host parser on a domain of the class, with isOpaque false, gives
+/// it back, for a domain parser that does.
+proof fn lemma_domain_host(d: Seq<u32>, dp: crate::host::spec::DomainParser)
+    requires
+        domain_ok(d, dp),
+    ensures
+        crate::host::spec::host_parser(d, false, dp) == Some(crate::host::spec::Host::Domain(d)),
+{
+    lemma_domain_decode(d);
+    assert(!crate::host::spec::is_forbidden_host_code_point(d[0]));
 }
 
 /// No forbidden host code point from `i` on.
@@ -278,19 +345,39 @@ proof fn lemma_path_or_authority_step(ctx: Ctx, m: Machine)
     reveal(state_step);
 }
 
+/// The special authority slashes state at "//" then the special authority
+/// ignore slashes state at a code point that is not a slash go to the
+/// authority state there.
+proof fn lemma_special_slashes_steps(ctx: Ctx, m: Machine)
+    requires
+        m.state is SpecialAuthoritySlashes,
+        0 <= m.pointer,
+        m.pointer + 2 < ctx.input.len(),
+        ctx.input[m.pointer] == 0x2F && ctx.input[m.pointer + 1] == 0x2F,
+        ctx.input[m.pointer + 2] != 0x2F && ctx.input[m.pointer + 2] != 0x5C,
+    ensures
+        run(ctx, m) == run(ctx, Machine { state: State::Authority, pointer: m.pointer + 2, ..m }),
+{
+    reveal(state_step);
+    let m1 = Machine { state: State::SpecialAuthorityIgnoreSlashes, pointer: m.pointer + 2, ..m };
+    assert(run(ctx, m) == run(ctx, m1));
+}
+
 /// The scheme state over the rest of a scheme of the class and its ":",
-/// followed by "//", goes to the authority state after the "//".
+/// followed by "//" and a code point that is not a slash, goes to the
+/// authority state after the "//".
 proof fn lemma_scheme_run(ctx: Ctx, m: Machine, n: int)
     requires
         m.state is Scheme,
         ctx.state_override is None,
         ctx.base is None,
         1 <= m.pointer <= n,
-        n + 2 < ctx.input.len(),
+        n + 3 < ctx.input.len(),
         scheme_ok(ctx.input.subrange(0, n)),
-        !is_special_scheme(ctx.input.subrange(0, n)),
+        ctx.input.subrange(0, n) != file_str(),
         m.buffer == ctx.input.subrange(0, m.pointer),
         ctx.input[n] == 0x3A && ctx.input[n + 1] == 0x2F && ctx.input[n + 2] == 0x2F,
+        ctx.input[n + 3] != 0x2F && ctx.input[n + 3] != 0x5C,
     ensures
         run(ctx, m) == run(
             ctx,
@@ -314,19 +401,23 @@ proof fn lemma_scheme_run(ctx: Ctx, m: Machine, n: int)
         assert(m.buffer.push(c) =~= ctx.input.subrange(0, p + 1));
         lemma_scheme_run(ctx, Machine { buffer: m.buffer.push(ascii_lowercase(c)), pointer: p + 1, ..m }, n);
     } else {
-        assert(scheme != file_str()) by {
-            assert(is_special_scheme(file_str()));
+        let u1 = Url { scheme: scheme, ..m.url };
+        if is_special_scheme(scheme) {
+            let m3 = Machine { url: u1, buffer: seq![], state: State::SpecialAuthoritySlashes, pointer: n + 1, ..m };
+            assert(run(ctx, m) == run(ctx, m3));
+            lemma_special_slashes_steps(ctx, m3);
+        } else {
+            let m3 = Machine { url: u1, buffer: seq![], state: State::PathOrAuthority, pointer: n + 2, ..m };
+            assert(run(ctx, m) == run(ctx, m3));
+            lemma_path_or_authority_step(ctx, m3);
         }
-        let m3 = Machine {
-            url: Url { scheme: scheme, ..m.url },
-            buffer: seq![],
-            state: State::PathOrAuthority,
-            pointer: n + 2,
-            ..m
-        };
-        assert(run(ctx, m) == run(ctx, m3));
-        lemma_path_or_authority_step(ctx, m3);
     }
+}
+
+/// `c` is the end of an authority: "/", "?", "#" (or "\\" in a special
+/// URL).
+pub open spec fn authority_end(c: u32, special: bool) -> bool {
+    super::independent::is_slash_question_hash(c) || (special && c == 0x5C)
 }
 
 /// The authority state over an authority with no "@", up to its end `t`
@@ -335,13 +426,10 @@ proof fn lemma_scheme_run(ctx: Ctx, m: Machine, n: int)
 proof fn lemma_authority_run(ctx: Ctx, m: Machine, a: int, t: int)
     requires
         m.state is Authority,
-        !is_special(m.url),
         !m.at_sign_seen,
         1 <= a <= m.pointer <= t <= ctx.input.len(),
         m.buffer == ctx.input.subrange(a, m.pointer),
-        forall|j: int| a <= j < t ==> (#[trigger] ctx.input[j] != 0x40 && !super::independent::is_slash_question_hash(
-            ctx.input[j],
-        )),
+        forall|j: int| a <= j < t ==> (#[trigger] ctx.input[j] != 0x40 && !authority_end(ctx.input[j], is_special(m.url))),
         t == ctx.input.len() || super::independent::is_slash_question_hash(ctx.input[t]),
     ensures
         run(ctx, m) == run(ctx, Machine { buffer: seq![], state: State::Host, pointer: a, ..m }),
@@ -356,22 +444,34 @@ proof fn lemma_authority_run(ctx: Ctx, m: Machine, a: int, t: int)
     }
 }
 
-/// The host state over an opaque host of the class, up to `k` (":" for a
+/// The host the host parser makes of a host string of the class.
+pub open spec fn parsed_host(h: Seq<u32>, special: bool) -> crate::host::spec::Host {
+    if special {
+        crate::host::spec::Host::Domain(h)
+    } else {
+        crate::host::spec::Host::Opaque(h)
+    }
+}
+
+/// The host state over a host string of the class, up to `k` (":" for a
 /// port, or the authority's end): the host is set.
 proof fn lemma_host_run(ctx: Ctx, m: Machine, a: int, k: int)
     requires
         m.state is Host,
-        !is_special(m.url),
         ctx.state_override is None,
         !m.inside_brackets,
         0 <= a <= m.pointer <= k <= ctx.input.len(),
         a < k,
         m.buffer == ctx.input.subrange(a, m.pointer),
-        opaque_host_ok(ctx.input.subrange(a, k)),
+        if is_special(m.url) {
+            domain_ok(ctx.input.subrange(a, k), ctx.domain_parser)
+        } else {
+            opaque_host_ok(ctx.input.subrange(a, k))
+        },
         k == ctx.input.len() || ctx.input[k] == 0x3A || super::independent::is_slash_question_hash(ctx.input[k]),
     ensures
         ({
-            let url = Url { host: Some(crate::host::spec::Host::Opaque(ctx.input.subrange(a, k))), ..m.url };
+            let url = Url { host: Some(parsed_host(ctx.input.subrange(a, k), is_special(m.url))), ..m.url };
             &&& (k < ctx.input.len() && ctx.input[k] == 0x3A) ==> run(ctx, m) == run(
                 ctx,
                 Machine { url: url, buffer: seq![], state: State::Port, pointer: k + 1, ..m },
@@ -386,6 +486,7 @@ proof fn lemma_host_run(ctx: Ctx, m: Machine, a: int, k: int)
     reveal(state_step);
     let p = m.pointer;
     let h = ctx.input.subrange(a, k);
+    assert(host_chars_ok(h));
     if p < k {
         let c = ctx.input[p];
         assert(c == h[p - a]);
@@ -394,18 +495,22 @@ proof fn lemma_host_run(ctx: Ctx, m: Machine, a: int, k: int)
         lemma_host_run(ctx, Machine { buffer: m.buffer.push(c), pointer: p + 1, ..m }, a, k);
     } else {
         assert(m.buffer =~= h);
-        lemma_opaque_host(h, ctx.domain_parser);
+        if is_special(m.url) {
+            lemma_domain_host(h, ctx.domain_parser);
+        } else {
+            lemma_opaque_host(h, ctx.domain_parser);
+        }
     }
 }
 
 /// The port state over a serialized port up to `t` (the authority's
-/// end): the port is set (a non-special scheme has no default port).
+/// end): the port is set (it is not the scheme's default port).
 proof fn lemma_port_run(ctx: Ctx, m: Machine, port: nat, t: int)
     requires
         m.state is Port,
-        !is_special(m.url),
         ctx.state_override is None,
         port <= 0xFFFF,
+        default_port(m.url.scheme) != Some(port),
         0 <= m.pointer <= t <= ctx.input.len(),
         m.buffer + ctx.input.subrange(m.pointer, t) == crate::host::spec::serialize_integer(port),
         super::machine::all_ascii_digits(ctx.input.subrange(m.pointer, t)),
@@ -434,31 +539,33 @@ proof fn lemma_port_run(ctx: Ctx, m: Machine, port: nat, t: int)
     } else {
         assert(m.buffer =~= crate::host::spec::serialize_integer(port));
         lemma_serialize_integer(port);
-        assert(default_port(m.url.scheme) is None);
     }
 }
 
-/// The path start state of a non-special URL.
+/// The path start state: at "/" it goes to the path state after it; in a
+/// non-special URL, at "?" or "#" to the query or fragment state, and at
+/// the end the parser returns url.
 proof fn lemma_path_start_run(ctx: Ctx, m: Machine)
     requires
         m.state is PathStart,
-        !is_special(m.url),
         ctx.state_override is None,
         0 <= m.pointer <= ctx.input.len(),
     ensures
         ({
             let p = m.pointer;
             let len = ctx.input.len() as int;
-            &&& p == len ==> run(ctx, m) == Some(m.url)
             &&& (p < len && ctx.input[p] == 0x2F) ==> run(ctx, m) == run(ctx, Machine { state: State::Path, pointer: p + 1, ..m })
-            &&& (p < len && ctx.input[p] == 0x3F) ==> run(ctx, m) == run(
-                ctx,
-                Machine { url: Url { query: Some(seq![]), ..m.url }, state: State::Query, pointer: p + 1, ..m },
-            )
-            &&& (p < len && ctx.input[p] == 0x23) ==> run(ctx, m) == run(
-                ctx,
-                Machine { url: Url { fragment: Some(seq![]), ..m.url }, state: State::Fragment, pointer: p + 1, ..m },
-            )
+            &&& !is_special(m.url) ==> {
+                &&& p == len ==> run(ctx, m) == Some(m.url)
+                &&& (p < len && ctx.input[p] == 0x3F) ==> run(ctx, m) == run(
+                    ctx,
+                    Machine { url: Url { query: Some(seq![]), ..m.url }, state: State::Query, pointer: p + 1, ..m },
+                )
+                &&& (p < len && ctx.input[p] == 0x23) ==> run(ctx, m) == run(
+                    ctx,
+                    Machine { url: Url { fragment: Some(seq![]), ..m.url }, state: State::Fragment, pointer: p + 1, ..m },
+                )
+            }
         }),
 {
     reveal(state_step);
@@ -469,11 +576,10 @@ proof fn lemma_path_start_run(ctx: Ctx, m: Machine)
 proof fn lemma_round_trip_tail(ctx: Ctx, url: Url, m: Machine, e: int, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
     requires
         ctx.state_override is None,
-        !is_special(url),
         url.query is None && url.fragment is None,
         0 <= e <= ctx.input.len(),
         ctx.input == super::independent::with_fragment(super::independent::with_query(ctx.input.subrange(0, e), query), fragment),
-        query matches Some(q) ==> super::runs::outside_all(q, clazel_percent::spec::PercentEncodeSet::Query),
+        query matches Some(q) ==> super::runs::outside_all(q, super::runs::query_set(url)),
         fragment matches Some(f) ==> super::runs::outside_all(f, clazel_percent::spec::PercentEncodeSet::Fragment),
     ensures
         e == ctx.input.len() ==> query is None && fragment is None,
@@ -552,25 +658,138 @@ proof fn lemma_round_trip_tail(ctx: Ctx, url: Url, m: Machine, e: int, query: Op
 // The theorem.
 // ---------------------------------------------------------------------
 
+/// Where the serialization's parts start: the authority (`a`), the port
+/// part (`k`), the path (`t`), and the query or fragment (`e`).
+pub open spec fn pos_a(u: Url) -> int {
+    u.scheme.len() as int + 3
+}
+
+/// The port part's start.
+pub open spec fn pos_k(u: Url) -> int {
+    pos_a(u) + host_str(u).len() as int
+}
+
+/// The path's start.
+pub open spec fn pos_t(u: Url) -> int {
+    pos_k(u) + port_part(u.port).len() as int
+}
+
+/// The path's end.
+pub open spec fn pos_e(u: Url) -> int {
+    pos_t(u) + serialize_segments(u.path->List_0).len() as int
+}
+
 /// The code points of a serialization of the class are above U+0020
-/// SPACE, and its parts sit where [`head`] says.
-proof fn lemma_serialization_chars(u: Url)
+/// SPACE, and its parts sit where [`pos_a`] and the others say.
+proof fn lemma_layout(u: Url, dp: crate::host::spec::DomainParser)
     requires
-        round_trip_url(u),
+        round_trip_url(u, dp),
     ensures
-        super::runs::no_c0_or_space(url_serializer(u, false)),
+        ({
+            let s = url_serializer(u, false);
+            let h = host_str(u);
+            let segs = u.path->List_0;
+            let n = u.scheme.len() as int;
+            let (a, k, t, e) = (pos_a(u), pos_k(u), pos_t(u), pos_e(u));
+            &&& super::runs::no_c0_or_space(s)
+            &&& a < k && k <= t && t <= e && e <= s.len()
+            &&& s == super::independent::with_fragment(super::independent::with_query(s.subrange(0, e), u.query), u.fragment)
+            &&& s.subrange(0, n) == u.scheme && s[n] == 0x3A && s[n + 1] == 0x2F && s[n + 2] == 0x2F
+            &&& s[a] != 0x2F && s[a] != 0x5C
+            &&& s.subrange(a, k) == h
+            &&& forall|j: int| a <= j < t ==> (#[trigger] s[j] != 0x40 && !authority_end(s[j], is_special(u)))
+            &&& t == s.len() || super::independent::is_slash_question_hash(s[t])
+            &&& k == s.len() || s[k] == 0x3A || super::independent::is_slash_question_hash(s[k])
+            &&& (u.port matches Some(port) ==> s[k] == 0x3A && s.subrange(k + 1, t) == crate::host::spec::serialize_integer(port))
+            &&& (u.port is None ==> k == t)
+            &&& (segs.len() > 0 ==> s[t] == 0x2F && s.subrange(t + 1, e) == super::runs::join(segs))
+            &&& (segs.len() == 0 ==> e == t)
+        }),
 {
     let s = url_serializer(u, false);
-    lemma_serialization(u);
-    let h = u.host->Some_0->Opaque_0;
+    lemma_serialization(u, dp);
+    let h = host_str(u);
     let segs = u.path->List_0;
     let sp = serialize_segments(segs);
     let pp = port_part(u.port);
     let hd = head(u);
     let n = u.scheme.len() as int;
-    let a = n + 3;
-    let k = a + h.len();
-    let t = k + pp.len();
+    let (a, k, t, e) = (pos_a(u), pos_k(u), pos_t(u), pos_e(u));
+    assert(host_chars_ok(h) && h.len() > 0);
+    assert(s.subrange(0, e) =~= hd) by {
+        match (u.query, u.fragment) {
+            (Some(q), Some(f)) => assert(s =~= hd + seq![0x3Fu32] + q + seq![0x23u32] + f),
+            (Some(q), None) => assert(s =~= hd + seq![0x3Fu32] + q),
+            (None, Some(f)) => assert(s =~= hd + seq![0x23u32] + f),
+            (None, None) => {},
+        }
+    }
+    assert(forall|i: int| 0 <= i < e ==> s[i] == hd[i]);
+    assert(s.subrange(0, n) =~= u.scheme);
+    assert(s.subrange(a, k) =~= h);
+    assert(s[a] == h[0]);
+    if segs.len() > 0 {
+        lemma_serialize_join(segs);
+        lemma_join_plain(segs, is_special(u));
+        assert(s.subrange(t + 1, e) =~= super::runs::join(segs)) by {
+            assert forall|i: int| 0 <= i < e - t - 1 implies s.subrange(t + 1, e)[i] == super::runs::join(segs)[i] by {
+                assert(hd[t + 1 + i] == sp[i + 1]);
+            }
+        }
+    }
+    assert(t == s.len() || super::independent::is_slash_question_hash(s[t])) by {
+        if t < s.len() {
+            if segs.len() > 0 {
+                assert(hd[t] == sp[0]);
+            } else {
+                super::independent::lemma_tail_delimiter(s, e, u.query, u.fragment);
+            }
+        }
+    }
+    if let Some(port) = u.port {
+        lemma_serialize_integer(port);
+        assert(hd[k] == pp[0]);
+        assert(s.subrange(k + 1, t) =~= crate::host::spec::serialize_integer(port)) by {
+            assert forall|j: int| 0 <= j < t - k - 1 implies s.subrange(k + 1, t)[j] == crate::host::spec::serialize_integer(port)[j] by {
+                assert(hd[k + 1 + j] == pp[j + 1]);
+            }
+        }
+    }
+    assert forall|j: int| a <= j < t implies (#[trigger] s[j] != 0x40 && !authority_end(s[j], is_special(u))) by {
+        if j < k {
+            assert(hd[j] == h[j - a]);
+            assert(!crate::host::spec::is_forbidden_host_code_point(h[j - a]));
+        } else {
+            assert(hd[j] == pp[j - k]);
+            if let Some(port) = u.port {
+                lemma_serialize_integer(port);
+                if j > k {
+                    assert(pp[j - k] == crate::host::spec::serialize_integer(port)[j - k - 1]);
+                }
+            }
+        }
+    }
+    lemma_layout_chars(u, dp);
+}
+
+/// The code points of a serialization of the class are above U+0020
+/// SPACE.
+proof fn lemma_layout_chars(u: Url, dp: crate::host::spec::DomainParser)
+    requires
+        round_trip_url(u, dp),
+    ensures
+        super::runs::no_c0_or_space(url_serializer(u, false)),
+{
+    let s = url_serializer(u, false);
+    lemma_serialization(u, dp);
+    let h = host_str(u);
+    let segs = u.path->List_0;
+    let sp = serialize_segments(segs);
+    let pp = port_part(u.port);
+    let hd = head(u);
+    let n = u.scheme.len() as int;
+    let (a, k, t) = (pos_a(u), pos_k(u), pos_t(u));
+    assert(host_chars_ok(h));
     assert forall|i: int| 0 <= i < pp.len() implies #[trigger] pp[i] > 0x20 by {
         if let Some(port) = u.port {
             lemma_serialize_integer(port);
@@ -582,7 +801,7 @@ proof fn lemma_serialization_chars(u: Url)
     assert forall|i: int| 0 <= i < sp.len() implies #[trigger] sp[i] > 0x20 by {
         if segs.len() > 0 {
             lemma_serialize_join(segs);
-            lemma_join_plain(segs);
+            lemma_join_plain(segs, is_special(u));
             if i > 0 {
                 assert(sp[i] == super::runs::join(segs)[i - 1]);
             }
@@ -638,114 +857,6 @@ proof fn lemma_scheme_start_step(ctx: Ctx, m: Machine)
     reveal(state_step);
 }
 
-/// Where the serialization's parts start: the authority (`a`), the port
-/// part (`k`), the path (`t`), and the query or fragment (`e`).
-pub open spec fn pos_a(u: Url) -> int {
-    u.scheme.len() as int + 3
-}
-
-/// The port part's start.
-pub open spec fn pos_k(u: Url) -> int {
-    pos_a(u) + u.host->Some_0->Opaque_0.len() as int
-}
-
-/// The path's start.
-pub open spec fn pos_t(u: Url) -> int {
-    pos_k(u) + port_part(u.port).len() as int
-}
-
-/// The path's end.
-pub open spec fn pos_e(u: Url) -> int {
-    pos_t(u) + serialize_segments(u.path->List_0).len() as int
-}
-
-/// The facts about the serialization's layout the runs need.
-proof fn lemma_layout(u: Url)
-    requires
-        round_trip_url(u),
-    ensures
-        ({
-            let s = url_serializer(u, false);
-            let h = u.host->Some_0->Opaque_0;
-            let segs = u.path->List_0;
-            let n = u.scheme.len() as int;
-            let (a, k, t, e) = (pos_a(u), pos_k(u), pos_t(u), pos_e(u));
-            &&& e <= s.len()
-            &&& s == super::independent::with_fragment(super::independent::with_query(s.subrange(0, e), u.query), u.fragment)
-            &&& s.subrange(0, n) == u.scheme && s[n] == 0x3A && s[n + 1] == 0x2F && s[n + 2] == 0x2F
-            &&& s.subrange(a, k) == h
-            &&& forall|j: int| a <= j < t ==> (#[trigger] s[j] != 0x40 && !super::independent::is_slash_question_hash(s[j]))
-            &&& t == s.len() || super::independent::is_slash_question_hash(s[t])
-            &&& k == s.len() || s[k] == 0x3A || super::independent::is_slash_question_hash(s[k])
-            &&& (u.port matches Some(port) ==> s[k] == 0x3A && s.subrange(k + 1, t) == crate::host::spec::serialize_integer(port))
-            &&& (u.port is None ==> k == t)
-            &&& (segs.len() > 0 ==> s[t] == 0x2F && s.subrange(t + 1, e) == super::runs::join(segs))
-            &&& (segs.len() == 0 ==> e == t)
-        }),
-{
-    let s = url_serializer(u, false);
-    lemma_serialization(u);
-    let h = u.host->Some_0->Opaque_0;
-    let segs = u.path->List_0;
-    let sp = serialize_segments(segs);
-    let pp = port_part(u.port);
-    let hd = head(u);
-    let n = u.scheme.len() as int;
-    let (a, k, t, e) = (pos_a(u), pos_k(u), pos_t(u), pos_e(u));
-    assert(s.subrange(0, e) =~= hd) by {
-        match (u.query, u.fragment) {
-            (Some(q), Some(f)) => assert(s =~= hd + seq![0x3Fu32] + q + seq![0x23u32] + f),
-            (Some(q), None) => assert(s =~= hd + seq![0x3Fu32] + q),
-            (None, Some(f)) => assert(s =~= hd + seq![0x23u32] + f),
-            (None, None) => {},
-        }
-    }
-    assert(forall|i: int| 0 <= i < e ==> s[i] == hd[i]);
-    assert(s.subrange(0, n) =~= u.scheme);
-    assert(s.subrange(a, k) =~= h);
-    if segs.len() > 0 {
-        lemma_serialize_join(segs);
-        lemma_join_plain(segs);
-        assert(s.subrange(t + 1, e) =~= super::runs::join(segs)) by {
-            assert forall|i: int| 0 <= i < e - t - 1 implies s.subrange(t + 1, e)[i] == super::runs::join(segs)[i] by {
-                assert(hd[t + 1 + i] == sp[i + 1]);
-            }
-        }
-    }
-    assert(t == s.len() || super::independent::is_slash_question_hash(s[t])) by {
-        if t < s.len() {
-            if segs.len() > 0 {
-                assert(hd[t] == sp[0]);
-            } else {
-                super::independent::lemma_tail_delimiter(s, e, u.query, u.fragment);
-            }
-        }
-    }
-    if let Some(port) = u.port {
-        lemma_serialize_integer(port);
-        assert(hd[k] == pp[0]);
-        assert(s.subrange(k + 1, t) =~= crate::host::spec::serialize_integer(port)) by {
-            assert forall|j: int| 0 <= j < t - k - 1 implies s.subrange(k + 1, t)[j] == crate::host::spec::serialize_integer(port)[j] by {
-                assert(hd[k + 1 + j] == pp[j + 1]);
-            }
-        }
-    }
-    assert forall|j: int| a <= j < t implies (#[trigger] s[j] != 0x40 && !super::independent::is_slash_question_hash(s[j])) by {
-        if j < k {
-            assert(hd[j] == h[j - a]);
-            assert(!crate::host::spec::is_forbidden_host_code_point(h[j - a]));
-        } else {
-            assert(hd[j] == pp[j - k]);
-            if let Some(port) = u.port {
-                lemma_serialize_integer(port);
-                if j > k {
-                    assert(pp[j - k] == crate::host::spec::serialize_integer(port)[j - k - 1]);
-                }
-            }
-        }
-    }
-}
-
 /// The parser's context on the serialization of `u`.
 pub open spec fn rt_ctx(u: Url, dp: crate::host::spec::DomainParser) -> Ctx {
     Ctx { input: url_serializer(u, false), base: None, state_override: None, domain_parser: dp }
@@ -766,7 +877,7 @@ pub open spec fn rt_path_start(u: Url) -> Machine {
 /// and port states.
 proof fn lemma_authority_part(u: Url, dp: crate::host::spec::DomainParser)
     requires
-        round_trip_url(u),
+        round_trip_url(u, dp),
     ensures
         run(
             rt_ctx(u, dp),
@@ -779,10 +890,10 @@ proof fn lemma_authority_part(u: Url, dp: crate::host::spec::DomainParser)
             },
         ) == run(rt_ctx(u, dp), rt_path_start(u)),
 {
-    lemma_layout(u);
+    lemma_layout(u, dp);
     let ctx = rt_ctx(u, dp);
     let s = ctx.input;
-    let h = u.host->Some_0->Opaque_0;
+    let h = host_str(u);
     let (a, k, t) = (pos_a(u), pos_k(u), pos_t(u));
     let u1 = Url { scheme: u.scheme, ..new_url() };
     let m2 = Machine { url: u1, buffer: seq![], state: State::Authority, pointer: a, ..super::lemmas::initial_machine() };
@@ -790,7 +901,8 @@ proof fn lemma_authority_part(u: Url, dp: crate::host::spec::DomainParser)
     lemma_authority_run(ctx, m2, a, t);
     let m3 = Machine { buffer: seq![], state: State::Host, pointer: a, ..m2 };
     lemma_host_run(ctx, m3, a, k);
-    let u2 = Url { host: Some(crate::host::spec::Host::Opaque(h)), ..u1 };
+    assert(parsed_host(h, is_special(u)) == u.host->Some_0);
+    let u2 = Url { host: u.host, ..u1 };
     if let Some(port) = u.port {
         let m4 = Machine { url: u2, buffer: seq![], state: State::Port, pointer: k + 1, ..m3 };
         lemma_serialize_integer(port);
@@ -804,11 +916,11 @@ proof fn lemma_authority_part(u: Url, dp: crate::host::spec::DomainParser)
 /// fragment states.
 proof fn lemma_path_part(u: Url, dp: crate::host::spec::DomainParser)
     requires
-        round_trip_url(u),
+        round_trip_url(u, dp),
     ensures
         run(rt_ctx(u, dp), rt_path_start(u)) == Some(u),
 {
-    lemma_layout(u);
+    lemma_layout(u, dp);
     let ctx = rt_ctx(u, dp);
     let s = ctx.input;
     let len = s.len() as int;
@@ -823,9 +935,9 @@ proof fn lemma_path_part(u: Url, dp: crate::host::spec::DomainParser)
     }
     if segs.len() > 0 {
         let m6 = Machine { state: State::Path, pointer: t + 1, ..m5 };
-        assert(forall|i: int| 0 <= i < segs.len() ==> super::runs::path_segment_ok(#[trigger] segs[i])) by {
-            assert forall|i: int| 0 <= i < segs.len() implies super::runs::path_segment_ok(#[trigger] segs[i]) by {
-                assert(round_trip_segment(segs[i]));
+        assert(forall|i: int| 0 <= i < segs.len() ==> super::runs::path_segment_ok(#[trigger] segs[i], is_special(u))) by {
+            assert forall|i: int| 0 <= i < segs.len() implies super::runs::path_segment_ok(#[trigger] segs[i], is_special(u)) by {
+                assert(round_trip_segment(segs[i], is_special(u)));
             }
         }
         lemma_serialize_join(segs);
@@ -835,7 +947,7 @@ proof fn lemma_path_part(u: Url, dp: crate::host::spec::DomainParser)
             super::independent::lemma_tail_delimiter(s, e, u.query, u.fragment);
         }
         super::runs::lemma_path_run(ctx, m6, seq![], segs);
-        lemma_path_model_plain(seq![], segs);
+        lemma_path_model_plain(seq![], segs, is_special(u));
         assert(Seq::<Seq<u32>>::empty() + segs =~= segs);
         let u4 = Url { path: UrlPath::List(segs), ..u3 };
         lemma_round_trip_tail(ctx, u4, m6, e, u.query, u.fragment);
@@ -846,17 +958,17 @@ proof fn lemma_path_part(u: Url, dp: crate::host::spec::DomainParser)
     }
 }
 
-/// **Theorem.** For every URL of the class and every domain parser, the
-/// basic URL parser on its serialization, with no base, returns it.
+/// **Theorem.** For every domain parser and every URL of the class (for
+/// that domain parser), the basic URL parser on its serialization, with no
+/// base, returns it.
 pub proof fn lemma_serialize_parse(u: Url, dp: crate::host::spec::DomainParser)
     requires
-        round_trip_url(u),
+        round_trip_url(u, dp),
     ensures
         basic_url_parser(url_serializer(u, false), None, dp) == Some(u),
 {
     let s = url_serializer(u, false);
-    lemma_layout(u);
-    lemma_serialization_chars(u);
+    lemma_layout(u, dp);
     super::runs::lemma_prepared_identity(s);
     let ctx = rt_ctx(u, dp);
     let n = u.scheme.len() as int;
@@ -874,12 +986,12 @@ pub proof fn lemma_serialize_parse(u: Url, dp: crate::host::spec::DomainParser)
     lemma_path_part(u, dp);
 }
 
-/// URL Goals, for the class: if parsing an input (against any base, with
-/// any domain parser) gives a URL of the class, parsing its serialization
-/// again and serializing gives the same string.
+/// URL Goals, for the class: if parsing an input (against any base) gives
+/// a URL of the class, parsing its serialization again and serializing
+/// gives the same string.
 pub proof fn lemma_idempotent(input: Seq<u32>, base: Option<Url>, dp: crate::host::spec::DomainParser)
     requires
-        basic_url_parser(input, base, dp) matches Some(u) && round_trip_url(u),
+        basic_url_parser(input, base, dp) matches Some(u) && round_trip_url(u, dp),
     ensures
         ({
             let u = basic_url_parser(input, base, dp)->Some_0;

@@ -936,7 +936,7 @@ proof fn lemma_reference_absolute(base: Url, segs: Seq<Seq<u32>>, query: Option<
     if e < len {
         lemma_tail_delimiter(r, e, query, fragment);
     }
-    super::runs::lemma_segments_path_ok(segs);
+    super::runs::lemma_segments_path_ok(segs, false);
     super::runs::lemma_path_run(ctx, m4, seq![], segs);
     lemma_tail(ctx, Url { path: UrlPath::List(super::runs::path_model(seq![], segs)), ..u_path }, m4, e, query, fragment);
     assert(Url { query: query, fragment: fragment, path: UrlPath::List(super::runs::path_model(seq![], segs)), ..u_path }
@@ -1019,7 +1019,7 @@ proof fn lemma_reference_relative(base: Url, segs: Seq<Seq<u32>>, query: Option<
     if e < len {
         lemma_tail_delimiter(r, e, query, fragment);
     }
-    super::runs::lemma_segments_path_ok(segs);
+    super::runs::lemma_segments_path_ok(segs, false);
     super::runs::lemma_path_run(ctx, m4, shortened, segs);
     lemma_tail(ctx, Url { path: UrlPath::List(super::runs::path_model(shortened, segs)), ..u_path }, m4, e, query, fragment);
     assert(Url { query: query, fragment: fragment, path: UrlPath::List(super::runs::path_model(shortened, segs)), ..u_path }
@@ -1891,41 +1891,67 @@ proof fn lemma_parse_base(base: Url)
     lemma_parse_tail(s, j, base.query, None);
 }
 
-/// RFC 3986 resolution of a reference of the class against the
-/// serialization of a base of the class is the serialization of the URL
-/// the basic URL parser returns.
-proof fn lemma_rfc_reference(base: Url, absolute: bool, segs: Seq<Seq<u32>>, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
+/// The target's path, for a relative-path reference: remove_dot_segments
+/// of the merged path is the serialization of the path state's result
+/// from base's shortened path.
+proof fn lemma_rfc_relative_path(base: Url, segs: Seq<Seq<u32>>)
+    requires
+        rfc_base(base),
+        segs.len() > 0,
+        segs[0].len() > 0,
+        forall|i: int| 0 <= i < segs.len() ==> super::runs::segment_ok(#[trigger] segs[i]),
+    ensures
+        ({
+            let bc = rfc_parse(url_serializer(base, false));
+            remove_dot_segments(merge(bc, super::runs::join(segs))) == serialize_segments(
+                super::runs::path_model(super::runs::shorten_list(base_segments(base)), segs),
+            )
+        }),
+{
+    let bsegs = base_segments(base);
+    let j = super::runs::join(segs);
+    lemma_parse_base(base);
+    let bc = rfc_parse(url_serializer(base, false));
+    assert(forall|i: int| 0 <= i < bsegs.len() ==> super::runs::all_alphanumeric(#[trigger] bsegs[i]));
+    let l = super::runs::shorten_list(bsegs);
+    assert forall|i: int| 0 <= i < l.len() implies super::runs::all_alphanumeric(#[trigger] l[i]) by {
+        assert(l[i] == bsegs[i]);
+    }
+    lemma_serialize_last_slash(bsegs);
+    let merged = merge(bc, j);
+    if bsegs.len() > 0 {
+        let st = serialize_segments(bsegs.drop_last());
+        assert(serialize_segments(bsegs) == st + seq![0x2Fu32] + bsegs.last());
+        assert(serialize_segments(bsegs).subrange(0, st.len() as int + 1) =~= st + seq![0x2Fu32]);
+        assert(merged =~= serialize_segments(l) + (seq![0x2Fu32] + j));
+    } else {
+        assert(serialize_segments(bsegs).len() == 0);
+        assert(merged =~= serialize_segments(l) + (seq![0x2Fu32] + j));
+    }
+    lemma_rds_prefix(l, seq![0x2Fu32] + j, seq![]);
+    assert(Seq::<u32>::empty() + serialize_segments(l) =~= serialize_segments(l));
+    lemma_rds_segments(l, segs);
+}
+
+/// The target's path is the serialization of the resolved URL's path.
+proof fn lemma_rfc_path(base: Url, absolute: bool, segs: Seq<Seq<u32>>, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
     requires
         rfc_base(base),
         rfc_reference(absolute, segs, query, fragment),
     ensures
-        url_serializer(resolved_url(base, absolute, segs, query, fragment), false) == rfc_resolve(
-            ref_string(absolute, segs, query, fragment),
-            url_serializer(base, false),
-        ),
+        transform(rfc_parse(ref_string(absolute, segs, query, fragment)), rfc_parse(url_serializer(base, false))).path
+            == url_path_serializer(resolved_url(base, absolute, segs, query, fragment).path),
 {
-    let r = ref_string(absolute, segs, query, fragment);
-    let h = base.host->Some_0->Opaque_0;
-    let bsegs = base_segments(base);
     lemma_parse_reference(absolute, segs, query, fragment);
     lemma_parse_base(base);
-    let rc = rfc_parse(r);
-    let bc = rfc_parse(url_serializer(base, false));
-    let t = transform(rc, bc);
-    let u = resolved_url(base, absolute, segs, query, fragment);
     let j = super::runs::join(segs);
     lemma_join_chars(segs);
-    assert(forall|i: int| 0 <= i < bsegs.len() ==> super::runs::all_alphanumeric(#[trigger] bsegs[i]));
-    // T's path is the serialization of u's path.
     if !absolute && segs.len() == 0 {
         assert(ref_path(absolute, segs).len() == 0);
-        assert(t.path == serialize_segments(bsegs));
-        assert(u.path == base.path);
     } else if absolute {
         assert(ref_path(absolute, segs)[0] == 0x2F);
         lemma_rds_segments(seq![], segs);
         assert(serialize_segments(Seq::<Seq<u32>>::empty()) == Seq::<u32>::empty());
-        assert(t.path == serialize_segments(super::runs::path_model(seq![], segs)));
     } else {
         if segs.len() > 1 {
             assert(j == segs[0] + seq![0x2Fu32] + super::runs::join(segs.subrange(1, segs.len() as int)));
@@ -1939,26 +1965,29 @@ proof fn lemma_rfc_reference(base: Url, absolute: bool, segs: Seq<Seq<u32>>, que
                 assert(segs[0][0] == 0x2E);
             }
         }
-        let l = super::runs::shorten_list(bsegs);
-        assert forall|i: int| 0 <= i < l.len() implies super::runs::all_alphanumeric(#[trigger] l[i]) by {
-            assert(l[i] == bsegs[i]);
-        }
-        lemma_serialize_last_slash(bsegs);
-        let merged = merge(bc, j);
-        if bsegs.len() > 0 {
-            let st = serialize_segments(bsegs.drop_last());
-            assert(serialize_segments(bsegs) == st + seq![0x2Fu32] + bsegs.last());
-            assert(serialize_segments(bsegs).subrange(0, st.len() as int + 1) =~= st + seq![0x2Fu32]);
-            assert(merged =~= serialize_segments(l) + (seq![0x2Fu32] + j));
-        } else {
-            assert(serialize_segments(bsegs).len() == 0);
-            assert(merged =~= serialize_segments(l) + (seq![0x2Fu32] + j));
-        }
-        lemma_rds_prefix(l, seq![0x2Fu32] + j, seq![]);
-        assert(Seq::<u32>::empty() + serialize_segments(l) =~= serialize_segments(l));
-        lemma_rds_segments(l, segs);
-        assert(t.path == serialize_segments(super::runs::path_model(l, segs)));
+        lemma_rfc_relative_path(base, segs);
     }
+}
+
+/// RFC 3986 resolution of a reference of the class against the
+/// serialization of a base of the class is the serialization of the URL
+/// the basic URL parser returns.
+proof fn lemma_rfc_reference(base: Url, absolute: bool, segs: Seq<Seq<u32>>, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
+    requires
+        rfc_base(base),
+        rfc_reference(absolute, segs, query, fragment),
+    ensures
+        url_serializer(resolved_url(base, absolute, segs, query, fragment), false) == rfc_resolve(
+            ref_string(absolute, segs, query, fragment),
+            url_serializer(base, false),
+        ),
+{
+    let h = base.host->Some_0->Opaque_0;
+    lemma_parse_reference(absolute, segs, query, fragment);
+    lemma_parse_base(base);
+    lemma_rfc_path(base, absolute, segs, query, fragment);
+    let t = transform(rfc_parse(ref_string(absolute, segs, query, fragment)), rfc_parse(url_serializer(base, false)));
+    let u = resolved_url(base, absolute, segs, query, fragment);
     assert(crate::host::spec::host_serializer(crate::host::spec::Host::Opaque(h)) == h);
     assert(url_serializer(u, false) =~= recompose(t));
 }
