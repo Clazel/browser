@@ -1,0 +1,641 @@
+{
+  "mutations": [
+    {
+      "id": "arg-24-width-2",
+      "file": "src/cbor/spec.rs",
+      "find": "ai == 24 {\n        Some(1)",
+      "replace": "ai == 24 {\n        Some(2)",
+      "expect": "killed",
+      "reason": "Additional information 24 takes a two-byte argument: the encoding of 24, 18 18, is cut short, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(24)])",
+        "witness": "is_item(seq![Token::Uint(24)]) && decode(encode(seq![Token::Uint(24)])) != Some(seq![Token::Uint(24)])"
+      }
+    },
+    {
+      "id": "arg-25-width-1",
+      "file": "src/cbor/spec.rs",
+      "find": "ai == 25 {\n        Some(2)",
+      "replace": "ai == 25 {\n        Some(1)",
+      "expect": "killed",
+      "reason": "Additional information 25 takes a one-byte argument: 256 (19 01 00) leaves a byte over, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(256)])",
+        "witness": "is_item(seq![Token::Uint(256)]) && decode(encode(seq![Token::Uint(256)])) != Some(seq![Token::Uint(256)])"
+      }
+    },
+    {
+      "id": "arg-26-width-2",
+      "file": "src/cbor/spec.rs",
+      "find": "ai == 26 {\n        Some(4)",
+      "replace": "ai == 26 {\n        Some(2)",
+      "expect": "killed",
+      "reason": "Additional information 26 takes a two-byte argument: 65536 (1a 00 01 00 00) leaves bytes over, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(65536)])",
+        "witness": "is_item(seq![Token::Uint(65536)]) && decode(encode(seq![Token::Uint(65536)])) != Some(seq![Token::Uint(65536)])"
+      }
+    },
+    {
+      "id": "arg-27-width-4",
+      "file": "src/cbor/spec.rs",
+      "find": "ai == 27 {\n        Some(8)",
+      "replace": "ai == 27 {\n        Some(4)",
+      "expect": "killed",
+      "reason": "Additional information 27 takes a four-byte argument: 2^32 leaves bytes over, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(4294967296)])",
+        "witness": "is_item(seq![Token::Uint(4294967296)]) && decode(encode(seq![Token::Uint(4294967296)])) != Some(seq![Token::Uint(4294967296)])"
+      }
+    },
+    {
+      "id": "arg-23-has-no-width",
+      "file": "src/cbor/spec.rs",
+      "find": "if ai < 24 {\n        Some(0)",
+      "replace": "if ai < 23 {\n        Some(0)",
+      "expect": "killed",
+      "reason": "Additional information 23 is no longer a direct argument: the encoding of 23, 17, fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(23)])",
+        "witness": "is_item(seq![Token::Uint(23)]) && decode(encode(seq![Token::Uint(23)])) != Some(seq![Token::Uint(23)])"
+      }
+    },
+    {
+      "id": "be-value-radix",
+      "file": "src/cbor/spec.rs",
+      "find": "be_value(s.drop_last()) * 256",
+      "replace": "be_value(s.drop_last()) * 128",
+      "expect": "killed",
+      "reason": "Network byte order with radix 128 reads 19 01 00 as 128: lemma_decode_encode is false for 256.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(256)])",
+        "witness": "is_item(seq![Token::Uint(256)]) && decode(encode(seq![Token::Uint(256)])) != Some(seq![Token::Uint(256)])"
+      }
+    },
+    {
+      "id": "be-value-last-byte",
+      "file": "src/cbor/spec.rs",
+      "find": "be_value(s.drop_last()) * 256 + s.last() as nat",
+      "replace": "be_value(s.drop_last()) * 256",
+      "expect": "killed",
+      "reason": "The last argument byte is ignored: 18 18 reads as 0, which is not shortest, so lemma_decode_encode is false for 24.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(24)])",
+        "witness": "is_item(seq![Token::Uint(24)]) && decode(encode(seq![Token::Uint(24)])) != Some(seq![Token::Uint(24)])"
+      }
+    },
+    {
+      "id": "argument-direct-off-by-one",
+      "file": "src/cbor/spec.rs",
+      "find": "        ai as nat\n",
+      "replace": "        ai as nat + 1\n",
+      "expect": "killed",
+      "reason": "A direct argument is one too big: 00 reads as 1, so lemma_decode_encode is false for 0.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(0)])",
+        "witness": "is_item(seq![Token::Uint(0)]) && decode(encode(seq![Token::Uint(0)])) != Some(seq![Token::Uint(0)])"
+      }
+    },
+    {
+      "id": "shortest-24-lower",
+      "file": "src/cbor/spec.rs",
+      "find": "value >= 24",
+      "replace": "value >= 23",
+      "expect": "killed",
+      "reason": "Accepts 23 with a one-byte argument (18 17), which §4.2.1 forbids; lemma_reject_non_shortest_24_23 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_24_23()",
+        "witness": "decode(seq![0x18u8, 0x17]) is Some"
+      }
+    },
+    {
+      "id": "shortest-24-none",
+      "file": "src/cbor/spec.rs",
+      "find": "value >= 24",
+      "replace": "true",
+      "expect": "killed",
+      "reason": "Accepts 0 with a one-byte argument (18 00); lemma_reject_non_shortest_24_zero is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_24_zero()",
+        "witness": "decode(seq![0x18u8, 0x00]) is Some"
+      }
+    },
+    {
+      "id": "shortest-25-lower",
+      "file": "src/cbor/spec.rs",
+      "find": "value >= 256",
+      "replace": "value >= 255",
+      "expect": "killed",
+      "reason": "Accepts 255 with a two-byte argument; lemma_reject_non_shortest_25_255 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_25_255()",
+        "witness": "decode(seq![0x19u8, 0x00, 0xff]) is Some"
+      }
+    },
+    {
+      "id": "shortest-26-lower",
+      "file": "src/cbor/spec.rs",
+      "find": "value >= 65536",
+      "replace": "value >= 65535",
+      "expect": "killed",
+      "reason": "Accepts 65535 with a four-byte argument; lemma_reject_non_shortest_26_65535 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_26_65535()",
+        "witness": "decode(seq![0x1au8, 0x00, 0x00, 0xff, 0xff]) is Some"
+      }
+    },
+    {
+      "id": "shortest-27-lower",
+      "file": "src/cbor/spec.rs",
+      "find": "value >= 4294967296",
+      "replace": "value >= 4294967295",
+      "expect": "killed",
+      "reason": "Accepts 2^32-1 with an eight-byte argument; lemma_reject_non_shortest_27_max32 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_27_max32()",
+        "witness": "decode(seq![0x1bu8, 0x00, 0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff]) is Some"
+      }
+    },
+    {
+      "id": "shortest-ignored",
+      "file": "src/cbor/spec.rs",
+      "find": "if is_shortest(ai, value) {",
+      "replace": "if true {",
+      "expect": "killed",
+      "reason": "Never checks for the shortest form: 18 00 is accepted, so lemma_reject_non_shortest_24_zero is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_non_shortest_24_zero()",
+        "witness": "decode(seq![0x18u8, 0x00]) is Some"
+      }
+    },
+    {
+      "id": "argument-truncation-off",
+      "file": "src/cbor/spec.rs",
+      "find": "if pos + 1 + width > b.len() {",
+      "replace": "if pos + 1 + width >= b.len() {",
+      "expect": "killed",
+      "reason": "Rejects an argument that ends exactly at the end of the input: 18 18 fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(24)])",
+        "witness": "is_item(seq![Token::Uint(24)]) && decode(encode(seq![Token::Uint(24)])) != Some(seq![Token::Uint(24)])"
+      }
+    },
+    {
+      "id": "false-ai",
+      "file": "src/cbor/spec.rs",
+      "find": "if ai == 20 {",
+      "replace": "if ai == 22 {",
+      "expect": "killed",
+      "reason": "false is additional information 22 (null's): f4 is rejected, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(false)])",
+        "witness": "is_item(seq![Token::Bool(false)]) && decode(encode(seq![Token::Bool(false)])) != Some(seq![Token::Bool(false)])"
+      }
+    },
+    {
+      "id": "true-ai",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if ai == 21 {",
+      "replace": "} else if ai == 23 {",
+      "expect": "killed",
+      "reason": "true is additional information 23 (undefined's): f5 is rejected, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(true)])",
+        "witness": "is_item(seq![Token::Bool(true)]) && decode(encode(seq![Token::Bool(true)])) != Some(seq![Token::Bool(true)])"
+      }
+    },
+    {
+      "id": "null-accepted",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if ai == 21 {",
+      "replace": "} else if ai == 21 || ai == 22 {",
+      "expect": "killed",
+      "reason": "null (f6) is accepted as a simple value; lemma_reject_null is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_null()",
+        "witness": "decode(seq![0xf6u8]) is Some"
+      }
+    },
+    {
+      "id": "bool-swapped",
+      "file": "src/cbor/spec.rs",
+      "find": "Some((Token::Bool(false), 1))",
+      "replace": "Some((Token::Bool(true), 1))",
+      "expect": "killed",
+      "reason": "f4 decodes as true, so lemma_decode_encode is false for false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(false)])",
+        "witness": "is_item(seq![Token::Bool(false)]) && decode(encode(seq![Token::Bool(false)])) != Some(seq![Token::Bool(false)])"
+      }
+    },
+    {
+      "id": "negative-accepted",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if major == 0 || major == 2 || major == 3 || major == 4 {",
+      "replace": "} else if major == 0 || major == 1 || major == 2 || major == 3 || major == 4 {",
+      "expect": "killed",
+      "reason": "Major type 1 (negative integer) reaches the string branch and is accepted; lemma_reject_negative is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_negative()",
+        "witness": "decode(seq![0x20u8]) is Some"
+      }
+    },
+    {
+      "id": "map-accepted",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if major == 0 || major == 2 || major == 3 || major == 4 {",
+      "replace": "} else if major == 0 || major == 2 || major == 3 || major == 4 || major == 5 {",
+      "expect": "killed",
+      "reason": "Major type 5 (map) reaches the string branch and is accepted; lemma_reject_map is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_map()",
+        "witness": "decode(seq![0xa0u8]) is Some"
+      }
+    },
+    {
+      "id": "tag-accepted",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if major == 0 || major == 2 || major == 3 || major == 4 {",
+      "replace": "} else if major == 0 || major == 2 || major == 3 || major == 4 || major == 6 {",
+      "expect": "killed",
+      "reason": "Major type 6 (tag) reaches the string branch and is accepted; lemma_reject_tag is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_tag()",
+        "witness": "decode(seq![0xc0u8]) is Some"
+      }
+    },
+    {
+      "id": "uint-is-major-1",
+      "file": "src/cbor/spec.rs",
+      "find": "if major == 0 {",
+      "replace": "if major == 1 {",
+      "expect": "killed",
+      "reason": "Unsigned integers are read as major type 1: 00 decodes as an empty text string, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(0)])",
+        "witness": "is_item(seq![Token::Uint(0)]) && decode(encode(seq![Token::Uint(0)])) != Some(seq![Token::Uint(0)])"
+      }
+    },
+    {
+      "id": "array-count-off",
+      "file": "src/cbor/spec.rs",
+      "find": "Some((Token::Array(value as u64), head_len))",
+      "replace": "Some((Token::Array((value + 1) as u64), head_len))",
+      "expect": "killed",
+      "reason": "An array of n reads as an array of n+1: 80 never completes, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Array(0)])",
+        "witness": "is_item(seq![Token::Array(0)]) && decode(encode(seq![Token::Array(0)])) != Some(seq![Token::Array(0)])"
+      }
+    },
+    {
+      "id": "string-end-off",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if pos + head_len + value > b.len() {",
+      "replace": "} else if pos + head_len + value >= b.len() {",
+      "expect": "killed",
+      "reason": "Rejects a string that ends exactly at the end of the input: 41 01 fails, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bytes(seq![1u8])])",
+        "witness": "is_item(seq![Token::Bytes(seq![1u8])]) && decode(encode(seq![Token::Bytes(seq![1u8])])) != Some(seq![Token::Bytes(seq![1u8])])"
+      }
+    },
+    {
+      "id": "bytes-is-major-3",
+      "file": "src/cbor/spec.rs",
+      "find": "if major == 2 {",
+      "replace": "if major == 3 {",
+      "expect": "killed",
+      "reason": "A byte string is read as a text string: 41 01 decodes as Text, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bytes(seq![1u8])])",
+        "witness": "is_item(seq![Token::Bytes(seq![1u8])]) && decode(encode(seq![Token::Bytes(seq![1u8])])) != Some(seq![Token::Bytes(seq![1u8])])"
+      }
+    },
+    {
+      "id": "utf8-unchecked",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if utf8_valid(payload) {",
+      "replace": "} else if true {",
+      "expect": "killed",
+      "reason": "A text string is not checked for UTF-8: 62 c3 28 is accepted; lemma_reject_invalid_utf8 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_invalid_utf8()",
+        "witness": "decode(seq![0x62u8, 0xc3, 0x28]) is Some"
+      }
+    },
+    {
+      "id": "utf8-valid-always",
+      "file": "src/cbor/spec.rs",
+      "find": "clazel_encoding::utf8::spec::utf8_decode_without_bom_or_fail(s) is Some",
+      "replace": "true",
+      "expect": "killed",
+      "reason": "Every byte string counts as valid UTF-8: 62 c3 28 is accepted; lemma_reject_invalid_utf8 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_invalid_utf8()",
+        "witness": "decode(seq![0x62u8, 0xc3, 0x28]) is Some"
+      }
+    },
+    {
+      "id": "trailing-accepted",
+      "file": "src/cbor/spec.rs",
+      "find": "if pos == b.len() {\n            Some(acc)",
+      "replace": "if true {\n            Some(acc)",
+      "expect": "killed",
+      "reason": "Bytes after the item are ignored: 00 00 is accepted; lemma_reject_trailing is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_trailing()",
+        "witness": "decode(seq![0x00u8, 0x00]) is Some"
+      }
+    },
+    {
+      "id": "pending-array-grows",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Array(n) => (pending - 1 + n as nat) as nat,",
+      "replace": "Token::Array(n) => (pending + n as nat) as nat,",
+      "expect": "killed",
+      "reason": "An array does not discharge itself: [1, 2, 3] is never complete, so lemma_example_array_123 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_example_array_123()",
+        "witness": "decode(seq![0x83u8, 0x01, 0x02, 0x03]) != Some(seq![Token::Array(3), Token::Uint(1), Token::Uint(2), Token::Uint(3)])"
+      }
+    },
+    {
+      "id": "pending-never-drops",
+      "file": "src/cbor/spec.rs",
+      "find": "_ => (pending - 1) as nat,",
+      "replace": "_ => pending,",
+      "expect": "killed",
+      "reason": "A scalar discharges nothing: no item ever completes, so lemma_example_uint_0 is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "super::examples::lemma_example_uint_0()",
+        "witness": "decode(seq![0x00u8]) != Some(seq![Token::Uint(0)])"
+      }
+    },
+    {
+      "id": "is-items-trailing",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if pending == 0 {\n        false",
+      "replace": "} else if pending == 0 {\n        true",
+      "expect": "killed",
+      "reason": "Tokens after a complete item count as one item, but they do not decode: lemma_decode_encode is false for 00 00.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(0), Token::Uint(0)])",
+        "witness": "is_item(seq![Token::Uint(0), Token::Uint(0)]) && decode(encode(seq![Token::Uint(0), Token::Uint(0)])) != Some(seq![Token::Uint(0), Token::Uint(0)])"
+      }
+    },
+    {
+      "id": "token-ok-utf8",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Text(s) => s.len() < 0x1_0000_0000_0000_0000 && utf8_valid(s),",
+      "replace": "Token::Text(s) => s.len() < 0x1_0000_0000_0000_0000,",
+      "expect": "killed",
+      "reason": "A text token need not be valid UTF-8, but then it does not decode back: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Text(seq![0xFFu8])])",
+        "witness": "is_item(seq![Token::Text(seq![0xFFu8])]) && decode(encode(seq![Token::Text(seq![0xFFu8])])) != Some(seq![Token::Text(seq![0xFFu8])])"
+      }
+    },
+    {
+      "id": "encode-23",
+      "file": "src/cbor/spec.rs",
+      "find": "    if value < 24 {\n        // \"0 to 23",
+      "replace": "    if value < 23 {\n        // \"0 to 23",
+      "expect": "killed",
+      "reason": "23 is written with a one-byte argument (18 17), which decode rejects: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(23)])",
+        "witness": "is_item(seq![Token::Uint(23)]) && decode(encode(seq![Token::Uint(23)])) != Some(seq![Token::Uint(23)])"
+      }
+    },
+    {
+      "id": "encode-255",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if value < 256 {",
+      "replace": "} else if value < 255 {",
+      "expect": "killed",
+      "reason": "255 is written with a two-byte argument (19 00 ff): lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(255)])",
+        "witness": "is_item(seq![Token::Uint(255)]) && decode(encode(seq![Token::Uint(255)])) != Some(seq![Token::Uint(255)])"
+      }
+    },
+    {
+      "id": "encode-65535",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if value < 65536 {",
+      "replace": "} else if value < 65535 {",
+      "expect": "killed",
+      "reason": "65535 is written with a four-byte argument: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(65535)])",
+        "witness": "is_item(seq![Token::Uint(65535)]) && decode(encode(seq![Token::Uint(65535)])) != Some(seq![Token::Uint(65535)])"
+      }
+    },
+    {
+      "id": "encode-2-32",
+      "file": "src/cbor/spec.rs",
+      "find": "} else if value < 4294967296 {",
+      "replace": "} else if value < 4294967295 {",
+      "expect": "killed",
+      "reason": "2^32-1 is written with an eight-byte argument: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(4294967295)])",
+        "witness": "is_item(seq![Token::Uint(4294967295)]) && decode(encode(seq![Token::Uint(4294967295)])) != Some(seq![Token::Uint(4294967295)])"
+      }
+    },
+    {
+      "id": "encode-wrong-ai",
+      "file": "src/cbor/spec.rs",
+      "find": "seq![(major * 32 + 25) as u8] + be_bytes(value, 2)",
+      "replace": "seq![(major * 32 + 24) as u8] + be_bytes(value, 2)",
+      "expect": "killed",
+      "reason": "A two-byte argument is announced with additional information 24: lemma_decode_encode is false for 256.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(256)])",
+        "witness": "is_item(seq![Token::Uint(256)]) && decode(encode(seq![Token::Uint(256)])) != Some(seq![Token::Uint(256)])"
+      }
+    },
+    {
+      "id": "encode-wrong-width",
+      "file": "src/cbor/spec.rs",
+      "find": "seq![(major * 32 + 26) as u8] + be_bytes(value, 4)",
+      "replace": "seq![(major * 32 + 26) as u8] + be_bytes(value, 8)",
+      "expect": "killed",
+      "reason": "A four-byte argument is written with eight bytes: lemma_decode_encode is false for 65536.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(65536)])",
+        "witness": "is_item(seq![Token::Uint(65536)]) && decode(encode(seq![Token::Uint(65536)])) != Some(seq![Token::Uint(65536)])"
+      }
+    },
+    {
+      "id": "be-bytes-radix",
+      "file": "src/cbor/spec.rs",
+      "find": "be_bytes(value / 256, (width - 1) as nat).push((value % 256) as u8)",
+      "replace": "be_bytes(value / 128, (width - 1) as nat).push((value % 256) as u8)",
+      "expect": "killed",
+      "reason": "Network byte order with radix 128 when writing: lemma_decode_encode is false for 256.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(256)])",
+        "witness": "is_item(seq![Token::Uint(256)]) && decode(encode(seq![Token::Uint(256)])) != Some(seq![Token::Uint(256)])"
+      }
+    },
+    {
+      "id": "encode-false",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Bool(false) => seq![244u8],",
+      "replace": "Token::Bool(false) => seq![245u8],",
+      "expect": "killed",
+      "reason": "false is written as f5: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(false)])",
+        "witness": "is_item(seq![Token::Bool(false)]) && decode(encode(seq![Token::Bool(false)])) != Some(seq![Token::Bool(false)])"
+      }
+    },
+    {
+      "id": "encode-bytes-major",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Bytes(s) => encode_head(2, s.len()) + s,",
+      "replace": "Token::Bytes(s) => encode_head(3, s.len()) + s,",
+      "expect": "killed",
+      "reason": "A byte string is written as a text string: ff is not UTF-8, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bytes(seq![0xFFu8])])",
+        "witness": "is_item(seq![Token::Bytes(seq![0xFFu8])]) && decode(encode(seq![Token::Bytes(seq![0xFFu8])])) != Some(seq![Token::Bytes(seq![0xFFu8])])"
+      }
+    },
+    {
+      "id": "encode-text-major",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Text(s) => encode_head(3, s.len()) + s,",
+      "replace": "Token::Text(s) => encode_head(2, s.len()) + s,",
+      "expect": "killed",
+      "reason": "A text string is written as a byte string: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Text(seq![0x61u8])])",
+        "witness": "is_item(seq![Token::Text(seq![0x61u8])]) && decode(encode(seq![Token::Text(seq![0x61u8])])) != Some(seq![Token::Text(seq![0x61u8])])"
+      }
+    },
+    {
+      "id": "encode-uint-major",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Uint(n) => encode_head(0, n as nat),",
+      "replace": "Token::Uint(n) => encode_head(1, n as nat),",
+      "expect": "killed",
+      "reason": "An unsigned integer is written as major type 1: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(1)])",
+        "witness": "is_item(seq![Token::Uint(1)]) && decode(encode(seq![Token::Uint(1)])) != Some(seq![Token::Uint(1)])"
+      }
+    },
+    {
+      "id": "encode-array-major",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Array(n) => encode_head(4, n as nat),",
+      "replace": "Token::Array(n) => encode_head(5, n as nat),",
+      "expect": "killed",
+      "reason": "An array is written as major type 5: lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Array(0)])",
+        "witness": "is_item(seq![Token::Array(0)]) && decode(encode(seq![Token::Array(0)])) != Some(seq![Token::Array(0)])"
+      }
+    },
+    {
+      "id": "encode-order",
+      "file": "src/cbor/spec.rs",
+      "find": "encode_token(tokens[0]) + encode(tokens.drop_first())",
+      "replace": "encode(tokens.drop_first()) + encode_token(tokens[0])",
+      "expect": "killed",
+      "reason": "Tokens are written in reverse order: lemma_decode_encode is false for [0].",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Array(1), Token::Uint(0)])",
+        "witness": "is_item(seq![Token::Array(1), Token::Uint(0)]) && decode(encode(seq![Token::Array(1), Token::Uint(0)])) != Some(seq![Token::Array(1), Token::Uint(0)])"
+      }
+    },
+    {
+      "id": "major-type-shift",
+      "file": "src/cbor/spec.rs",
+      "find": "    ib / 32\n",
+      "replace": "    ib / 16\n",
+      "expect": "killed",
+      "reason": "The major type is the high 4 bits: f5 is not major type 7, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(true)])",
+        "witness": "is_item(seq![Token::Bool(true)]) && decode(encode(seq![Token::Bool(true)])) != Some(seq![Token::Bool(true)])"
+      }
+    },
+    {
+      "id": "additional-info-mask",
+      "file": "src/cbor/spec.rs",
+      "find": "    ib % 32\n",
+      "replace": "    ib % 16\n",
+      "expect": "killed",
+      "reason": "The additional information is the low 4 bits: f4 is not 20, so lemma_decode_encode is false.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Bool(false)])",
+        "witness": "is_item(seq![Token::Bool(false)]) && decode(encode(seq![Token::Bool(false)])) != Some(seq![Token::Bool(false)])"
+      }
+    },
+    {
+      "id": "uint-truncated",
+      "file": "src/cbor/spec.rs",
+      "find": "Token::Uint(value as u64)",
+      "replace": "Token::Uint((value % 65536) as u64)",
+      "expect": "killed",
+      "reason": "The unsigned integer is reduced modulo 2^16: lemma_decode_encode is false for 65536.",
+      "certificate": {
+        "file": "src/cbor/lemmas.rs",
+        "lemma": "lemma_decode_encode(seq![Token::Uint(65536)])",
+        "witness": "is_item(seq![Token::Uint(65536)]) && decode(encode(seq![Token::Uint(65536)])) != Some(seq![Token::Uint(65536)])"
+      }
+    }
+  ]
+}
