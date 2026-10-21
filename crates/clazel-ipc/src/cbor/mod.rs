@@ -6,6 +6,8 @@
 //! - [`termination`]: facts Verus needs to accept the spec's `decreases`.
 
 pub mod contract;
+pub mod decode;
+pub mod encode;
 pub mod examples;
 pub mod lemmas;
 pub mod spec;

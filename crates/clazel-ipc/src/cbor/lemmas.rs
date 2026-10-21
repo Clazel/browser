@@ -42,6 +42,34 @@ pub proof fn lemma_pow256_8()
     assert(pow256(1) == 256) by (compute_only);
 }
 
+/// 256^n is at least 1.
+pub proof fn lemma_pow256_positive(n: nat)
+    ensures
+        pow256(n) >= 1,
+    decreases n
+{
+    if n > 0 {
+        lemma_pow256_positive((n - 1) as nat);
+    }
+}
+
+/// Up to eight bytes fit in a `u64`.
+pub proof fn lemma_pow256_at_most_8(n: nat)
+    requires
+        n <= 8,
+    ensures
+        pow256(n) <= 0x1_0000_0000_0000_0000,
+    decreases 8 - n
+{
+    if n < 8 {
+        lemma_pow256_at_most_8(n + 1);
+        lemma_pow256_positive(n);
+        assert(pow256(n + 1) == 256 * pow256(n));
+    } else {
+        lemma_pow256_8();
+    }
+}
+
 /// `n` bytes spell a number below 256^n.
 pub proof fn lemma_be_value_bound(s: Seq<u8>)
     ensures
@@ -375,6 +403,20 @@ proof fn lemma_drop_prefix<T>(s: Seq<T>, a: Seq<T>, c: Seq<T>)
     assert forall|i: int| 0 <= i < c.len() implies t[i] == c[i] by {
         assert(s[a.len() + i] == (a + c)[a.len() + i]);
     }
+}
+
+/// One token's encoding.
+pub proof fn lemma_encode_single(t: Token)
+    ensures
+        encode(seq![t]) =~= encode_token(t),
+{
+    let e = Seq::<Token>::empty();
+    assert(seq![t].len() == 1);
+    assert(seq![t][0] == t);
+    assert(seq![t].drop_first() =~= e);
+    assert(encode(e) =~= Seq::<u8>::empty());
+    assert(encode(seq![t]) == encode_token(t) + encode(e));
+    assert(encode_token(t) + Seq::<u8>::empty() =~= encode_token(t));
 }
 
 /// Decoding the encoding of `toks` (which are `pending` data items), found
