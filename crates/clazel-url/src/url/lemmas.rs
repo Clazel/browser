@@ -296,6 +296,15 @@ pub proof fn lemma_no_return_without_override(ctx: Ctx, m: Machine)
         !(state_step(ctx, m) is Return),
 {
     reveal(state_step);
+    // One state at a time (the host, port and file host states each hold
+    // a host parser call).
+    match m.state {
+        State::Scheme => assert(!(scheme_state(ctx, m) is Return)),
+        State::Host | State::Hostname => assert(!(host_state(ctx, m) is Return)),
+        State::Port => assert(!(port_state(ctx, m) is Return)),
+        State::FileHost => assert(!(file_host_state(ctx, m) is Return)),
+        _ => {},
+    }
 }
 
 /// The basic URL parser is total: it is [`run`] from the initial machine,
