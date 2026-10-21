@@ -629,7 +629,41 @@ as `host_parser_full` did in 1.9. The theorems of 2.11 then hold for the
 shipped kernel without change, because they were proven for every
 instantiation.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** CLAUDE.md rule 1, VERIFICATION.md (Tier 0 row, TCB list, a new
+"The `unsafe` exception" section) and `docs/SYS-AUDITS.md` (format, hash
+definition, auditor instructions, no rows) say what the decision says.
+`cargo xtask check` (`xtask/src/sys.rs`) enforces: `unsafe_code` overridden
+only by `crates/clazel-sys`'s manifest, which must list the workspace lints
+itself (a crate cannot both inherit them and override one) with every other
+lint equal to the workspace's; `libc` as its only dependency, pinned
+exactly, and no `build.rs`; every `unsafe` a block or `unsafe extern` block;
+one call per block, to `sandbox_init`, `sandbox_free_error`, `prctl`,
+`unshare` or `syscall` (only with the numbers of `seccomp` and the three
+`landlock_*` calls); no dereference inside a block; a `// SAFETY:` comment
+directly above each, citing `man <section> <name>`; no pointer arithmetic
+methods, `macro_rules`, `include` or `#[path]` in the crate; no `pub`
+foreign declaration and no `pub use` of `libc`; the audit hash; and the
+README sentence's counts. The report table has an `unsafe` blocks (lines)
+column, and the README sentence is `check`ed, so `verify` fails on a wrong
+count. Each planted violation is a unit test in `sys.rs`.
+
+`clazel-sys` has 8 `unsafe` blocks (11 lines). On Linux: `set_no_new_privs`,
+`seccomp_set_mode_filter(&[SockFilter])`, `landlock_deny_filesystem(u64)` and
+`unshare(Namespaces)`. On macOS: `sandbox_init_profile(&str)`. Departures from
+the sketch above: `landlock_add_rule` is permitted by the checker but not
+wrapped (the policy allows no filesystem access, so no rule is ever added),
+the Landlock ruleset descriptor is left open (closing it needs `close`, which
+is not on the list, and an enforced ruleset gives no power), and the error
+text from `sandbox_init` is freed unread (reading it needs `CStr::from_ptr`, a
+second kind of `unsafe` call). 2.14's `clazel-sandbox` and `clazel-sys` do not
+depend on each other: the renderer (2.15) maps `clazel-sandbox`'s BPF
+instructions to `clazel_sys::linux::SockFilter` and passes its SBPL string to
+`clazel_sys::macos::sandbox_init_profile`.
+
+Not done in this item: the audit row (its author never writes it, so `check`
+fails on "clazel-sys audit" until another session adds one), and the
+regenerated README status table, which `report --write` refuses to write while
+that check fails, so it follows the audit.
 
 ### 2.14 Sandbox policies (M)
 
@@ -716,7 +750,7 @@ Nothing waits on Phase 1: every item of it is merged.
 
 | Item | State |
 |------|-------|
-| 2.0 Sandbox and `unsafe` decision | decided 2026-10-21: option B (`clazel-sys` + `libc`), LLM-audited; checker and policy changes not started |
+| 2.0 Sandbox and `unsafe` decision | decided 2026-10-21: option B (`clazel-sys` + `libc`), LLM-audited; checker, policy text, `clazel-sys` and README claim built; waits on an audit by another session and a regenerated README table |
 | 2.1 IPC wire format: spec | not started |
 | 2.2 IPC wire format: implementation | not started |
 | 2.3 IPC frames and messages | not started |
