@@ -395,7 +395,26 @@ vendored from the same commit. Differential against the `publicsuffix`
 crate loaded with the same vendored list (a `test` row), on every rule's
 domain plus random labels above it.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial, `clazel-psl` stays at tier 0):** `data/publicsuffix-5dd321ff/`
+vendors `public_suffix_list.dat`, `tests.txt` and the licence from
+`publicsuffix/list` at `5dd321ff` with SHA-256 in `SOURCE.md`; `cargo xtask
+tables` (`xtask/src/psl.rs`) generates `src/data.rs` (10396 rules, 24423
+labels, chunked opaque tables; Unicode labels become A-labels with an RFC 3492
+encoder in xtask), and `check` fails if it is stale. `spec.rs` transcribes the
+formal algorithm and URL §3.2 over any `Seq<Rule>`, with the cookie root as 2.4
+defines it; modelling choices (empty labels give null, one-pass prevailing
+rule, trailing dot) are at its top. `exec.rs` is proven equal to the spec on
+the generated list (73 Verus obligations, 0 errors). It scans every rule
+instead of bisecting, because Verus cannot see that the opaque tables are
+sorted and the spec is "match against all rules"; a rule that cannot beat the
+best so far is skipped before matching. Evidence: `tests.txt` 78/78 (inputs
+canonicalized by the proven host parser) and a differential against
+`publicsuffix` 2.3.0 on every ASCII rule plus labels above it, 49685/49685.
+**Not done:** `independent.rs` (the formal-algorithm transcription proven
+equal), `mutations.json` and its certificates, `examples.rs`, and the lemma
+2.9 needs that a non-public-suffix suffix of a domain has the same cookie root
+(`lemma_root_of_suffix`). So the crate is at tier 0 and `cargo xtask check`
+would reject a higher claim.
 
 ### 2.5 Origins and sites (M)
 
@@ -414,7 +433,20 @@ domain; HTML's site definitions have no second source, so their evidence is
 same site) and the conformance rows in 2.6. Lemmas: same origin is an
 equivalence on tuple origins; same site is implied by same origin.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial, `clazel-origin` stays at tier 0):** `spec.rs` transcribes
+HTML §7.1.1 and §7.1.1.1 (origin, effective domain, serialization, same
+origin, same origin-domain, site, obtain a site, same site, serialization of a
+site, schemelessly same site, same site) and §7.1.1.2 (registrable domain
+suffix of or equal to, spec only: its caller is Phase 7) over any Public Suffix
+List `rules`, with opaque origins as a `nat` id; modelling choices are at its
+top. `exec.rs` (`ParsedOrigin`, `ParsedSite`) proves same origin, same
+origin-domain, serialization, obtain a site, same site and schemelessly same
+site equal to the spec on the generated list. `lemmas.rs`: same origin is an
+equivalence on tuple origins and implies same site and schemelessly same site.
+Evidence: the HTML example tables for same origin and same site, 11/11, through
+the proven code (the `wildlife.museum` rows are not run: that suffix is not a
+rule of the real list). **Not done:** `independent.rs` (RFC 6454 §5, §6.2),
+`mutations.json`, `examples.rs`, so tier 0.
 
 ### 2.6 Origin of a URL (S)
 
@@ -429,7 +461,19 @@ Conformance: the `origin` field of every row of WPT `url/resources/urltestdata.j
 that has one, through the real parser. Differential against rust-url's
 `Url::origin()` (the `url` crate, a `test` row).
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial, same crate and tier):** `url_origin` in `spec.rs` is URL
+§4.7 (blob case through `clazel-url`'s basic URL parser, tuple origins for the
+five schemes, `file:` and the rest opaque; the blob URL entry is not modelled,
+as in `clazel-url`), taking the new opaque origin's id as a parameter;
+`url_origin_exec` is proven equal to it with the real parser
+(`clazel_url::url::contract::url_domain_parser`), 27 Verus obligations for the
+crate, 0 errors. A blob path that is not a scalar value string counts as a
+failed parse (unreachable for parsed URLs; listed in the modelling choices).
+Conformance: all 414 rows of WPT `urltestdata.json` that have an `origin`,
+414/414 through the real parser; differential against rust-url `Url::origin()`
+on the same inputs, 403 agree and 11 are expected failures (7 where rust-url's
+IDNA rejects the URL, 4 `blob:` URLs whose inner scheme is not http, https or
+file, where rust-url differs from step 4 and WPT agrees with us).
 
 ### 2.7 Cookie primitives (M)
 
@@ -841,9 +885,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.1 IPC wire format: spec | done |
 | 2.2 IPC wire format: implementation | done |
 | 2.3 IPC frames and messages | done |
-| 2.4 Public Suffix List | not started |
-| 2.5 Origins and sites | not started |
-| 2.6 Origin of a URL | not started |
+| 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance and differential done; independent transcription, mutations and the root lemma not done (tier 0) |
+| 2.5 Origins and sites | partial: spec, contracts, proven implementation, lemmas, example tables done; independent transcription and mutations not done (tier 0) |
+| 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done; mutations not done (tier 0) |
 | 2.7 Cookie primitives | not started |
 | 2.8 Set-Cookie parsing | not started |
 | 2.9 Cookie storage and retrieval | not started |

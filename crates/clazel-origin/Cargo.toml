@@ -1,0 +1,35 @@
+[package]
+name = "clazel-origin"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "HTML 7.1.1 origins and sites, and URL 4.7 the origin of a URL."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# Hosts, URLs, the basic URL parser (the blob: origin parses a path) and
+# the host serializer.
+clazel-url = { path = "../clazel-url" }
+# "Registrable domain" for sites.
+clazel-psl = { path = "../clazel-psl" }
+# "Scalar value" for the input of the basic URL parser.
+clazel-encoding = { path = "../clazel-encoding" }
+
+# Test-only reference engine for the differential test in
+# tests/conformance_origin.rs (class `test` in docs/DEPENDENCIES.md: never
+# shipped): rust-url, whose `Url::origin()` is compared with ours.
+[dev-dependencies]
+url = { version = "=2.5.8", default-features = false }
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true

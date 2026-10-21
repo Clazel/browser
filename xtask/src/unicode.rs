@@ -611,15 +611,15 @@ fn generate(dir: &Path) -> Result<String, String> {
 }
 
 /// One generated table: its rows as Rust expressions.
-struct Table<'a> {
+pub(crate) struct Table<'a> {
     /// snake_case name; the constants are its SCREAMING_CASE.
-    name: &'a str,
-    doc: &'a str,
-    row_type: &'a str,
+    pub(crate) name: &'a str,
+    pub(crate) doc: &'a str,
+    pub(crate) row_type: &'a str,
     /// `size_of` the row type, to keep each chunk within clippy's
     /// `large_const_arrays` limit (16 KiB).
-    row_bytes: usize,
-    rows: Vec<String>,
+    pub(crate) row_bytes: usize,
+    pub(crate) rows: Vec<String>,
 }
 
 fn u32_table<'a>(name: &'a str, doc: &'a str, values: &[u32]) -> Table<'a> {
@@ -636,7 +636,7 @@ fn u32_table<'a>(name: &'a str, doc: &'a str, values: &[u32]) -> Table<'a> {
 /// (clippy's `large_const_arrays` allows 16 KiB; Verus can read only
 /// constants, not statics, in specs). `<name>_at(i)` is the spec's view of
 /// row `i`, and `<name>_at_exec(i)` returns it, proven equal.
-fn emit(out: &mut String, t: &Table<'_>) {
+pub(crate) fn emit(out: &mut String, t: &Table<'_>) {
     let upper = t.name.to_ascii_uppercase();
     let per_chunk = 16_000usize.checked_div(t.row_bytes).unwrap_or(1).max(1);
     let chunks: Vec<&[String]> = t.rows.chunks(per_chunk).collect();
@@ -659,7 +659,7 @@ fn emit(out: &mut String, t: &Table<'_>) {
             t.row_type,
             chunk.len()
         );
-        if t.row_type == "u32" {
+        if t.row_type == "u32" || t.row_type == "u8" {
             for line in chunk.chunks(12) {
                 let _ = writeln!(out, "    {},", line.join(", "));
             }
@@ -716,7 +716,9 @@ fn emit(out: &mut String, t: &Table<'_>) {
 /// the index is in range, which Verus checks).
 fn dummy(row_type: &str) -> String {
     match row_type {
-        "u32" => "0".into(),
+        "u32" | "u8" => "0".into(),
+        "RuleRow" => "RuleRow { first: 0, count: 0, exception: false }".into(),
+        "LabelRow" => "LabelRow { start: 0, len: 0 }".into(),
         "IdnaRow" => "IdnaRow { first: 0, last: 0, status: Status::Disallowed, mapping_start: 0, mapping_len: 0 }".into(),
         "DecompositionRow" => "DecompositionRow { code_point: 0, start: 0, len: 0 }".into(),
         "CompositionRow" => "CompositionRow { first: 0, second: 0, composite: 0 }".into(),

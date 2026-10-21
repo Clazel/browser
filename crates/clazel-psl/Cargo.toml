@@ -1,0 +1,30 @@
+[package]
+name = "clazel-psl"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The Public Suffix List: public suffix, registrable domain (URL Standard 3.2) and the cookie root."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# Hosts (URL 3.1): the spec functions take and return `clazel_url`'s host
+# record.
+clazel-url = { path = "../clazel-url" }
+
+# Test-only engine for the differential test in tests/conformance_differential.rs
+# (class `test` in docs/DEPENDENCIES.md: never shipped).
+[dev-dependencies]
+publicsuffix = { version = "=2.3.0", default-features = false }
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
