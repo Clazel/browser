@@ -11,3 +11,4 @@
 pub mod ascii;
 pub mod date;
 pub mod matching;
+pub mod strings;
