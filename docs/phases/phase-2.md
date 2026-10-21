@@ -21,12 +21,13 @@ Phase 2 is done when all of these hold on macOS arm64 and Linux x86-64:
    `clazel-kernel` are at **tier 2**, accepted by `cargo xtask check`, and
    `clazel-sandbox` is at **tier 1**.
 2. `clazel-kernel` proves the theorems in item 2.11, by those names. The
-   headline one, `theorem_cookie_noninterference`, says: for two renderers
-   whose hosts have different cookie roots (defined in 2.9), deleting every
-   event of one from any trace leaves every byte the kernel sends to the
-   other unchanged. In particular neither can read, write, evict or detect
-   the other's cookies. Each theorem has at least one certified `killed`
-   mutation that breaks it.
+   headline one, `theorem_cookie_noninterference`, says: for renderers
+   whose hosts have different cookie roots (defined in 2.4), nothing one
+   does changes any byte the kernel sends the other, except through the
+   URLs it navigates to, which the kernel treats exactly as if the user had
+   typed them (stated precisely in 2.11). In particular neither can read,
+   write, evict or detect the other's cookies. Each theorem has at least
+   one certified `killed` mutation that breaks it.
 3. `cargo run -p clazel -- demo` starts the kernel and two sandboxed renderer
    processes, one committed to `https://a.test/` and one to
    `https://b.test/`, runs scripted `document.cookie` operations in both, and
@@ -88,29 +89,26 @@ and in `clazel-kernel`.
 
 ## Dependencies on Phase 1
 
-Done and used here: `clazel-encoding` (UTF-8 for CBOR text and cookie
-strings), `clazel-url`'s host parser and serializers (1.9, for canonical
-hosts and origins), and `clazel-idna` through it.
+Phase 1 is complete (2026-10-21), so no item waits on it. Used here:
+`clazel-encoding` (UTF-8 for CBOR text and cookie strings), `clazel-url`'s
+host parser and serializers (1.9, for canonical hosts and origins), its
+basic URL parser (1.10, for URL §4.7 "origin" in 2.6, navigation in 2.13,
+and the URL-string conformance rows of 2.9), and `clazel-idna` through it.
+The URL setters (1.11) are not used: they serve the `URL` API in script,
+which is Phase 7.
 
-**Waits on 1.10 (basic URL parser):** anything that turns a URL *string*
-into an origin, which is URL §4.7 "origin" (it reads the URL record, and the
-`blob:` case parses the path as a URL). That is items **2.6** and **2.13**,
-the URL-string half of **2.9**'s conformance tests, and **2.16**, which
-needs them. Everything else is written against host records and abstract
-URL fields, with the URL-to-origin function taken as a parameter, exactly as
+Even so, most items are written against host records and abstract URL
+fields, with the URL-to-origin function taken as a parameter, exactly as
 1.9's host parser took the domain parser as a parameter and was joined to
-the real one later (`host_parser_full`).
-
-**Waits on 1.11 (URL setters):** nothing. The setters serve the `URL` API in
-script, which is Phase 7.
+the real one in `host_parser_full`. That keeps the cookie and kernel
+proofs independent of the 448-function URL proof, and 2.13 joins them.
 
 ## Work items
 
 Ordered by dependency. Size: S is under a day, M a few days, L a week or more.
 Each item follows CLAUDE.md rule 3: spec and contracts in one commit, then the
-implementation and proof. Items marked **waits on 1.10** must not start
-before 1.10 is merged; items marked **waits on 2.0** must not start before
-2.0's checker and policy changes are merged.
+implementation and proof. Items marked **waits on 2.0** must not start
+before 2.0's checker and policy changes are merged.
 
 ### 2.0 The sandbox and `unsafe` decision (S)
 
@@ -350,7 +348,7 @@ HTML §7.1.1: origin (opaque, or a tuple of scheme, host, port and domain),
 "same site", "schemelessly same site", "is a registrable domain suffix of or
 equal to". Opaque origins compare by identity; in the spec an opaque origin
 carries a `nat` the kernel allocates, listed as a modelling choice. Hosts
-are 1.9's host records, so nothing here waits on 1.10.
+are 1.9's host records, so this item needs no URL parser.
 
 Independent: RFC 6454 (The Web Origin Concept, IETF) §5 comparing origins
 and §6.2 ASCII serialization, proven equal on tuple origins with a null
@@ -361,7 +359,7 @@ equivalence on tuple origins; same site is implied by same origin.
 
 **As built:** *(to be filled in when the item is done)*
 
-### 2.6 Origin of a URL (S) — waits on 1.10
+### 2.6 Origin of a URL (S)
 
 URL §4.7 "origin" of a URL record: the `blob:` case (which parses the path),
 the special schemes giving a tuple origin, and `file:` and everything else
@@ -385,7 +383,7 @@ untrusted strings), §5.1.2 canonicalized host names (via 1.9's host parser
 and the URL domain parser rather than bare IDNA2008, which is what browsers
 do; a modelling choice), §5.1.3 domain matching, §5.1.4 default-path and
 path-match. Default-path takes the request URL's path as a sequence of
-code points, so it does not wait on 1.10.
+code points, so it needs no URL parser.
 
 Independent: RFC 6265 (2011) §5.1.1 to §5.1.4, where 6265bis did not change
 them; and for dates, RFC 9110 §5.6.7 HTTP-date (IMF-fixdate, obsolete
@@ -414,8 +412,8 @@ as 1.7 did for RFC 9110 media types).
 RFC 6265bis §5.7 storage model and §5.8 retrieval model, with the jar as a
 sequence of cookie records and the current time as an input. The request
 URL is an abstract record (scheme, canonical host, path), so the algorithms
-do not wait on 1.10; only the conformance rows that start from a URL string
-do. §5.2 "same-site" and "cross-site" requests are transcribed over an
+need no URL parser; only the conformance rows that start from a URL string
+use 1.10's. §5.2 "same-site" and "cross-site" requests are transcribed over an
 abstract request context, using 2.5's "same site"; in Phase 2 the only
 caller is `document.cookie`, a non-HTTP API in a top-level document, and the
 real request contexts arrive with Fetch in Phase 3.
@@ -472,7 +470,8 @@ current drafts), where the two RFCs agree. Conformance:
   1.0). Tests that need an HTTP server, redirects or frames wait for Phase 3,
   and `SOURCE.md` lists them. The tests run at WPT's own hosts
   (`web-platform.test` and its subdomains), which the converter turns into
-  host records directly; parsing them as URL strings **waits on 1.10**.
+  host records directly, and also parses them as URL strings with 1.10's
+  parser, checking that both give the same host.
 - The http-state parser corpus (`abarth/http-state`, the RFC 6265 test
   suite, `tests/data/parser/*`), vendored with its license.
 - Differential against `cookie_store` (a `test` row, with its own
@@ -489,7 +488,12 @@ The kernel is a pure function `step(State, Event) -> (State, Seq<Output>)`:
   HTML §12.2.1; only for tuple origins), the next fresh id, the current time.
 - **Events:** `FromRenderer(id, bytes)` (raw frame bytes, so decoding is
   inside the proven function and the theorems cover malformed input),
-  `OpenTab(url)` from the user, `RendererExited(id)` and `Tick(time)`.
+  `OpenTab(url)` and `NavigateTab(tab, url)` from the user (a URL typed
+  into a new or an existing tab; `url` is absolute), `RendererExited(id)`
+  and `Tick(time)`. A renderer's `Navigate { url }` is handled as the
+  kernel resolving `url` against that renderer's committed URL and then
+  doing exactly what `NavigateTab(its tab, resolved)` does; 2.11 relies on
+  this.
 - **Outputs:** `ToRenderer(id, bytes)`, `Spawn(id, policy)`, `Kill(id)`.
 
 Each renderer is **locked to one origin**, the origin of the URL it
@@ -506,7 +510,8 @@ is listed.
 
 The URL-to-origin function is a **parameter** of the spec (`spec_fn(Seq<u32>)
 -> Option<Origin>`), and every contract and theorem quantifies over it, so
-nothing here waits on 1.10. 2.13 instantiates it with the real parser.
+the kernel proofs do not unfold the URL parser's. 2.13 instantiates it with
+the real parser.
 
 **As built:** *(to be filled in when the item is done)*
 
@@ -530,18 +535,48 @@ state and every trace:
   it is unchanged except for expiry at `Tick`.
 - `theorem_storage_same_origin`: storage replies to r read only the map for
   r's lock, and storage requests from r write only that map.
-- `theorem_cookie_noninterference`: let A and B be renderers whose locks
-  have different cookie roots (or B's is opaque). Then for every trace t,
-  the outputs addressed to A from running t equal those from running t with
-  every `FromRenderer(B, _)` event removed. Proven Rushby-style
-  ("Noninterference, Transitivity, and Channel-Control Security Policies",
-  1992): an observation `obs(s, A)` (A's renderer record, the cookies under
-  A's root, the storage map for A's lock, the time) and three unwinding
-  lemmas, `lemma_output_consistency`, `lemma_step_consistency` and
-  `lemma_local_respect`, from which the trace theorem follows by induction.
-  This is the exit criterion. It needs 2.9's within-root and frame lemmas
-  and per-root eviction; it is false with a global cookie limit, and a
-  mutation shows that.
+- `theorem_cookie_noninterference`: the exit criterion. The observer is a
+  **domain** D: a cookie root, or one opaque-origin renderer on its own.
+  Each `FromRenderer(r, _)` event belongs to the domain of r's lock at that
+  point in the trace. For a trace t, `purge(t, D)` replaces every
+  `FromRenderer` event of a domain other than D by its **declassified
+  part**: `NavigateTab(tab, resolved url)` if its bytes decode to a
+  `Navigate` (2.10), and nothing otherwise. The theorem: for every D and
+  every trace t, the outputs addressed to renderers whose domain is D,
+  including their `Spawn` and `Kill`, are the same from running t and from
+  running `purge(t, D)`, up to a bijection on renderer ids.
+
+  Why the declassified part is needed: a literal "delete every event of B"
+  is false. If B, on `b.test`, navigates its tab to `https://a.test/?x`,
+  the kernel spawns a new renderer locked to `a.test`, which then reads and
+  writes a.test's cookies; delete B's events and that renderer never
+  exists. That flow is the web's own (any page may navigate to any URL, and
+  the URL may carry data), and it is exactly the flow a user typing the same
+  URL would cause, so the theorem names it and allows nothing else: no
+  cookie, storage entry, renderer state or timing of B reaches D except
+  through the URL B chose. Ids are compared up to a bijection because
+  B's navigations take ids from the shared counter; the schema already
+  keeps ids out of every message (2.3), so no renderer can see the shift.
+
+  What this means for the exit claim: a renderer on `b.test` cannot read
+  a.test's cookies, because nothing flows from a.test's domain to b.test's
+  except URLs that renderers locked to a.test navigate to. A page can leak
+  its own cookies by navigating to a URL containing them, as on the web
+  today; the theorem says that is the only way, and the demo and README
+  say so.
+
+  Proven Rushby-style, in the intransitive form ("Noninterference,
+  Transitivity, and Channel-Control Security Policies", 1992, §5, with
+  `ipurge`): an observation `obs(s, D)` (the records of D's renderers, the
+  cookies under D's root, the storage maps for D's origins, the time), and
+  four unwinding lemmas, `lemma_output_consistency`,
+  `lemma_step_consistency`, `lemma_local_respect` (an event of another
+  domain that is not a `Navigate` leaves `obs(s, D)` unchanged) and
+  `lemma_navigate_declassify` (a `Navigate` of another domain changes
+  `obs(s, D)` exactly as its declassified `NavigateTab` does), from which
+  the trace theorem follows by induction. It needs 2.9's within-root and
+  frame lemmas and per-root eviction; it is false with a global cookie
+  limit, and a mutation shows that.
 
 The cookie-root condition is the real boundary, not a convenience: two
 renderers on `a.example.com` and `b.example.com` share the root
@@ -553,7 +588,9 @@ Mutations to seed, each needing a certificate against one of these:
 answer from a URL inside the message instead of the lock; reply to the
 wrong renderer; skip the HttpOnly check for the non-HTTP API; drop the
 public-suffix check in storage; evict globally; let a renderer's
-`Navigate` keep its old lock; show a renderer id in a reply.
+`Navigate` keep its old lock; show a renderer id in a reply; let the
+renderer spawned by a `Navigate` inherit anything from the navigating
+renderer besides the resolved URL (its storage map, say).
 
 The theorem names go in `clazel-kernel`'s `Cargo.toml` metadata
 (`theorems = [...]`), and a small `cargo xtask check` extension fails if a
@@ -582,7 +619,7 @@ renderer's document.cookie results.
 
 **As built:** *(to be filled in when the item is done)*
 
-### 2.13 Navigation with the real URL parser (S) — waits on 1.10
+### 2.13 Navigation with the real URL parser (S)
 
 Instantiate 2.10's URL-to-origin parameter with 2.6's `url_origin` over
 1.10's basic URL parser, so `OpenTab` and `Navigate` parse the URL string in
@@ -636,7 +673,7 @@ the README table.
 
 **As built:** *(to be filled in when the item is done)*
 
-### 2.16 Exit demo and adversarial tests (M) — waits on 1.10 (via 2.13) and 2.0 (via 2.15)
+### 2.16 Exit demo and adversarial tests (M) — waits on 2.13 and 2.0 (via 2.15)
 
 - `cargo run -p clazel -- demo`: two tabs, `https://a.test/` and
   `https://b.test/`, each sets a cookie and a localStorage item and reads
@@ -666,15 +703,13 @@ Starts now (no wait):
                                                                          ─> 2.11 theorems
                                                                          ─> 2.12 kernel exec
 2.14 sandbox policies
-
-Waits on 1.10:
-1.10 URL parser ─> 2.6 origin of a URL ─> 2.13 navigation (also needs 2.12)
+2.5 origins + sites ─> 2.6 origin of a URL ─> 2.13 navigation (also needs 2.12)
 
 Waits on 2.0 (checker and policy changes):
 2.0 decision ─> 2.15 processes (also needs 2.12, 2.14) ─> 2.16 exit demo (also needs 2.13)
 ```
 
-Nothing waits on 1.11.
+Nothing waits on Phase 1, which is complete.
 
 ## Status
 
@@ -686,14 +721,14 @@ Nothing waits on 1.11.
 | 2.3 IPC frames and messages | not started |
 | 2.4 Public Suffix List | not started |
 | 2.5 Origins and sites | not started |
-| 2.6 Origin of a URL | not started; waits on 1.10 |
+| 2.6 Origin of a URL | not started |
 | 2.7 Cookie primitives | not started |
 | 2.8 Set-Cookie parsing | not started |
-| 2.9 Cookie storage and retrieval | not started; URL-string conformance rows wait on 1.10 |
+| 2.9 Cookie storage and retrieval | not started |
 | 2.10 Kernel spec | not started |
 | 2.11 Isolation theorems | not started |
 | 2.12 Kernel implementation | not started |
-| 2.13 Navigation with the real URL parser | not started; waits on 1.10 |
+| 2.13 Navigation with the real URL parser | not started |
 | 2.14 Sandbox policies | not started |
 | 2.15 Host shell and renderer stub | not started; waits on 2.0 |
 | 2.16 Exit demo and adversarial tests | not started; waits on 2.13 and 2.15 |
