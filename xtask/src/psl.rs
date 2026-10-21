@@ -16,6 +16,8 @@
 //!   starts with `//` holds no rule (publicsuffix.org "Format");
 //! - a rule that starts with `!` is an exception rule, and its text is
 //!   what follows the `!`;
+//! - a rule's labels are its text split at `.`, left to right, each stored
+//!   once in `PSL_LABELS` and its characters in `PSL_CHARS`;
 //! - each label of the text that is not ASCII is converted to its A-label
 //!   (`xn--` and RFC 3492 Punycode); ASCII labels are used as they are
 //!   (the list is already lower case, which is checked);
@@ -24,7 +26,8 @@
 //!
 //! It also rejects, so the tables can rely on it: an empty label; a `*`
 //! anywhere but as the whole leftmost label of a non-exception rule; an
-//! upper-case ASCII letter; a duplicate rule; and two exception rules one
+//! upper-case ASCII letter; an exception rule with fewer than two labels; a
+//! duplicate rule; and two exception rules one
 //! of which is a label suffix of the other (so that no domain has two
 //! matching exception rules, where the standard does not say which
 //! prevails).
@@ -256,6 +259,11 @@ fn rules(list: &str) -> Result<Vec<Rule>, String> {
             }
             labels.push(a);
         }
+        if exception && labels.len() < 2 {
+            return Err(format!(
+                "line {at}: an exception rule needs at least two labels: {first:?}"
+            ));
+        }
         let text = labels.join(".");
         if out.iter().any(|r| r.text == text && r.exception == exception) {
             return Err(format!("line {at}: duplicate rule {first:?}"));
@@ -282,13 +290,22 @@ fn rules(list: &str) -> Result<Vec<Rule>, String> {
 fn generate(list: &str) -> Result<String, String> {
     let rules = rules(list)?;
     let mut chars: Vec<u8> = Vec::new();
+    let mut label_rows: Vec<String> = Vec::new();
     let mut rows = Vec::new();
     for r in &rules {
-        let start = chars.len();
-        chars.extend_from_slice(r.text.as_bytes());
+        let first = label_rows.len();
+        let mut count = 0usize;
+        for label in r.text.split('.') {
+            label_rows.push(format!(
+                "LabelRow {{ start: {}, len: {} }}",
+                chars.len(),
+                label.len()
+            ));
+            chars.extend_from_slice(label.as_bytes());
+            count = count.saturating_add(1);
+        }
         rows.push(format!(
-            "RuleRow {{ start: {start}, len: {}, exception: {} }}",
-            r.text.len(),
+            "RuleRow {{ first: {first}, count: {count}, exception: {} }}",
             r.exception
         ));
     }
@@ -307,8 +324,18 @@ fn generate(list: &str) -> Result<String, String> {
     emit(
         &mut out,
         &Table {
+            name: "psl_labels",
+            doc: "The labels of every rule, rule after rule, each rule's from left to right.",
+            row_type: "LabelRow",
+            row_bytes: 8,
+            rows: label_rows,
+        },
+    );
+    emit(
+        &mut out,
+        &Table {
             name: "psl_chars",
-            doc: "The rules' text, concatenated (ASCII).",
+            doc: "The labels' characters, label after label (ASCII).",
             row_type: "u8",
             row_bytes: 1,
             rows: chars.iter().map(|c| format!("0x{c:X}")).collect(),
@@ -330,12 +357,15 @@ const HEADER: &str = "\
 // - PSL_RULES has one row per rule of public_suffix_list.dat, in file order.
 //   A line is read up to its first whitespace; a line that is empty or starts
 //   with `//` has no rule. A row's `exception` is whether the rule started
-//   with `!`; the rule's text is PSL_CHARS[start .. start + len], the rest of
-//   the rule after any `!`, with each non-ASCII label replaced by its A-label
-//   (`xn--` and RFC 3492 Punycode).
+//   with `!`. The rule is the rest of the line after any `!`, split at `.`,
+//   with each non-ASCII label replaced by its A-label (`xn--` and RFC 3492
+//   Punycode): its `count` labels, from left to right, are rows `first ..
+//   first + count` of PSL_LABELS, and a label is the characters
+//   PSL_CHARS[start .. start + len].
 // - Checked when generating: no empty label; `*` only as the whole leftmost
-//   label of a non-exception rule; no upper-case ASCII letter; no duplicate
-//   rule; no exception rule is a label suffix of another exception rule.
+//   label of a non-exception rule; no upper-case ASCII letter; an exception
+//   rule has at least two labels; no duplicate rule; no exception rule is a
+//   label suffix of another exception rule.
 
 use super::tables::*;
 #[allow(unused_imports)]

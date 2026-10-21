@@ -717,7 +717,8 @@ pub(crate) fn emit(out: &mut String, t: &Table<'_>) {
 fn dummy(row_type: &str) -> String {
     match row_type {
         "u32" | "u8" => "0".into(),
-        "RuleRow" => "RuleRow { start: 0, len: 0, exception: false }".into(),
+        "RuleRow" => "RuleRow { first: 0, count: 0, exception: false }".into(),
+        "LabelRow" => "LabelRow { start: 0, len: 0 }".into(),
         "IdnaRow" => "IdnaRow { first: 0, last: 0, status: Status::Disallowed, mapping_start: 0, mapping_len: 0 }".into(),
         "DecompositionRow" => "DecompositionRow { code_point: 0, start: 0, len: 0 }".into(),
         "CompositionRow" => "CompositionRow { first: 0, second: 0, composite: 0 }".into(),
