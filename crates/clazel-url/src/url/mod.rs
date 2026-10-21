@@ -13,15 +13,22 @@
 //! - [`path_ops`]: appending, shortening, Windows drive letters.
 //! - [`parse`]: the exec basic URL parser; [`serialize`]: the serializers.
 //! - [`lemmas`]: facts proven about the spec (totality, §4.1's record
-//!   invariants); [`examples`]: the standard's examples, evaluated.
+//!   invariants); [`examples`]: the standard's and RFC 3986's examples,
+//!   evaluated.
+//! - [`independent`]: a second transcription, from RFC 3986 (Appendix B,
+//!   §5.2, §5.3), and the class of bases and references on which it is
+//!   proven to agree with the basic URL parser; [`runs`]: the lemmas about
+//!   parser runs that proof uses.
 
 pub mod contract;
 pub mod examples;
+pub mod independent;
 pub mod lemmas;
 pub mod machine;
 pub mod parse;
 pub mod path_ops;
 pub mod record;
+pub mod runs;
 pub mod serialize;
 pub mod spec;
 pub mod states_authority;

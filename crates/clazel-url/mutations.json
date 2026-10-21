@@ -767,6 +767,686 @@
         "witness": "!(host_parser(seq![0x41u32, 0x5F, 0x42], false, |d: Seq<u32>, b: bool| if b { None::<Seq<u32>> } else { Some(d) }) == Some(Host::Domain(seq![0x41u32, 0x5F, 0x42])))"
       },
       "module": "host::examples"
+    },
+    {
+      "id": "url-scheme-start-lowercase",
+      "file": "src/url/spec.rs",
+      "find": "buffer: m.buffer.push(ascii_lowercase(c_of(ctx, m))), state: State::Scheme,",
+      "replace": "buffer: m.buffer.push(c_of(ctx, m)), state: State::Scheme,",
+      "expect": "killed",
+      "reason": "Scheme start state step 1 no longer lowercases c: \"HTTP:\" is then not a special scheme: <HTTP://h:80/a/./b/../c> is <http://h/a/c> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x48u32, 0x54, 0x54, 0x50, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x38, 0x30, 0x2F, 0x61, 0x2F, 0x2E, 0x2F, 0x62, 0x2F, 0x2E, 0x2E, 0x2F, 0x63], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-scheme-colon-path-or-authority",
+      "file": "src/url/spec.rs",
+      "find": "State::PathOrAuthority, pointer: m.pointer + 1,",
+      "replace": "State::PathOrAuthority, pointer: m.pointer,",
+      "expect": "killed",
+      "reason": "Scheme state step 2.8 no longer increases pointer by 1: the path or authority state then reads the first U+002F (/) again and goes to the authority state: <web+demo:/.//not-a-host/> is <web+demo:/.//not-a-host/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x77u32, 0x65, 0x62, 0x2B, 0x64, 0x65, 0x6D, 0x6F, 0x3A, 0x2F, 0x2E, 0x2F, 0x2F, 0x6E, 0x6F, 0x74, 0x2D, 0x61, 0x2D, 0x68, 0x6F, 0x73, 0x74, 0x2F], None) == Some(seq![0x77u32, 0x65, 0x62, 0x2B, 0x64, 0x65, 0x6D, 0x6F, 0x3A, 0x2F, 0x2E, 0x2F, 0x2F, 0x6E, 0x6F, 0x74, 0x2D, 0x61, 0x2D, 0x68, 0x6F, 0x73, 0x74, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-scheme-start-over",
+      "file": "src/url/spec.rs",
+      "find": "Step::Continue(Machine { buffer: seq![], state: State::NoScheme, pointer: -1, ..m })",
+      "replace": "Step::Continue(Machine { buffer: seq![], state: State::NoScheme, pointer: 0, ..m })",
+      "expect": "killed",
+      "reason": "Scheme state step 3 starts over from the second code point instead of the first: <../c?d#e> against <http://h/a/b/> is <http://h/a/c?d#e> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x2Eu32, 0x2E, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65], Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x62, 0x2F])) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-no-scheme-opaque-hash",
+      "file": "src/url/spec.rs",
+      "find": "(has_opaque_path(base) && !c_is(ctx, m, 0x23))",
+      "replace": "(has_opaque_path(base) && c_is(ctx, m, 0x23))",
+      "expect": "killed",
+      "reason": "No scheme state step 1 fails on U+0023 (#) against an opaque path instead of on everything else: <#x> against <sc:o> is <sc:o#x> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x23u32, 0x78], Some(seq![0x73u32, 0x63, 0x3A, 0x6F])) == Some(seq![0x73u32, 0x63, 0x3A, 0x6F, 0x23, 0x78]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-no-scheme-file",
+      "file": "src/url/spec.rs",
+      "find": "} else if base.scheme != file_str() {",
+      "replace": "} else if base.scheme == file_str() {",
+      "expect": "killed",
+      "reason": "No scheme state steps 3 and 4 swapped: a relative reference against an http base goes to the file state: <../c?d#e> against <http://h/a/b/> is <http://h/a/c?d#e> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x2Eu32, 0x2E, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65], Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x62, 0x2F])) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-relative-shorten",
+      "file": "src/url/spec.rs",
+      "find": "            // 5.4.2 \"Shorten url's path.\"\n            let url = shorten(url);",
+      "replace": "            // 5.4.2 \"Shorten url's path.\"\n            let url = url;",
+      "expect": "killed",
+      "reason": "Relative state step 5.4.2 no longer shortens base's path: <../c?d#e> against <http://h/a/b/> is <http://h/a/c?d#e> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x2Eu32, 0x2E, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65], Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x62, 0x2F])) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63, 0x3F, 0x64, 0x23, 0x65]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-relative-query",
+      "file": "src/url/spec.rs",
+      "find": "            Step::Continue(Machine { url: Url { query: Some(seq![]), ..url }, state: State::Query, ..m })\n        } else if c_is(ctx, m, 0x23) {\n            // 5.3",
+      "replace": "            Step::Continue(Machine { url: url, state: State::Query, ..m })\n        } else if c_is(ctx, m, 0x23) {\n            // 5.3",
+      "expect": "killed",
+      "reason": "Relative state step 5.2 keeps base's query instead of setting it to the empty string: <?q> against <http://h/a> is <http://h/a?q> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x3Fu32, 0x71], Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61])) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x3F, 0x71]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-special-authority-slashes-skip",
+      "file": "src/url/spec.rs",
+      "find": "Step::Continue(Machine { state: State::SpecialAuthorityIgnoreSlashes, pointer: m.pointer - 1, ..m })",
+      "replace": "Step::Continue(Machine { state: State::Path, pointer: m.pointer - 1, ..m })",
+      "expect": "killed",
+      "reason": "Special authority slashes state step 2 goes to the path state instead of the special authority ignore slashes state: <http:h> is <http://h/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x68], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-authority-percent-40",
+      "file": "src/url/spec.rs",
+      "find": "seq![0x25u32, 0x34, 0x30] + m.buffer",
+      "replace": "m.buffer",
+      "expect": "killed",
+      "reason": "Authority state step 1.2 no longer prepends \"%40\" to buffer: <http://a@b@h/> is <http://a%40b@h/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x61, 0x40, 0x62, 0x40, 0x68, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x61, 0x25, 0x34, 0x30, 0x62, 0x40, 0x68, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-authority-password-colon",
+      "file": "src/url/spec.rs",
+      "find": "if code_point == 0x3A && !password_token_seen {",
+      "replace": "if code_point == 0x3A {",
+      "expect": "killed",
+      "reason": "Authority state step 1.4.1 skips every U+003A (:), not only the first: <http://u:p:q@h/> is <http://u:p%3Aq@h/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x3A, 0x71, 0x40, 0x68, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x25, 0x33, 0x41, 0x71, 0x40, 0x68, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-authority-userinfo-set",
+      "file": "src/url/spec.rs",
+      "find": "                code_point,\n                clazel_percent::spec::PercentEncodeSet::Userinfo,",
+      "replace": "                code_point,\n                clazel_percent::spec::PercentEncodeSet::Path,",
+      "expect": "killed",
+      "reason": "Authority state step 1.4.2 uses the path percent-encode set, which does not include U+003A (:): <http://u:p:q@h/> is <http://u:p%3Aq@h/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x3A, 0x71, 0x40, 0x68, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x25, 0x33, 0x41, 0x71, 0x40, 0x68, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-authority-host-missing",
+      "file": "src/url/spec.rs",
+      "find": "if m.at_sign_seen && m.buffer.len() == 0 {",
+      "replace": "if false && m.at_sign_seen && m.buffer.len() == 0 {",
+      "expect": "killed",
+      "reason": "Authority state step 2.1 no longer fails on credentials without a host: <sc://u@/x> fails in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x73u32, 0x63, 0x3A, 0x2F, 0x2F, 0x75, 0x40, 0x2F, 0x78], None) == None)",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-authority-rewind",
+      "file": "src/url/spec.rs",
+      "find": "pointer: m.pointer - (m.buffer.len() + 1),",
+      "replace": "pointer: m.pointer - m.buffer.len(),",
+      "expect": "killed",
+      "reason": "Authority state step 2.2 decreases pointer by buffer's length, not length + 1: the host loses its first code point: <https://example.com/> is <https://example.com/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-host-inside-brackets",
+      "file": "src/url/spec.rs",
+      "find": "} else if c_is(ctx, m, 0x3A) && !m.inside_brackets {",
+      "replace": "} else if c_is(ctx, m, 0x3A) {",
+      "expect": "killed",
+      "reason": "Host state step 2 ignores insideBrackets: \"[::1]\" ends at its first U+003A (:): <http://[::1]:80/> is <http://[::1]/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x5B, 0x3A, 0x3A, 0x31, 0x5D, 0x3A, 0x38, 0x30, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x5B, 0x3A, 0x3A, 0x31, 0x5D, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-host-special-empty",
+      "file": "src/url/spec.rs",
+      "find": "        if is_special(url) && m.buffer.len() == 0 {\n            // 3.1",
+      "replace": "        if false && m.buffer.len() == 0 {\n            // 3.1",
+      "expect": "killed",
+      "reason": "Host state step 3.1 no longer fails on a special URL with an empty host: <http://> fails in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F], None) == None)",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-host-opaque-flag",
+      "file": "src/url/spec.rs",
+      "find": "            match crate::host::spec::host_parser(m.buffer, !is_special(url), ctx.domain_parser) {\n                // 3.4",
+      "replace": "            match crate::host::spec::host_parser(m.buffer, is_special(url), ctx.domain_parser) {\n                // 3.4",
+      "expect": "killed",
+      "reason": "Host state step 3.3 parses a special URL's host as opaque: \"0x7f.1\" is then not an IPv4 address: <http://0x7f.1/> is <http://127.0.0.1/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x30, 0x78, 0x37, 0x66, 0x2E, 0x31, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x31, 0x32, 0x37, 0x2E, 0x30, 0x2E, 0x30, 0x2E, 0x31, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-port-16-bit",
+      "file": "src/url/spec.rs",
+      "find": "if port > 0xFFFF {",
+      "replace": "if port > 0x1FFFF {",
+      "expect": "killed",
+      "reason": "Port state step 2.1.2 accepts ports up to 2^17 - 1: <http://h:65536/> fails in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x36, 0x2F], None) == None)",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-port-default",
+      "file": "src/url/spec.rs",
+      "find": "let url = if default_port(m.url.scheme) == Some(port) {",
+      "replace": "let url = if false && default_port(m.url.scheme) == Some(port) {",
+      "expect": "killed",
+      "reason": "Port state step 2.1.3 keeps a default port: <HTTP://h:80/a/./b/../c> is <http://h/a/c> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x48u32, 0x54, 0x54, 0x50, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x38, 0x30, 0x2F, 0x61, 0x2F, 0x2E, 0x2F, 0x62, 0x2F, 0x2E, 0x2E, 0x2F, 0x63], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-default-port-http",
+      "file": "src/url/spec.rs",
+      "find": "    } else if s == http_str() {\n        Some(80)",
+      "replace": "    } else if s == http_str() {\n        Some(81)",
+      "expect": "killed",
+      "reason": "The default port of http is 81 (§4.2's table says 80): <HTTP://h:80/a/./b/../c> is <http://h/a/c> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x48u32, 0x54, 0x54, 0x50, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x38, 0x30, 0x2F, 0x61, 0x2F, 0x2E, 0x2F, 0x62, 0x2F, 0x2E, 0x2E, 0x2F, 0x63], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-decimal-value-radix",
+      "file": "src/url/spec.rs",
+      "find": "decimal_value(s.drop_last()) * 10 +",
+      "replace": "decimal_value(s.drop_last()) * 16 +",
+      "expect": "killed",
+      "reason": "Port state step 2.1.1 reads the port in radix 16: <http://h:65535/> is <http://h:65535/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x35, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x35, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-port-invalid",
+      "file": "src/url/spec.rs",
+      "find": "        // 3. \"Otherwise, port-invalid validation error, return failure.\"\n        Step::Failure",
+      "replace": "        // 3. \"Otherwise, port-invalid validation error, return failure.\"\n        Step::Continue(m)",
+      "expect": "killed",
+      "reason": "Port state step 3 no longer fails on a code point that is not a digit: <http://h:8x/> fails in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x38, 0x78, 0x2F], None) == None)",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-file-drive-letter-path",
+      "file": "src/url/spec.rs",
+      "find": "                Url { path: UrlPath::List(seq![]), ..url }\n            };\n            // 4.4.4",
+      "replace": "                url\n            };\n            // 4.4.4",
+      "expect": "killed",
+      "reason": "File state step 4.4.3.2 keeps base's path instead of setting it to « »: <C|> against <file://host/dir/file> is <file://host/C:> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x43u32, 0x7C], Some(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x68, 0x6F, 0x73, 0x74, 0x2F, 0x64, 0x69, 0x72, 0x2F, 0x66, 0x69, 0x6C, 0x65])) == Some(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x68, 0x6F, 0x73, 0x74, 0x2F, 0x43, 0x3A]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-localhost",
+      "file": "src/url/spec.rs",
+      "find": "seq![0x6Cu32, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x74]",
+      "replace": "seq![0x6Cu32, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x75]",
+      "expect": "killed",
+      "reason": "File host state step 1.3.3 compares the host with \"localhosu\": <file://localhost/x> is <file:///x> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x6C, 0x6F, 0x63, 0x61, 0x6C, 0x68, 0x6F, 0x73, 0x74, 0x2F, 0x78], None) == Some(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x78]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-file-host-drive-letter",
+      "file": "src/url/spec.rs",
+      "find": "if ctx.state_override is None && is_windows_drive_letter(m.buffer) {",
+      "replace": "if false && ctx.state_override is None && is_windows_drive_letter(m.buffer) {",
+      "expect": "killed",
+      "reason": "File host state step 1.1 no longer hands a Windows drive letter to the path state: \"C|\" is then a host, and U+007C (|) is forbidden: <file://C|/x> is <file:///C:/x> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x43, 0x7C, 0x2F, 0x78], None) == Some(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x43, 0x3A, 0x2F, 0x78]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-single-dot",
+      "file": "src/url/spec.rs",
+      "find": "    s == seq![0x2Eu32] || is_ascii_case_insensitive_match(s, seq![0x25u32, 0x32, 0x65])",
+      "replace": "    is_ascii_case_insensitive_match(s, seq![0x25u32, 0x32, 0x65])",
+      "expect": "killed",
+      "reason": "\".\" is no longer a single-dot URL path segment (§4.1): <HTTP://h:80/a/./b/../c> is <http://h/a/c> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x48u32, 0x54, 0x54, 0x50, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x38, 0x30, 0x2F, 0x61, 0x2F, 0x2E, 0x2F, 0x62, 0x2F, 0x2E, 0x2E, 0x2F, 0x63], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x63]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-double-dot-pct",
+      "file": "src/url/spec.rs",
+      "find": "is_ascii_case_insensitive_match(s, seq![0x25u32, 0x32, 0x65, 0x25, 0x32, 0x65])",
+      "replace": "is_ascii_case_insensitive_match(s, seq![0x25u32, 0x32, 0x65, 0x25, 0x32, 0x66])",
+      "expect": "killed",
+      "reason": "\"%2e%2e\" is no longer a double-dot URL path segment (§4.1): <http://h/a/%2e%2E/x> is <http://h/x> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x25, 0x32, 0x65, 0x25, 0x32, 0x45, 0x2F, 0x78], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x78]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-path-double-dot-append",
+      "file": "src/url/spec.rs",
+      "find": "            if !c_is_path_slash(ctx, m) {\n                // 1.2.2",
+      "replace": "            if false {\n                // 1.2.2",
+      "expect": "killed",
+      "reason": "Path state step 1.2.2 no longer appends the empty string after a final double-dot segment: <http://h/a/b/..> is <http://h/a/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F, 0x62, 0x2F, 0x2E, 0x2E], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-path-drive-letter",
+      "file": "src/url/spec.rs",
+      "find": "m.buffer.update(1, 0x3A)",
+      "replace": "m.buffer",
+      "expect": "killed",
+      "reason": "Path state step 1.4.1 no longer replaces a Windows drive letter's second code point with U+003A (:): <file:///C|/x> is <file:///C:/x> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x43, 0x7C, 0x2F, 0x78], None) == Some(seq![0x66u32, 0x69, 0x6C, 0x65, 0x3A, 0x2F, 0x2F, 0x2F, 0x43, 0x3A, 0x2F, 0x78]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-path-set",
+      "file": "src/url/spec.rs",
+      "find": "                    c_of(ctx, m),\n                    clazel_percent::spec::PercentEncodeSet::Path,",
+      "replace": "                    c_of(ctx, m),\n                    clazel_percent::spec::PercentEncodeSet::C0Control,",
+      "expect": "killed",
+      "reason": "Path state step 2.3 uses the C0 control percent-encode set, which does not include U+0020 SPACE: <http://h/a b<> is <http://h/a%20b%3C> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x20, 0x62, 0x3C], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x25, 0x32, 0x30, 0x62, 0x25, 0x33, 0x43]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-path-backslash",
+      "file": "src/url/spec.rs",
+      "find": "    c_is(ctx, m, 0x2F) || (is_special(m.url) && c_is(ctx, m, 0x5C))\n}",
+      "replace": "    c_is(ctx, m, 0x2F)\n}",
+      "expect": "killed",
+      "reason": "Path state step 1.2.2 and 1.3 no longer treat U+005C (\\) as a slash in a special URL: <http:\\\\h\\a> is <http://h/a> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x5C, 0x5C, 0x68, 0x5C, 0x61], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-opaque-path-space",
+      "file": "src/url/spec.rs",
+      "find": "opaque_path_append(m.url.path, seq![0x25u32, 0x32, 0x30])",
+      "replace": "opaque_path_append(m.url.path, seq![0x20u32])",
+      "expect": "killed",
+      "reason": "Opaque path state step 3.2 appends U+0020 SPACE instead of \"%20\": <sc:a #b> is <sc:a%20#b> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x73u32, 0x63, 0x3A, 0x61, 0x20, 0x23, 0x62], None) == Some(seq![0x73u32, 0x63, 0x3A, 0x61, 0x25, 0x32, 0x30, 0x23, 0x62]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-query-special-set",
+      "file": "src/url/spec.rs",
+      "find": "            clazel_percent::spec::PercentEncodeSet::SpecialQuery\n        } else {",
+      "replace": "            clazel_percent::spec::PercentEncodeSet::Query\n        } else {",
+      "expect": "killed",
+      "reason": "Query state step 2.1 uses the query percent-encode set for special URLs, which does not include U+0027 ('): <http://h/?'> is <http://h/?%27> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x27], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x3F, 0x25, 0x32, 0x37]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-fragment-set",
+      "file": "src/url/spec.rs",
+      "find": "                            c_of(ctx, m),\n                            clazel_percent::spec::PercentEncodeSet::Fragment,",
+      "replace": "                            c_of(ctx, m),\n                            clazel_percent::spec::PercentEncodeSet::C0Control,",
+      "expect": "killed",
+      "reason": "Fragment state step 1.3 uses the C0 control percent-encode set, which does not include U+003C (<): <http://h/#<> is <http://h/#%3C> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x3C], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x23, 0x25, 0x33, 0x43]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-strip-c0-space",
+      "file": "src/url/spec.rs",
+      "find": "pub open spec fn is_c0_control_or_space(c: u32) -> bool {\n    c <= 0x20",
+      "replace": "pub open spec fn is_c0_control_or_space(c: u32) -> bool {\n    c < 0x20",
+      "expect": "killed",
+      "reason": "C0 control or space no longer includes U+0020 SPACE: leading spaces are kept, and the scheme start state fails: <  http://h/a\\tb\\n > is <http://h/ab> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x20u32, 0x20, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x09, 0x62, 0x0A, 0x20], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x62]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-tab-newline",
+      "file": "src/url/spec.rs",
+      "find": "    c == 0x09 || c == 0x0A || c == 0x0D\n}",
+      "replace": "    c == 0x0A || c == 0x0D\n}",
+      "expect": "killed",
+      "reason": "ASCII tab or newline no longer includes U+0009 TAB: <  http://h/a\\tb\\n > is <http://h/ab> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x20u32, 0x20, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x09, 0x62, 0x0A, 0x20], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x62]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-serializer-dot-prefix",
+      "file": "src/url/spec.rs",
+      "find": "p.len() > 1 && p[0].len() == 0)",
+      "replace": "p.len() > 1 && p[0].len() == 1)",
+      "expect": "killed",
+      "reason": "URL serializer step 3 tests path[0] for length 1 instead of the empty string, so \"/.\" is never prepended: <web+demo:/path/..//not-a-host/> is <web+demo:/.//not-a-host/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x77u32, 0x65, 0x62, 0x2B, 0x64, 0x65, 0x6D, 0x6F, 0x3A, 0x2F, 0x70, 0x61, 0x74, 0x68, 0x2F, 0x2E, 0x2E, 0x2F, 0x2F, 0x6E, 0x6F, 0x74, 0x2D, 0x61, 0x2D, 0x68, 0x6F, 0x73, 0x74, 0x2F], None) == Some(seq![0x77u32, 0x65, 0x62, 0x2B, 0x64, 0x65, 0x6D, 0x6F, 0x3A, 0x2F, 0x2E, 0x2F, 0x2F, 0x6E, 0x6F, 0x74, 0x2D, 0x61, 0x2D, 0x68, 0x6F, 0x73, 0x74, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-serializer-password",
+      "file": "src/url/spec.rs",
+      "find": "output + seq![0x3Au32] + url.password",
+      "replace": "output + url.password",
+      "expect": "killed",
+      "reason": "URL serializer step 2.2.2 omits the U+003A (:) before the password: <http://u:p@h:8080/x?y#z> is <http://u:p@h:8080/x?y#z> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x40, 0x68, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F, 0x78, 0x3F, 0x79, 0x23, 0x7A], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x75, 0x3A, 0x70, 0x40, 0x68, 0x3A, 0x38, 0x30, 0x38, 0x30, 0x2F, 0x78, 0x3F, 0x79, 0x23, 0x7A]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-serializer-port",
+      "file": "src/url/spec.rs",
+      "find": "Some(port) => output + seq![0x3Au32] + crate::host::spec::serialize_integer(port),",
+      "replace": "Some(port) => output + crate::host::spec::serialize_integer(port),",
+      "expect": "killed",
+      "reason": "URL serializer step 2.4 omits the U+003A (:) before the port: <http://h:65535/> is <http://h:65535/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x35, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x3A, 0x36, 0x35, 0x35, 0x33, 0x35, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-serializer-query",
+      "file": "src/url/spec.rs",
+      "find": "Some(query) => output + seq![0x3Fu32] + query,",
+      "replace": "Some(query) => output + query,",
+      "expect": "killed",
+      "reason": "URL serializer step 5 omits the U+003F (?) before the query: <?q> against <http://h/a> is <http://h/a?q> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x3Fu32, 0x71], Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61])) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x68, 0x2F, 0x61, 0x3F, 0x71]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
+    },
+    {
+      "id": "url-path-serializer-slash",
+      "file": "src/url/spec.rs",
+      "find": "serialize_segments(path.drop_last()) + seq![0x2Fu32] + path.last()",
+      "replace": "serialize_segments(path.drop_last()) + path.last()",
+      "expect": "killed",
+      "reason": "URL path serializer step 4 omits the U+002F (/) before each segment: <https://example.com/> is <https://example.com/> in lemma_examples, and the mutant gives something else.",
+      "certificate": {
+        "file": "src/url/lemmas.rs",
+        "lemma": "super::examples::lemma_examples()",
+        "witness": "!(super::examples::href(seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F], None) == Some(seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F]))",
+        "reveal": [
+          "super::spec::state_step"
+        ]
+      },
+      "module": "url::examples"
     }
   ]
 }

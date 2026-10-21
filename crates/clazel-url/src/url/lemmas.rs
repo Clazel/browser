@@ -17,8 +17,6 @@
 #[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
-use super::termination::*;
-#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
@@ -31,12 +29,12 @@ verus! {
 /// end, and before the host state buffer is no longer than pointer (it
 /// holds code points read since it was last emptied).
 pub open spec fn run_inv(ctx: Ctx, m: Machine) -> bool {
-    0 <= m.pointer <= ctx.input.len() && (phase(m.state) >= 1 ==> m.buffer.len() <= m.pointer)
+    0 <= m.pointer <= ctx.input.len() && (super::termination::phase(m.state) >= 1 ==> m.buffer.len() <= m.pointer)
 }
 
 /// The number of runs the state machine makes from `m` until it stops.
 pub open spec fn runs(ctx: Ctx, m: Machine) -> nat
-    decreases phase(m.state), pointer_measure(ctx.input.len(), m.pointer), rank(m.state) via runs_decreases
+    decreases super::termination::phase(m.state), super::termination::pointer_measure(ctx.input.len(), m.pointer), super::termination::rank(m.state) via runs_decreases
 {
     match state_step(ctx, m) {
         Step::Continue(next) => if next.pointer >= ctx.input.len() {
@@ -51,7 +49,7 @@ pub open spec fn runs(ctx: Ctx, m: Machine) -> nat
 /// Termination of [`runs`]: the same measure as [`run`].
 #[via_fn]
 proof fn runs_decreases(ctx: Ctx, m: Machine) {
-    lemma_state_step_measure(ctx, m);
+    super::termination::lemma_state_step_measure(ctx, m);
 }
 
 /// A run keeps [`run_inv`]: it moves pointer back by at most 1, except
@@ -220,14 +218,14 @@ pub proof fn lemma_step_inv(ctx: Ctx, m: Machine)
 /// The measure of `termination.rs` as one number: phase, then the code
 /// points left, then rank, each below the next one's weight.
 pub open spec fn potential(len: nat, m: Machine) -> nat {
-    phase(m.state) * (4 * (len + 1)) + pointer_measure(len, m.pointer) * 4 + rank(m.state)
+    super::termination::phase(m.state) * (4 * (len + 1)) + super::termination::pointer_measure(len, m.pointer) * 4 + super::termination::rank(m.state)
 }
 
 /// A rank is below 4.
 proof fn lemma_rank_bound(s: State)
     ensures
-        rank(s) <= 3,
-        phase(s) <= 2,
+        super::termination::rank(s) <= 3,
+        super::termination::phase(s) <= 2,
 {
 }
 
@@ -237,10 +235,10 @@ pub proof fn lemma_runs_bound(ctx: Ctx, m: Machine)
         run_inv(ctx, m),
     ensures
         runs(ctx, m) <= potential(ctx.input.len(), m) + 1,
-    decreases phase(m.state), pointer_measure(ctx.input.len(), m.pointer), rank(m.state),
+    decreases super::termination::phase(m.state), super::termination::pointer_measure(ctx.input.len(), m.pointer), super::termination::rank(m.state),
 {
     let len = ctx.input.len();
-    lemma_state_step_measure(ctx, m);
+    super::termination::lemma_state_step_measure(ctx, m);
     lemma_step_inv(ctx, m);
     if let Step::Continue(next) = state_step(ctx, m) {
         if next.pointer < len {
@@ -248,19 +246,19 @@ pub proof fn lemma_runs_bound(ctx: Ctx, m: Machine)
             lemma_runs_bound(ctx, n);
             lemma_rank_bound(m.state);
             lemma_rank_bound(n.state);
-            let pm = pointer_measure(len, m.pointer);
-            let pn = pointer_measure(len, n.pointer);
+            let pm = super::termination::pointer_measure(len, m.pointer);
+            let pn = super::termination::pointer_measure(len, n.pointer);
             assert(pn <= len);
             assert(potential(len, n) < potential(len, m)) by (nonlinear_arith)
                 requires
-                    phase(n.state) < phase(m.state) || (phase(n.state) == phase(m.state) && (pn < pm || (pn == pm
-                        && rank(n.state) < rank(m.state)))),
+                    super::termination::phase(n.state) < super::termination::phase(m.state) || (super::termination::phase(n.state) == super::termination::phase(m.state) && (pn < pm || (pn == pm
+                        && super::termination::rank(n.state) < super::termination::rank(m.state)))),
                     pn <= len,
                     pm <= len,
-                    rank(m.state) <= 3,
-                    rank(n.state) <= 3,
-                    potential(len, n) == phase(n.state) * (4 * (len + 1)) + pn * 4 + rank(n.state),
-                    potential(len, m) == phase(m.state) * (4 * (len + 1)) + pm * 4 + rank(m.state),
+                    super::termination::rank(m.state) <= 3,
+                    super::termination::rank(n.state) <= 3,
+                    potential(len, n) == super::termination::phase(n.state) * (4 * (len + 1)) + pn * 4 + super::termination::rank(n.state),
+                    potential(len, m) == super::termination::phase(m.state) * (4 * (len + 1)) + pm * 4 + super::termination::rank(m.state),
             ;
         }
     }
@@ -314,8 +312,8 @@ pub proof fn lemma_basic_url_parser_total(input: Seq<u32>, base: Option<Url>, dp
     let len = ctx.input.len();
     assert(potential(len, m) <= 8 * (len + 1) + 4 * len + 1) by (nonlinear_arith)
         requires
-            potential(len, m) == 2 * (4 * (len + 1)) + pointer_measure(len, 0) * 4 + 1,
-            pointer_measure(len, 0) <= len,
+            potential(len, m) == 2 * (4 * (len + 1)) + super::termination::pointer_measure(len, 0) * 4 + 1,
+            super::termination::pointer_measure(len, 0) <= len,
     ;
 }
 
@@ -539,9 +537,9 @@ pub proof fn lemma_run_record(ctx: Ctx, m: Machine)
         ctx.state_override is None,
     ensures
         run(ctx, m) matches Some(u) ==> url_ok(u),
-    decreases phase(m.state), pointer_measure(ctx.input.len(), m.pointer), rank(m.state),
+    decreases super::termination::phase(m.state), super::termination::pointer_measure(ctx.input.len(), m.pointer), super::termination::rank(m.state),
 {
-    lemma_state_step_measure(ctx, m);
+    super::termination::lemma_state_step_measure(ctx, m);
     lemma_step_record(ctx, m);
     lemma_no_return_without_override(ctx, m);
     if let Step::Continue(next) = state_step(ctx, m) {
