@@ -1,0 +1,7 @@
+//! The message schema over the CBOR profile.
+//!
+//! - [`spec`]: the definition.
+//! - [`contract`]: what the executable code is proven to satisfy.
+
+pub mod contract;
+pub mod spec;
