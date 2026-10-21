@@ -35,8 +35,8 @@ Phase 2 is done when all of these hold on macOS arm64 and Linux x86-64:
    files, sockets or other processes directly.
 4. `scripts/verify.sh` exits 0, with the README table showing conformance
    pass rates for the new crates.
-5. The sandbox and `unsafe` decision (2.0) is recorded by the maintainer, and
-   CLAUDE.md, VERIFICATION.md and the checker match it.
+5. CLAUDE.md, VERIFICATION.md and the checker match the sandbox and
+   `unsafe` decision recorded in 2.0, and `clazel-sys` has a current audit.
 
 ## What is proven, and what is assumed
 
@@ -75,7 +75,7 @@ last; the noninterference theorem is about functional behaviour only.
 | `clazel-sandbox` | 1 | Linux seccomp, Landlock; Seatbelt SBPL | sandbox policies as data; the seccomp-BPF program generator |
 | `clazel` | 0 | — | binary: kernel host shell, process spawning, the demo |
 | `clazel-renderer` | 0 | — | binary: renderer stub that enters the sandbox, then runs a script |
-| `clazel-sys` | 0 | — | only if the maintainer picks option B in 2.0 |
+| `clazel-sys` | 0 | — | the one crate allowed `unsafe`: the FFI calls that enter the sandbox (2.0) |
 
 Section numbers are from the documents at the time of writing; each spec
 header pins the exact commit or draft revision it transcribes, and is
@@ -110,12 +110,12 @@ Ordered by dependency. Size: S is under a day, M a few days, L a week or more.
 Each item follows CLAUDE.md rule 3: spec and contracts in one commit, then the
 implementation and proof. Items marked **waits on 1.10** must not start
 before 1.10 is merged; items marked **waits on 2.0** must not start before
-the maintainer has decided.
+2.0's checker and policy changes are merged.
 
-### 2.0 The sandbox and `unsafe` decision (S, maintainer's decision)
+### 2.0 The sandbox and `unsafe` decision (S)
 
-**This is the maintainer's decision. No agent may make it, and no item
-that needs it starts until it is recorded here.**
+The options below were put to the maintainer, who asked for the most secure
+and verifiable one to be chosen; the decision is at the end of this item.
 
 Renderers must be confined by the OS, or the kernel's theorems are moot: a
 renderer that can open the profile directory reads the cookies without
@@ -165,29 +165,61 @@ without `pre_exec` (which is `unsafe`), so it would go through stdin, and
 the IPC socket through stdout.
 
 **Recommendation: B**, with `libc` as its only shipped dependency, and C
-allowed as a stopgap for the demo if the maintainer wants Phase 2 to finish
-before opening the `unsafe` exception. B puts the least foreign `unsafe` in
+allowed as a stopgap for the demo if Phase 2 should finish before the
+`unsafe` exception is opened (not taken; see the decision below). B puts the least foreign `unsafe` in
 the TCB, keeps every policy decision in verified code, and is what rule 1
 already describes. Whichever is chosen, renderers **fail closed**: if any
 sandbox layer cannot be applied (no Landlock in the running kernel,
 unprivileged user namespaces disabled as on recent Ubuntu), the renderer
 exits before reading input, and the kernel reports why.
 
-A related question for the maintainer: rule 1 says "audited", while
+A related question: rule 1 says "audited", while
 VERIFICATION.md says no step may depend on a human approving something.
 Either the sys crate is the stated exception to that (a human audit,
 recorded), or "audited" is defined as machine checks: `unsafe` only in that
 crate, one FFI call per block, a `// SAFETY:` comment on each, no raw
 pointer arithmetic, a fixed list of permitted foreign functions enforced by
 `cargo xtask check`, and integration tests that each sandbox layer denies
-what it should. The plan assumes the second unless told otherwise.
+what it should. (Answered below: both machine checks and an LLM audit.)
 
-**Done when:** the decision and its date are recorded below, and if B, the
-checker, CLAUDE.md rule 1 and VERIFICATION.md say exactly which crate may
-use `unsafe`, with a planted violation (a second crate overriding the lint)
-caught.
+**Decision (2026-10-21): option B**, `clazel-sys` with `libc` as its only
+shipped dependency, and no option C stopgap. Chosen by the agent at the
+maintainer's request, on these grounds:
 
-**As built:** *(waiting on the maintainer)*
+- *Least foreign `unsafe` in the TCB.* B's `unsafe` is a handful of FFI
+  calls we can read in full; A adds tens of thousands of lines of wrapper
+  crates, and C adds `bwrap` and `sandbox-exec`, both larger than the calls
+  they replace, and the latter deprecated.
+- *Every policy decision stays verified.* What the sandbox allows is built in
+  `clazel-sandbox` (Tier 1, exhaustive filter check); `clazel-sys` only
+  hands the result to the OS and decides nothing.
+- *The constraints are machine-checkable,* which a third-party crate's are
+  not.
+
+Maintainer's answers to the other questions, same date:
+
+- **"Audited" means machine checks plus an LLM audit.** `cargo xtask check`
+  enforces: `unsafe_code` overridden in `clazel-sys` and nowhere else, and
+  only that lint; a fixed list of permitted foreign functions; one FFI call
+  per `unsafe` block, each with a `// SAFETY:` comment; no raw pointer
+  arithmetic; every public function safe. In addition, every change to
+  `clazel-sys` gets an audit by a different LLM session from the one that
+  wrote it, recorded in `docs/SYS-AUDITS.md` with the SHA-256 of the crate's
+  source, and `check` fails if the latest audit's hash does not match the
+  source. The checker cannot tell which session wrote an audit; that an
+  author never audits its own change is a rule in CLAUDE.md, not a machine
+  check, and is stated as such. The audit checks each `unsafe` block
+  against the man page and the `libc` declaration it uses.
+- **Renderers fail closed** (accepted).
+- **Per-root cookie eviction, no global limit** (accepted; see 2.9).
+
+**Done when:** CLAUDE.md rule 1, VERIFICATION.md (Tier 0 row, TCB list)
+and the checker say exactly the above; `docs/SYS-AUDITS.md` exists; and
+planted violations are caught: a second crate overriding `unsafe_code`, an
+unlisted foreign function, an `unsafe` block without `// SAFETY:`, and a
+`clazel-sys` source change with a stale audit hash.
+
+**As built:** *(to be filled in when the item is done)*
 
 ### 2.1 IPC wire format: spec and contracts (M)
 
@@ -623,7 +655,7 @@ Starts now (no wait):
 Waits on 1.10:
 1.10 URL parser ─> 2.6 origin of a URL ─> 2.13 navigation (also needs 2.12)
 
-Waits on 2.0 (maintainer):
+Waits on 2.0 (checker and policy changes):
 2.0 decision ─> 2.15 processes (also needs 2.12, 2.14) ─> 2.16 exit demo (also needs 2.13)
 ```
 
@@ -633,7 +665,7 @@ Nothing waits on 1.11.
 
 | Item | State |
 |------|-------|
-| 2.0 Sandbox and `unsafe` decision | **waiting on the maintainer** |
+| 2.0 Sandbox and `unsafe` decision | decided 2026-10-21: option B (`clazel-sys` + `libc`), LLM-audited; checker and policy changes not started |
 | 2.1 IPC wire format: spec | not started |
 | 2.2 IPC wire format: implementation | not started |
 | 2.3 IPC frames and messages | not started |
