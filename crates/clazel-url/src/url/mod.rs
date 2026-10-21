@@ -9,3 +9,6 @@
 pub mod contract;
 pub mod spec;
 pub mod termination;
+pub mod record;
+pub mod machine;
+pub mod states_scheme;
