@@ -233,7 +233,23 @@ unlisted foreign function, an `unsafe` block without `// SAFETY:`, a
 `clazel-sys` source change with a stale audit hash, and a README `unsafe`
 count that differs from the measured one.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** `crates/clazel-ipc/src/cbor/{spec,contract,termination}.rs`
+(commit `6b27b5c`, one small fix after it). The spec represents an item by
+its **pre-order token sequence** (`Token::Array(n)` followed by its
+elements' tokens), which is a bijection with the RFC's tree and makes every
+function a loop over tokens, so termination follows from the position
+advancing; this and the other modelling choices are listed at the top of
+`spec.rs`. `decode_from` carries an owed-item count instead of recursing
+into arrays, and rejects trailing bytes (a frame holds exactly one item). A
+string's length must be below 2^64 (`token_ok`). `lemmas.rs` already proves
+the three lemmas that 2.2 lists, because they are facts about the spec:
+`lemma_decode_encode`, `lemma_encode_decode` (so `lemma_decode_injective`)
+and `lemma_decode_alloc_bound`. `examples.rs` evaluates 26 Appendix A items
+and 30 rejections (every non-shortest width, each major type outside the
+profile, indefinite lengths, truncation, trailing bytes, bad UTF-8).
+`mutations.json` has 49 CBOR mutations, each `killed` with a certificate.
+Text validity is `clazel-encoding`'s `decode_without_bom_or_fail`. There is
+no recursion depth limit because the decoder never recurses.
 
 ### 2.1 IPC wire format: spec and contracts (M)
 
@@ -258,7 +274,27 @@ major types used) and §4.2.1 for the profile, and lists the profile's
 restrictions as modelling choices. Contracts: `decode(&[u8]) ->
 Option<Item>` and `encode(&Item) -> Vec<u8>`.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** `cbor/{decode,encode,token}.rs`: `decode(&[u8]) ->
+Option<Vec<Tok>>` and `encode(&[Tok]) -> Vec<u8>`, where `Tok` is the exec
+twin of the spec token and an item is a `Vec<Tok>`. Both are proven equal
+to the spec (`contract.rs`). The decoder is a loop; it returns `None` as
+soon as the owed count exceeds the bytes left, so a declared length of 2^64
+allocates nothing, and pushes only tokens it has read
+(`decode_alloc_ensures`). `independent.rs` is a second transcription from
+RFC 7049 §2, Appendix C and §3.9 (bit operations, widths `2^(ai-24)`,
+shortest form as a `class_of` function, recursion on the rest of the input),
+with text validity from `clazel-encoding`'s Unicode Table 3-7
+transcription; `lemma_equals_decode` proves it equal to the spec on every
+input and `lemma_ind_is_item` proves the item predicates equal. It was
+written by the same agent that wrote `spec.rs`, so it is weaker evidence
+than a second author's. Conformance (`tests/conformance_cbor.rs`): 82/82
+vectors of `cbor/test-vectors` `appendix_a.json` (26 inside the profile
+decode and re-encode, 56 are rejected; the file is RFC 7049's Appendix A,
+which RFC 8949 repeats), and a differential against `minicbor` 2.3.1
+(20 000 random items, 60 000 random and mutated byte strings; where we
+reject, minicbor must accept only non-shortest bytes). No difference was
+found. `minicbor` was chosen over `ciborium` (fewer dependencies: none).
+The upstream repository has no licence file; `LICENSE.md` says so.
 
 ### 2.2 IPC wire format: implementation, independent transcription, conformance (M)
 
@@ -286,7 +322,27 @@ dependencies) on random items and random byte strings: where the other
 accepts a non-shortest form, we must reject it, and that is the only
 permitted difference.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** `frame/` and `message/` (spec, contract, lemmas, examples,
+codec each). `MAX_FRAME` is 1 MiB; `payload_length` lets the transport
+refuse an oversized frame from its first 4 bytes. `decode_frame`,
+`encode_frame`, `decode_message`, `decode_renderer_message` (only
+renderer-to-kernel tags), `decode_framed`, `encode_message` and
+`encode_framed` are proven equal to the spec. The schema adds
+`StorageLengthValue` (tag 104) to the plan's list, because `StorageLength`
+needs a reply; `StorageValue` carries a presence flag, because the profile
+has no null. Proven: `lemma_decode_encode_message`,
+`lemma_encode_decode_message` (so `lemma_decode_message_injective`),
+`lemma_decode_message_alloc_bound`, the same two for frames, and the two
+schema rules as `lemma_no_identity_fields` over a `message_fields` table
+that has identity variants (`Origin`, `RendererId`, `TabId`, `SenderUrl`)
+no message uses, tied to the wire by `lemma_fields_match_tokens`. That table
+is a view of the schema, not the encoder itself: the rules hold because
+`Message` has no such field, and the mutations show the lemmas fail if the
+table is changed. 69 mutations in all, every one `killed` with a
+certificate. One mutation was dropped because it is equivalent: the
+array-length check in `parse_message` is redundant for valid items.
+`tests/messages.rs` round-trips every variant through the real code.
+`clazel-ipc` is at tier 2 for all of it (177 Verus obligations).
 
 ### 2.3 IPC frames and message schema (M)
 
@@ -717,9 +773,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | Item | State |
 |------|-------|
 | 2.0 Sandbox and `unsafe` decision | decided 2026-10-21: option B (`clazel-sys` + `libc`), LLM-audited; checker and policy changes not started |
-| 2.1 IPC wire format: spec | not started |
-| 2.2 IPC wire format: implementation | not started |
-| 2.3 IPC frames and messages | not started |
+| 2.1 IPC wire format: spec | done |
+| 2.2 IPC wire format: implementation | done |
+| 2.3 IPC frames and messages | done |
 | 2.4 Public Suffix List | not started |
 | 2.5 Origins and sites | not started |
 | 2.6 Origin of a URL | not started |

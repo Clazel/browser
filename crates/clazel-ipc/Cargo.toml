@@ -27,7 +27,8 @@ minicbor = { version = "=2.3.1", default-features = false, features = ["alloc"] 
 # bytes; cbor/independent.rs (RFC 7049, with Unicode for UTF-8) is proven
 # equal to the spec; every mutation is certified killed; and
 # tests/conformance_cbor.rs runs RFC 8949 Appendix A and a differential test
-# against minicbor. Frames and messages (item 2.3) are not built yet.
+# against minicbor. Frames and messages (item 2.3) are proven against their
+# contracts too, with the two schema rules as lemmas.
 [package.metadata.clazel]
 tier = 2
 target-tier = 2
