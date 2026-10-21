@@ -24,7 +24,7 @@ target-tier = 0
 [lints.rust]
 unsafe_code = "allow"
 missing_docs = "warn"
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(verus_only)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(verus_only)", "cfg(kani)"] }
 
 [lints.clippy]
 unwrap_used = "deny"
