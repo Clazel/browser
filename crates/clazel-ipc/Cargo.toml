@@ -13,6 +13,13 @@ vstd = "=0.0.0-2026-10-04-0306"
 # than a second copy.
 clazel-encoding = { path = "../clazel-encoding" }
 
+# Test-only reference engine for the differential test in
+# tests/conformance_cbor.rs (class `test` in docs/DEPENDENCIES.md: never
+# shipped). Default features are off, so it has no dependencies; `alloc`
+# gives the owned types.
+[dev-dependencies]
+minicbor = { version = "=2.3.1", default-features = false, features = ["alloc"] }
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. Tier 0
 # until the codec is proven against its contracts (phase-2.md item 2.2).

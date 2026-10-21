@@ -69,6 +69,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | tinyvec | 1.13.3 | test | Small-vector type, required by `unicode-normalization`. |
 | smallvec | 1.16.3 | test | Small-vector type, required by `idna`. No dependencies. |
 | utf8_iter | 1.0.4 | test | UTF-8 iteration, required by `idna`. No dependencies. |
+| minicbor | 2.3.1 | test | A small CBOR codec (no_std): the reference engine in `clazel-ipc`'s differential test (`tests/conformance_cbor.rs`). Chosen over `ciborium` (which pulls `serde`, `half` and two more). Used without default features (only `alloc`), so it has no dependencies. It accepts non-shortest arguments, which the test accounts for. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | tooling | Required by `serde_json`. |
 | itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |
