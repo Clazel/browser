@@ -6,6 +6,7 @@ use std::process::Command;
 use serde_json::Value;
 
 use crate::scan::{self, Kind};
+use crate::sys;
 
 /// The highest tier in docs/VERIFICATION.md.
 pub const MAX_TIER: u64 = 2;
@@ -141,6 +142,25 @@ pub struct CrateScan {
     /// Escape hatches accepted because they are documented axioms.
     pub axioms: usize,
     pub kani_proofs: usize,
+    /// `unsafe` blocks and the lines they cover (xtask/src/sys.rs).
+    pub unsafe_blocks: usize,
+    pub unsafe_lines: usize,
+}
+
+impl Crate {
+    /// Direct dependencies that are not `[dev-dependencies]`.
+    pub fn deps_normal(&self) -> Vec<(String, String)> {
+        self.deps
+            .iter()
+            .filter(|d| !self.dev_deps.contains(d))
+            .cloned()
+            .collect()
+    }
+
+    /// The one crate allowed to contain `unsafe` (CLAUDE.md rule 1).
+    pub fn is_sys(&self) -> bool {
+        relative(&self.dir) == sys::CRATE_DIR
+    }
 }
 
 /// Scan every source file of a crate.
@@ -154,9 +174,30 @@ pub fn scan_crate(c: &Crate) -> Result<CrateScan, String> {
             std::fs::read_to_string(&file).map_err(|e| format!("{}: {e}", file.display()))?;
         let scanned = scan::scan(&source).map_err(|e| format!("{}: {e}", file.display()))?;
         result.kani_proofs = result.kani_proofs.saturating_add(scanned.kani_proofs);
+        for (first, last) in &scanned.unsafe_spans {
+            result.unsafe_blocks = result.unsafe_blocks.saturating_add(1);
+            result.unsafe_lines = result
+                .unsafe_lines
+                .saturating_add(last.saturating_sub(*first).saturating_add(1));
+        }
+        let sys_crate = c.is_sys();
+        if sys_crate {
+            let checked =
+                sys::check_source(&source).map_err(|e| format!("{}: {e}", file.display()))?;
+            for (line, what) in checked.violations {
+                result.violations.push(format!(
+                    "{}:{line}: unsafe policy (CLAUDE.md rule 1): {what}",
+                    relative(&file)
+                ));
+            }
+        }
         let in_axioms_file = file.file_name().is_some_and(|n| n == "axioms.rs");
         let lines: Vec<&str> = source.lines().collect();
         for f in scanned.findings {
+            // In `clazel-sys`, `unsafe` is judged by sys::check_source.
+            if sys_crate && f.kind == Kind::Unsafe {
+                continue;
+            }
             if f.kind == Kind::EscapeHatch && in_axioms_file && has_axiom_comment(&lines, f.line) {
                 result.axioms = result.axioms.saturating_add(1);
                 continue;

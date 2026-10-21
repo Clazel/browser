@@ -8,8 +8,9 @@ license = "MIT"
 publish = false
 
 # Tier 0 of docs/VERIFICATION.md: these apply to every crate. A crate may not
-# loosen them; the single exception for `unsafe` is the audited `sys` crate
-# (not yet created), which overrides `unsafe_code` locally and nothing else.
+# loosen them; the single exception for `unsafe` is `crates/clazel-sys`, which
+# lists these lints itself with `unsafe_code = "allow"` and nothing else
+# changed (CLAUDE.md rule 1; `cargo xtask check` compares the two lists).
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"

@@ -69,6 +69,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | tinyvec | 1.13.3 | test | Small-vector type, required by `unicode-normalization`. |
 | smallvec | 1.16.3 | test | Small-vector type, required by `idna`. No dependencies. |
 | utf8_iter | 1.0.4 | test | UTF-8 iteration, required by `idna`. No dependencies. |
+| libc | 0.2.190 | shipped | Rust bindings to the C library: struct layouts and constants (`sock_filter`, `sock_fprog`, `CLONE_NEW*`, `SECCOMP_SET_MODE_FILTER`, `SYS_seccomp`, `SYS_landlock_*`, `PR_SET_NO_NEW_PRIVS`) and the declarations of `prctl`, `syscall` and `unshare`, for `clazel-sys` only (CLAUDE.md rules 1 and 8). Reached only on Linux (`[target.'cfg(target_os = "linux")'.dependencies]`), with default features off, so it has no dependencies; macOS needs none. Getting these layouts wrong by hand is undefined behaviour, which is why it is a dependency rather than our own declarations. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | tooling | Required by `serde_json`. |
 | itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |
@@ -79,5 +80,6 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | syn | 3.0.9 | tooling | Locked but never compiled: dependency of `serde_derive`. |
 <!-- END ALLOWLIST -->
 
-There are no `shipped` packages yet: everything that runs in the browser is
-our own code. The `test` packages are compiled only into test binaries.
+The only `shipped` package is `libc`, and only `clazel-sys` depends on it
+(only on Linux). Everything else that runs in the browser is our own code. The
+`test` packages are compiled only into test binaries.
