@@ -22,6 +22,7 @@ mod conformance;
 mod deps;
 mod mutate;
 mod pins;
+mod psl;
 mod report;
 mod reviews;
 mod scan;
@@ -209,6 +210,8 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     r.step("generated test data", outcome(problems, notes));
     let (problems, notes) = unicode::run(false);
     r.step("generated Unicode tables", outcome(problems, notes));
+    let (problems, notes) = psl::run(false);
+    r.step("generated Public Suffix List tables", outcome(problems, notes));
     let tooling = crates
         .iter()
         .filter(|c| c.tooling)
@@ -654,6 +657,8 @@ fn generate_tables() -> ExitCode {
     }
     let (problems, notes) = unicode::run(true);
     r.step("generate Unicode tables", outcome(problems, notes));
+    let (problems, notes) = psl::run(true);
+    r.step("generate Public Suffix List tables", outcome(problems, notes));
     if r.failed {
         println!("RESULT: FAILED");
         ExitCode::from(1)

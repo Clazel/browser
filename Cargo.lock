@@ -59,6 +59,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-psl"
+version = "0.0.0"
+dependencies = [
+ "clazel-url",
+ "vstd",
+]
+
+[[package]]
 name = "clazel-url"
 version = "0.0.0"
 dependencies = [
