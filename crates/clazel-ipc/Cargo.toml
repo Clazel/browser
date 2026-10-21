@@ -20,11 +20,16 @@ clazel-encoding = { path = "../clazel-encoding" }
 [dev-dependencies]
 minicbor = { version = "=2.3.1", default-features = false, features = ["alloc"] }
 
-# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
-# the shipped code today; `target-tier` is what the policy requires. Tier 0
-# until the codec is proven against its contracts (phase-2.md item 2.2).
+# Verification tier (docs/VERIFICATION.md). Tier 2 for the CBOR profile:
+# decode and encode are proven to meet their contracts (cbor/contract.rs),
+# including that decode inverts encode, encode inverts decode (so the
+# profile is canonical) and the decoder never produces more tokens than
+# bytes; cbor/independent.rs (RFC 7049, with Unicode for UTF-8) is proven
+# equal to the spec; every mutation is certified killed; and
+# tests/conformance_cbor.rs runs RFC 8949 Appendix A and a differential test
+# against minicbor. Frames and messages (item 2.3) are not built yet.
 [package.metadata.clazel]
-tier = 0
+tier = 2
 target-tier = 2
 
 [package.metadata.verus]
