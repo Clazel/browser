@@ -1,0 +1,29 @@
+[package]
+name = "clazel-cookie"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "RFC 6265bis cookies: dates, host names, domain and path matching, Set-Cookie parsing."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# §5.1.2 canonicalized host names are the URL Standard's host parser and
+# serializer (a modelling choice, see the header of src/matching/spec.rs).
+clazel-url = { path = "../clazel-url" }
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires.
+# Phase 2 items 2.7 and 2.8 (RFC 6265bis §5.1, §5.4 to §5.6) are specified
+# here; the crate stays at tier 0 until item 2.9 (storage and retrieval)
+# is built and its proofs, conformance suites and independent
+# transcription exist, because the tier describes the whole crate.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
