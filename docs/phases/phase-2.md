@@ -212,12 +212,27 @@ Maintainer's answers to the other questions, same date:
   against the man page and the `libc` declaration it uses.
 - **Renderers fail closed** (accepted).
 - **Per-root cookie eviction, no global limit** (accepted; see 2.9).
+- **The README's memory-safety claim is reworded, not kept by moving
+  `unsafe` elsewhere.** "100% safe Rust. `unsafe` is forbidden
+  workspace-wide." stops being true when `clazel-sys` lands. Keeping it true
+  with option A or C would only move more `unsafe` out of the workspace and
+  out of sight; the honest measure is how much `unsafe` we trust, and B keeps
+  that smallest. The new wording is along the lines of "100% safe Rust
+  except `clazel-sys`: N `unsafe` blocks (M lines) that enter the OS
+  sandbox, machine-checked and audited", where N and M are not typed:
+  `cargo xtask report` counts `unsafe` blocks and their lines per crate in
+  the generated table (as it counts axioms), and `verify` fails if the
+  README sentence's numbers differ from that count.
 
 **Done when:** CLAUDE.md rule 1, VERIFICATION.md (Tier 0 row, TCB list)
-and the checker say exactly the above; `docs/SYS-AUDITS.md` exists; and
+and the checker say exactly the above; the README claim is reworded in the
+same commit that adds `clazel-sys`'s first `unsafe` block, never before or
+after, with the `unsafe` count in the generated table; `docs/SYS-AUDITS.md`
+exists; and
 planted violations are caught: a second crate overriding `unsafe_code`, an
-unlisted foreign function, an `unsafe` block without `// SAFETY:`, and a
-`clazel-sys` source change with a stale audit hash.
+unlisted foreign function, an `unsafe` block without `// SAFETY:`, a
+`clazel-sys` source change with a stale audit hash, and a README `unsafe`
+count that differs from the measured one.
 
 **As built:** *(to be filled in when the item is done)*
 
