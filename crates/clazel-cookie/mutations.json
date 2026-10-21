@@ -1,0 +1,254 @@
+{
+  "mutations": [
+    {
+      "id": "nov-is-month-10",
+      "file": "src/date/spec.rs",
+      "find": "{ Some(11) }",
+      "replace": "{ Some(10) }",
+      "expect": "killed",
+      "reason": "\"nov\" names month 10: lemma_november is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "lemma_november()",
+        "witness": "month_of_abbreviation(seq![0x4Eu8, 0x6F, 0x76]) == Some(10nat)"
+      }
+    },
+    {
+      "id": "pivot-70-dropped",
+      "file": "src/date/spec.rs",
+      "find": "if 70 <= year_value <= 99 { year_value + 1900 }",
+      "replace": "if 71 <= year_value <= 99 { year_value + 1900 }",
+      "expect": "killed",
+      "reason": "A two-digit year 70 is no longer 1970: lemma_two_digit_year_pivot is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "lemma_two_digit_year_pivot()",
+        "witness": "two_digit_year_pivot(70nat) == 70nat"
+      }
+    },
+    {
+      "id": "year-floor-1600",
+      "file": "src/date/spec.rs",
+      "find": "year_value < 1601",
+      "replace": "year_value < 1600",
+      "expect": "killed",
+      "reason": "The year floor moves to 1600: the mutant accepts 1 January 1600, so example_year_1600_fails is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "crate::date::examples::example_year_1600_fails()",
+        "witness": "parse_a_cookie_date(seq![0x4Du8, 0x6Fu8, 0x6Eu8, 0x2Cu8, 0x20u8, 0x30u8, 0x31u8, 0x20u8, 0x4Au8, 0x61u8, 0x6Eu8, 0x20u8, 0x31u8, 0x36u8, 0x30u8, 0x30u8, 0x20u8, 0x30u8, 0x30u8, 0x3Au8, 0x30u8, 0x30u8, 0x3Au8, 0x30u8, 0x30u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8]) == Some(CookieDate { year: 1600, month: 1, day_of_month: 1, hour: 0, minute: 0, second: 0 })"
+      },
+      "module": "date::lemmas"
+    },
+    {
+      "id": "slash-is-non-delimiter",
+      "file": "src/date/spec.rs",
+      "find": "|| c == 0x3A || crate::ascii::is_alpha(c)",
+      "replace": "|| c == 0x3A || c == 0x2F || crate::ascii::is_alpha(c)",
+      "expect": "killed",
+      "reason": "\"/\" is also a non-delimiter: the mutant fails Thu, 19/Apr\\\\2007 (and lemma_delimiter_complement), so example_slash_and_backslash_delimit is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "crate::date::examples::example_slash_and_backslash_delimit()",
+        "witness": "parse_a_cookie_date(seq![0x54u8, 0x68u8, 0x75u8, 0x2Cu8, 0x20u8, 0x31u8, 0x39u8, 0x2Fu8, 0x41u8, 0x70u8, 0x72u8, 0x5Cu8, 0x32u8, 0x30u8, 0x30u8, 0x37u8, 0x20u8, 0x31u8, 0x36u8, 0x3Au8, 0x30u8, 0x30u8, 0x3Au8, 0x30u8, 0x30u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8]) is None"
+      },
+      "module": "date::lemmas"
+    },
+    {
+      "id": "leap-400-dropped",
+      "file": "src/date/spec.rs",
+      "find": "y % 4 == 0 && (y % 100 != 0 || y % 400 == 0)",
+      "replace": "y % 4 == 0 && y % 100 != 0",
+      "expect": "killed",
+      "reason": "Years divisible by 400 are no longer leap: the mutant rejects 29 February 2000, so example_leap_day_2000 is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "crate::date::examples::example_leap_day_2000()",
+        "witness": "parse_a_cookie_date(seq![0x54u8, 0x75u8, 0x65u8, 0x2Cu8, 0x20u8, 0x32u8, 0x39u8, 0x20u8, 0x46u8, 0x65u8, 0x62u8, 0x20u8, 0x32u8, 0x30u8, 0x30u8, 0x30u8, 0x20u8, 0x30u8, 0x30u8, 0x3Au8, 0x30u8, 0x30u8, 0x3Au8, 0x30u8, 0x30u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8]) is None"
+      },
+      "module": "date::lemmas"
+    },
+    {
+      "id": "march-starts-day-58",
+      "file": "src/date/spec.rs",
+      "find": "else if m == 3 { 59 }",
+      "replace": "else if m == 3 { 58 }",
+      "expect": "killed",
+      "reason": "March starts 58 days into the year: the mutant breaks the month step (February 2001 has 28 days), so lemma_days_before_month_step is false.",
+      "certificate": {
+        "file": "src/date/lemmas.rs",
+        "lemma": "lemma_days_before_month_step(2001nat, 2nat)",
+        "witness": "days_before_month(2001nat, 3nat) == days_before_month(2001nat, 2nat) + 27int"
+      }
+    },
+    {
+      "id": "path-match-third-bullet",
+      "file": "src/matching/spec.rs",
+      "find": "request_path[cookie_path.len() as int] == 0x2F)",
+      "replace": "request_path[cookie_path.len() as int] == 0x2E)",
+      "expect": "killed",
+      "reason": "The third path-match bullet looks for \".\": /a/b no longer path-matches its own default-path /a, so lemma_default_path_matches is false.",
+      "certificate": {
+        "file": "src/matching/lemmas.rs",
+        "lemma": "lemma_default_path_matches(seq![0x2Fu8, 0x61, 0x2F, 0x62])",
+        "witness": "!path_matches(seq![0x2Fu8, 0x61, 0x2F, 0x62], default_path(seq![0x2Fu8, 0x61, 0x2F, 0x62]))"
+      }
+    },
+    {
+      "id": "domain-match-ignores-ip",
+      "file": "src/matching/spec.rs",
+      "find": "&& string_is_host_name",
+      "replace": "&& true",
+      "expect": "killed",
+      "reason": "An IP address is treated as a host name: the mutant lets a.b domain-match b with the flag false, so lemma_ip_address_matches_only_itself is false.",
+      "certificate": {
+        "file": "src/matching/lemmas.rs",
+        "lemma": "lemma_ip_address_matches_only_itself(seq![0x61u8, 0x2E, 0x62], seq![0x62u8])",
+        "witness": "domain_matches(seq![0x61u8, 0x2E, 0x62], false, seq![0x62u8]) && seq![0x61u8, 0x2E, 0x62] != seq![0x62u8]"
+      }
+    },
+    {
+      "id": "domain-boundary-hyphen",
+      "file": "src/matching/spec.rs",
+      "find": "string[string.len() - domain.len() - 1] == 0x2E",
+      "replace": "string[string.len() - domain.len() - 1] == 0x2D",
+      "expect": "killed",
+      "reason": "The character before the domain must be \"-\": the mutant lets a-b domain-match b, so lemma_domain_match_boundary is false.",
+      "certificate": {
+        "file": "src/matching/lemmas.rs",
+        "lemma": "lemma_domain_match_boundary(seq![0x61u8, 0x2D, 0x62], true, seq![0x62u8])",
+        "witness": "domain_matches(seq![0x61u8, 0x2D, 0x62], true, seq![0x62u8])"
+      }
+    },
+    {
+      "id": "age-limit-400-days-plus-one",
+      "file": "src/set_cookie/spec.rs",
+      "find": "34560000\n}",
+      "replace": "34560001\n}",
+      "expect": "killed",
+      "reason": "The lifetime limit is one second over 400 days: lemma_cookie_age_limit_is_400_days is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_cookie_age_limit_is_400_days()",
+        "witness": "cookie_age_limit() == 34560001int"
+      }
+    },
+    {
+      "id": "max-age-zero-is-now",
+      "file": "src/set_cookie/spec.rs",
+      "find": "if delta <= 0 { earliest_representable() }",
+      "replace": "if delta < 0 { earliest_representable() }",
+      "expect": "killed",
+      "reason": "Max-Age=0 expires at now instead of the earliest instant: lemma_max_age_limited is false for Max-Age=0.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_max_age_limited(seq![0x30u8], 5int)",
+        "witness": "process_max_age(seq![0x30u8], 5int) == Some(Attribute::MaxAge(5int))"
+      }
+    },
+    {
+      "id": "expires-limit-plus-one",
+      "file": "src/set_cookie/spec.rs",
+      "find": "if expiry_time > limit { limit } else { expiry_time }",
+      "replace": "if expiry_time > limit { limit + 1 } else { expiry_time }",
+      "expect": "killed",
+      "reason": "An Expires far in the future is limited to one second too late: lemma_expires_limited is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_expires_limited(seq![0x46u8, 0x72u8, 0x69u8, 0x2Cu8, 0x20u8, 0x33u8, 0x31u8, 0x20u8, 0x44u8, 0x65u8, 0x63u8, 0x20u8, 0x39u8, 0x39u8, 0x39u8, 0x39u8, 0x20u8, 0x32u8, 0x33u8, 0x3Au8, 0x35u8, 0x39u8, 0x3Au8, 0x35u8, 0x39u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8], 0int)",
+        "witness": "process_expires(seq![0x46u8, 0x72u8, 0x69u8, 0x2Cu8, 0x20u8, 0x33u8, 0x31u8, 0x20u8, 0x44u8, 0x65u8, 0x63u8, 0x20u8, 0x39u8, 0x39u8, 0x39u8, 0x39u8, 0x20u8, 0x32u8, 0x33u8, 0x3Au8, 0x35u8, 0x39u8, 0x3Au8, 0x35u8, 0x39u8, 0x20u8, 0x47u8, 0x4Du8, 0x54u8], 0int) == Some(Attribute::Expires(34560001int))"
+      }
+    },
+    {
+      "id": "domain-keeps-leading-dot",
+      "file": "src/set_cookie/spec.rs",
+      "find": "attribute_value.len() > 0 && attribute_value[0] == 0x2E",
+      "replace": "attribute_value.len() > 0 && attribute_value[0] == 0x2F",
+      "expect": "killed",
+      "reason": "The leading \".\" of a Domain attribute is kept: lemma_domain_strips_leading_dot is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_domain_strips_leading_dot(seq![0x61u8])",
+        "witness": "process_domain(seq![0x2Eu8] + seq![0x61u8]) == Some(Attribute::Domain(seq![0x2Eu8] + seq![0x61u8]))"
+      }
+    },
+    {
+      "id": "domain-not-lowercased",
+      "file": "src/set_cookie/spec.rs",
+      "find": "Some(Attribute::Domain(crate::ascii::ascii_lowercase(cookie_domain)))",
+      "replace": "Some(Attribute::Domain(cookie_domain))",
+      "expect": "killed",
+      "reason": "A Domain attribute keeps its capitals: lemma_domain_is_lowercase is false for \"A\".",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_domain_is_lowercase(seq![0x41u8], 0int)",
+        "witness": "process_domain(seq![0x41u8]) == Some(Attribute::Domain(seq![0x41u8]))"
+      }
+    },
+    {
+      "id": "path-relative-kept",
+      "file": "src/set_cookie/spec.rs",
+      "find": "attribute_value.len() == 0 || attribute_value[0] != 0x2F",
+      "replace": "attribute_value.len() == 0 || attribute_value[0] == 0x2F",
+      "expect": "killed",
+      "reason": "A Path value not starting with \"/\" is kept: lemma_path_is_absolute is false for \"a\".",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_path_is_absolute(seq![0x61u8], seq![0x2Fu8])",
+        "witness": "process_path(seq![0x61u8], seq![0x2Fu8]) == Some(Attribute::Path(seq![0x61u8]))"
+      }
+    },
+    {
+      "id": "secure-prefix-needs-nothing",
+      "file": "src/set_cookie/spec.rs",
+      "find": "lit_secure_prefix()) ==> secure_only_flag)",
+      "replace": "lit_secure_prefix()) ==> true)",
+      "expect": "killed",
+      "reason": "__Secure- no longer needs the secure-only-flag: lemma_secure_prefix_needs_secure is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_secure_prefix_needs_secure(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }, true)",
+        "witness": "crate::ascii::begins_with_case_insensitive_match(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }.name, lit_secure_prefix()) && name_prefix_requirements_met(SetCookie { name: seq![0x5Fu8, 0x5Fu8, 0x53u8, 0x65u8, 0x63u8, 0x75u8, 0x72u8, 0x65u8, 0x2Du8, 0x61u8], value: seq![], attributes: seq![] }, false, true)"
+      }
+    },
+    {
+      "id": "same-site-none-is-lax",
+      "file": "src/set_cookie/spec.rs",
+      "find": "lit_none()) {\n        SameSite::None",
+      "replace": "lit_none()) {\n        SameSite::Lax",
+      "expect": "killed",
+      "reason": "SameSite=None gives Lax: lemma_same_site_none is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_same_site_none(lit_none())",
+        "witness": "crate::ascii::case_insensitive_match(lit_none(), lit_none()) && process_same_site(lit_none()) == Some(Attribute::SameSite(SameSite::Lax))"
+      }
+    },
+    {
+      "id": "del-is-not-ctl",
+      "file": "src/set_cookie/spec.rs",
+      "find": "|| (0x0A <= c <= 0x1F) || c == 0x7F",
+      "replace": "|| (0x0A <= c <= 0x1F)",
+      "expect": "killed",
+      "reason": "DEL is no longer a CTL character: lemma_ctl_characters is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_ctl_characters()",
+        "witness": "!is_ctl_excluding_htab(0x7Fu8)"
+      }
+    },
+    {
+      "id": "attributes-replace-list",
+      "file": "src/set_cookie/spec.rs",
+      "find": "Some(attribute) => list.push(attribute),",
+      "replace": "Some(attribute) => seq![attribute],",
+      "expect": "killed",
+      "reason": "A new attribute replaces the list so far: lemma_attributes_extend is false.",
+      "certificate": {
+        "file": "src/set_cookie/lemmas.rs",
+        "lemma": "lemma_attributes_keep(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure], 0int)",
+        "witness": "parse_attributes(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure]) == seq![Attribute::HttpOnly]"
+      }
+    }
+  ]
+}

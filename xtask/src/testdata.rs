@@ -12,6 +12,7 @@
 //! (a full 40-hex commit) and `License:` lines.
 
 mod cbor_appendix_a;
+mod http_state_dates;
 mod js;
 mod wpt_base64;
 mod wpt_encoding;
@@ -37,6 +38,11 @@ const CONVERTERS: &[(&str, Convert, &[&str])] = &[
         "cbor-appendix-a",
         cbor_appendix_a::convert,
         cbor_appendix_a::FILES,
+    ),
+    (
+        "http-state-dates",
+        http_state_dates::convert,
+        http_state_dates::FILES,
     ),
     ("wpt-base64", wpt_base64::convert, wpt_base64::FILES),
     ("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES),
