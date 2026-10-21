@@ -77,8 +77,11 @@ fn invoke(dir: &Path, name: &str, args: &[&str]) -> Result<Run, String> {
             String::from_utf8_lossy(&clean.stderr)
         ));
     }
+    // CI sets CARGO_TERM_COLOR=always, which colours Verus's diagnostics and
+    // would hide the lines `classify` looks for.
     let out = Command::new("cargo")
         .current_dir(dir)
+        .env("CARGO_TERM_COLOR", "never")
         .args(args)
         .output()
         .map_err(|e| format!("cannot run cargo verus: {e}"))?;
@@ -92,6 +95,9 @@ fn invoke(dir: &Path, name: &str, args: &[&str]) -> Result<Run, String> {
 
 /// Classify the combined output of one Verus run that exited with `success`.
 fn classify(text: String, success: bool) -> Run {
+    // Colour can still reach us (a tool that ignores CARGO_TERM_COLOR); the
+    // line prefixes below are matched on the plain text.
+    let text = strip_ansi(&text);
     // Verus prints one summary per verified crate; ours is the last. A
     // partial run appends "(partial verification ...)" to it.
     let summary = text
@@ -113,6 +119,26 @@ fn classify(text: String, success: bool) -> Run {
         (_, Some(e)) => Run::ProofFailed(e, text),
         _ => Run::BuildFailed(text),
     }
+}
+
+/// `text` without ANSI CSI escape sequences (ESC `[`, parameters, one final
+/// byte in `@`..=`~`), which is all a terminal colour code is.
+fn strip_ansi(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\u{1b}' && chars.peek() == Some(&'[') {
+            chars.next();
+            for f in chars.by_ref() {
+                if ('@'..='~').contains(&f) {
+                    break;
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -139,6 +165,19 @@ mod tests {
             --> crates/clazel-encoding/src/utf8/lemmas.rs:404:12\n\n\
             error: could not compile `clazel-encoding` (lib) due to 1 previous error\n";
         assert_eq!(kind(single, false), "proof");
+    }
+
+    #[test]
+    fn coloured_output_is_classified_like_plain() {
+        // As printed on GitHub Actions with CARGO_TERM_COLOR=always (CI run
+        // 39570679453): every mutation was reported as a build failure.
+        let single = "\u{1b}[1m\u{1b}[91merror\u{1b}[0m\u{1b}[1m: expression simplifies to \
+            `1 == 4`, which evaluates to false\u{1b}[0m\n";
+        assert_eq!(kind(single, false), "proof");
+        let summary = "\u{1b}[1mverification results\u{1b}[0m:: 11 verified, 1 errors\n";
+        assert_eq!(kind(summary, false), "proof");
+        let type_error = "\u{1b}[1m\u{1b}[91merror[E0308]\u{1b}[0m: mismatched types\n";
+        assert_eq!(kind(type_error, false), "build");
     }
 
     #[test]
