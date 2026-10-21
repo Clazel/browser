@@ -121,9 +121,7 @@ fn check_sources(dir: &Path) -> Vec<String> {
             for entry in entries.flatten() {
                 let name = entry.file_name().to_string_lossy().into_owned();
                 if !FILES.contains(&name.as_str()) && name != "SOURCE.md" && name != "LICENSE" {
-                    problems.push(format!(
-                        "{rel}/{name}: not an input of xtask/src/psl.rs"
-                    ));
+                    problems.push(format!("{rel}/{name}: not an input of xtask/src/psl.rs"));
                 }
             }
         }
@@ -147,14 +145,28 @@ fn punycode_encode(input: &[u32]) -> Option<String> {
         }
     }
     fn adapt(delta: u32, num_points: u32, first: bool) -> Option<u32> {
-        let mut delta = if first { delta.checked_div(DAMP)? } else { delta.checked_div(2)? };
+        let mut delta = if first {
+            delta.checked_div(DAMP)?
+        } else {
+            delta.checked_div(2)?
+        };
         delta = delta.checked_add(delta.checked_div(num_points)?)?;
         let mut k = 0u32;
-        while delta > BASE.saturating_sub(T_MIN).checked_mul(T_MAX)?.checked_div(2)? {
+        while delta
+            > BASE
+                .saturating_sub(T_MIN)
+                .checked_mul(T_MAX)?
+                .checked_div(2)?
+        {
             delta = delta.checked_div(BASE.saturating_sub(T_MIN))?;
             k = k.checked_add(BASE)?;
         }
-        k.checked_add(BASE.saturating_sub(T_MIN).saturating_add(1).checked_mul(delta)?.checked_div(delta.checked_add(SKEW)?)?)
+        k.checked_add(
+            BASE.saturating_sub(T_MIN)
+                .saturating_add(1)
+                .checked_mul(delta)?
+                .checked_div(delta.checked_add(SKEW)?)?,
+        )
     }
     let mut out = String::new();
     for &c in input {
@@ -254,7 +266,9 @@ fn rules(list: &str) -> Result<Vec<Rule>, String> {
                 ));
             }
             let a = to_ascii_label(label).map_err(|e| format!("line {at}: {e}"))?;
-            if a.bytes().any(|c| c.is_ascii_uppercase() || c == b'!' || c <= b' ') {
+            if a.bytes()
+                .any(|c| c.is_ascii_uppercase() || c == b'!' || c <= b' ')
+            {
                 return Err(format!("line {at}: label {a:?} is not lower case"));
             }
             labels.push(a);
@@ -265,7 +279,10 @@ fn rules(list: &str) -> Result<Vec<Rule>, String> {
             ));
         }
         let text = labels.join(".");
-        if out.iter().any(|r| r.text == text && r.exception == exception) {
+        if out
+            .iter()
+            .any(|r| r.text == text && r.exception == exception)
+        {
             return Err(format!("line {at}: duplicate rule {first:?}"));
         }
         out.push(Rule { text, exception });

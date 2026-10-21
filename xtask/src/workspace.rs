@@ -12,7 +12,7 @@ use crate::sys;
 pub const MAX_TIER: u64 = 2;
 
 /// One workspace crate.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Crate {
     pub name: String,
     pub dir: PathBuf,

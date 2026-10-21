@@ -18,6 +18,7 @@
 //!   `conformance.rs`), print it, and with `--write` update README.md. `verify`
 //!   fails if README.md's table differs from what it measured.
 
+mod changed;
 mod conformance;
 mod deps;
 mod mutate;
@@ -260,7 +261,10 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     let (problems, notes) = unicode::run(false);
     r.step("generated Unicode tables", outcome(problems, notes));
     let (problems, notes) = psl::run(false);
-    r.step("generated Public Suffix List tables", outcome(problems, notes));
+    r.step(
+        "generated Public Suffix List tables",
+        outcome(problems, notes),
+    );
     let tooling = crates
         .iter()
         .filter(|c| c.tooling)
@@ -382,7 +386,9 @@ fn check_pins(crates: &[Crate], pins: &Pins) -> Result<Vec<String>, String> {
     )])
 }
 
-fn build_checks(r: &mut Runner) {
+/// fmt and clippy over the workspace; tests for `only`'s crates, or for
+/// every crate if `None`.
+fn build_checks(r: &mut Runner, only: Option<&[Crate]>) {
     let cargo =
         |args: &[&str]| from_result(run(Command::new("cargo").args(args)).map(|_| Vec::new()));
     r.step("rustfmt", cargo(&["fmt", "--all", "--", "--check"]));
@@ -398,16 +404,25 @@ fn build_checks(r: &mut Runner) {
             "warnings",
         ]),
     );
-    r.step(
-        "tests",
-        cargo(&["test", "--workspace", "--locked", "--quiet"]),
-    );
+    let mut args = vec!["test", "--locked", "--quiet"];
+    match only {
+        None => args.push("--workspace"),
+        Some([]) => {
+            r.step(
+                "tests",
+                Outcome::Pass(vec!["no changed crate to test".into()]),
+            );
+            return;
+        }
+        Some(cs) => args.extend(cs.iter().flat_map(|c| ["-p", c.name.as_str()])),
+    }
+    r.step("tests", cargo(&args));
 }
 
 /// Run every test under Miri, which reports undefined behaviour (Tier 0).
 /// Our code has no `unsafe`, so this mostly checks dependency code that the
 /// tests execute, and it will check the audited `sys` crate once it exists.
-fn miri(r: &mut Runner, pins: &Pins) {
+fn miri(r: &mut Runner, pins: &Pins, only: Option<&[Crate]>) {
     const NAME: &str = "tests under Miri";
     let nightly = match pins.get("MIRI_NIGHTLY") {
         Ok(n) => format!("+{n}"),
@@ -426,14 +441,16 @@ fn miri(r: &mut Runner, pins: &Pins) {
         );
         return;
     }
-    let res = run(Command::new("cargo").args([
-        nightly.as_str(),
-        "miri",
-        "test",
-        "--workspace",
-        "--locked",
-    ]))
-    .map(|out| {
+    let mut args = vec![nightly.as_str(), "miri", "test", "--locked"];
+    match only {
+        None => args.push("--workspace"),
+        Some([]) => {
+            r.step(NAME, Outcome::Pass(vec!["no changed crate to test".into()]));
+            return;
+        }
+        Some(cs) => args.extend(cs.iter().flat_map(|c| ["-p", c.name.as_str()])),
+    }
+    let res = run(Command::new("cargo").args(&args)).map(|out| {
         let passed: u64 = out
             .lines()
             .filter_map(|l| l.strip_prefix("test result: ok. "))
@@ -630,13 +647,50 @@ fn conformance_suites(r: &mut Runner, crates: &[Crate]) {
 }
 
 /// Compare (or, with `write`, update) README.md's status table against what
-/// this run measured.
-fn readme_table(r: &mut Runner, write: bool) {
+/// this run measured. With `only` (a `--changed` run), the other crates'
+/// proof and test columns are carried over from README.md's current table,
+/// since their inputs did not change; CI's full run re-measures them all.
+fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
     const NAME: &str = "README status table";
+    let carried = match only {
+        None => report::Rows::new(),
+        Some(cs) => {
+            let rows = std::fs::read_to_string(report::README)
+                .map_err(|e| format!("{}: {e}", report::README))
+                .and_then(|t| {
+                    report::rows(report::current(&t).ok_or("README.md has no status table")?)
+                });
+            let rows = match rows {
+                Ok(rows) => rows,
+                Err(e) => {
+                    r.step(NAME, Outcome::Fail(vec![e]));
+                    return;
+                }
+            };
+            let checked: Vec<&str> = cs.iter().map(|c| c.name.as_str()).collect();
+            let missing: Vec<&String> = r
+                .metrics
+                .keys()
+                .filter(|n| !checked.contains(&n.as_str()) && !rows.contains_key(*n))
+                .collect();
+            if !missing.is_empty() {
+                r.step(
+                    NAME,
+                    Outcome::Fail(vec![format!(
+                        "no committed row to carry over for {missing:?}; check them too (`--changed` with an older base, or the full report)"
+                    )]),
+                );
+                return;
+            }
+            rows.into_iter()
+                .filter(|(n, _)| !checked.contains(&n.as_str()))
+                .collect()
+        }
+    };
     let incomplete: Vec<&String> = r
         .metrics
         .iter()
-        .filter(|(_, m)| !m.complete())
+        .filter(|(n, m)| !carried.contains_key(*n) && !m.complete())
         .map(|(n, _)| n)
         .collect();
     if !incomplete.is_empty() {
@@ -646,7 +700,7 @@ fn readme_table(r: &mut Runner, write: bool) {
         );
         return;
     }
-    let block = report::render(&r.metrics);
+    let block = report::render_with(&r.metrics, &carried);
     let readme = match std::fs::read_to_string(report::README) {
         Ok(t) => t,
         Err(e) => {
@@ -728,7 +782,10 @@ fn generate_tables() -> ExitCode {
     let (problems, notes) = unicode::run(true);
     r.step("generate Unicode tables", outcome(problems, notes));
     let (problems, notes) = psl::run(true);
-    r.step("generate Public Suffix List tables", outcome(problems, notes));
+    r.step(
+        "generate Public Suffix List tables",
+        outcome(problems, notes),
+    );
     if r.failed {
         println!("RESULT: FAILED");
         ExitCode::from(1)
@@ -743,21 +800,33 @@ fn main() -> ExitCode {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
     // `mutate <crate>` runs one crate's mutations, for iterating on them.
     let mut only_crate: Option<&str> = None;
-    let (full, only_mutate, report_mode, write) = match args.as_slice() {
-        ["testdata"] => return generate_testdata(),
-        ["tables"] => return generate_tables(),
-        ["verify"] => (true, false, false, false),
-        ["check"] => (false, false, false, false),
-        ["mutate"] => (false, true, false, false),
-        ["mutate", name] => {
+    // `verify` and `report` take `--changed [<base>]` (changed.rs).
+    let (args, base) = match args.iter().position(|a| *a == "--changed") {
+        Some(i) => {
+            let (head, tail) = args.split_at(i);
+            match tail {
+                [_] => (head, Some(changed::DEFAULT_BASE)),
+                [_, b] if !b.starts_with('-') => (head, Some(*b)),
+                _ => (&[][..], None),
+            }
+        }
+        None => (args.as_slice(), None),
+    };
+    let (full, only_mutate, report_mode, write) = match (args, base) {
+        (["testdata"], None) => return generate_testdata(),
+        (["tables"], None) => return generate_tables(),
+        (["verify"], _) => (true, false, false, false),
+        (["check"], None) => (false, false, false, false),
+        (["mutate"], None) => (false, true, false, false),
+        (["mutate", name], None) => {
             only_crate = Some(name);
             (false, true, false, false)
         }
-        ["report"] => (false, false, true, false),
-        ["report", "--write"] => (false, false, true, true),
+        (["report"], _) => (false, false, true, false),
+        (["report", "--write"], _) => (false, false, true, true),
         _ => {
             eprintln!(
-                "usage: cargo xtask <verify|check|mutate [crate]|testdata|tables|report [--write]>"
+                "usage: cargo xtask <verify [--changed [base]]|check|mutate [crate]|testdata|tables|report [--write] [--changed [base]]>"
             );
             return ExitCode::from(64);
         }
@@ -795,16 +864,53 @@ fn main() -> ExitCode {
     } else {
         static_checks(&mut r, &crates, &pins);
     }
+    // With `--changed`, the crates whose proofs and tests this run repeats;
+    // `None` means every crate.
+    let mut partial: Option<(String, Vec<Crate>)> = None;
+    if let Some(base) = base {
+        match changed::select(&crates, &root, base) {
+            Ok((merge_base, changed::Selection::All(why))) => r.step(
+                "select changed crates",
+                Outcome::Pass(vec![format!(
+                    "every crate is checked: {why} since {base} ({merge_base})"
+                )]),
+            ),
+            Ok((merge_base, changed::Selection::Some(names))) => {
+                let picked: Vec<Crate> = crates
+                    .iter()
+                    .filter(|c| names.contains(&c.name))
+                    .cloned()
+                    .collect();
+                r.step(
+                    "select changed crates",
+                    Outcome::Pass(vec![format!(
+                        "{} of {} crates changed since {base} ({merge_base}), or depend on one that did: {}",
+                        picked.len(),
+                        crates.len(),
+                        if names.is_empty() {
+                            "none".to_owned()
+                        } else {
+                            names.iter().cloned().collect::<Vec<_>>().join(", ")
+                        }
+                    )]),
+                );
+                partial = Some((merge_base, picked));
+            }
+            Err(e) => r.step("select changed crates", Outcome::Fail(vec![e])),
+        }
+    }
+    let checked: &[Crate] = partial.as_ref().map_or(&crates, |(_, p)| p.as_slice());
+    let only = partial.as_ref().map(|(_, p)| p.as_slice());
     if full {
-        build_checks(&mut r);
-        miri(&mut r, &pins);
+        build_checks(&mut r, only);
+        miri(&mut r, &pins, only);
     }
     if full || report_mode {
-        kani(&mut r, &crates, &pins);
-        verus(&mut r, &crates, &pins);
-        mutations(&mut r, &crates, &root, None);
-        conformance_suites(&mut r, &crates);
-        readme_table(&mut r, write);
+        kani(&mut r, checked, &pins);
+        verus(&mut r, checked, &pins);
+        mutations(&mut r, checked, &root, None);
+        conformance_suites(&mut r, checked);
+        readme_table(&mut r, write, only);
     }
     if r.failed {
         println!("RESULT: FAILED");
@@ -812,6 +918,14 @@ fn main() -> ExitCode {
     } else if r.skipped {
         println!("RESULT: INCOMPLETE (checks skipped; not verified)");
         ExitCode::from(2)
+    } else if let Some((merge_base, picked)) = &partial {
+        // Never "ALL CHECKS PASSED": the other crates' proofs did not run.
+        println!(
+            "RESULT: CHANGED CRATES PASSED ({} of {} crates' proofs and tests run, against {merge_base}; CI's full `cargo xtask verify` is the gate)",
+            picked.len(),
+            crates.len()
+        );
+        ExitCode::SUCCESS
     } else if full {
         println!("RESULT: ALL CHECKS PASSED");
         ExitCode::SUCCESS
