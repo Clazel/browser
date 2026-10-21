@@ -13,8 +13,10 @@
 //! is the spec instantiated with [`url_domain_parser`], exactly as for the
 //! host parser alone.
 //!
-//! State override (item 1.11) is not part of these contracts: the exec
-//! parser is the basic URL parser with no url and no state override.
+//! Two exec entry points: the basic URL parser with no url and no state
+//! override (what parsing a string means), and the basic URL parser with
+//! url and a state override given, read as the URL API setters read it
+//! (url modified in place; [`basic_url_parse_in_place`]).
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -40,6 +42,20 @@ pub open spec fn basic_url_parser_requires(input: Seq<u32>) -> bool {
 /// null), no url and no state override; `None` is failure.
 pub open spec fn basic_url_parser_ensures(input: Seq<u32>, base: Option<Url>, output: Option<Url>) -> bool {
     output == basic_url_parser(input, base, url_domain_parser())
+}
+
+/// Precondition of `basic_url_parse_in_place(&[u32], &mut ParsedUrl,
+/// State)`: "a scalar value string input".
+pub open spec fn basic_url_parse_in_place_requires(input: Seq<u32>) -> bool {
+    clazel_encoding::utf8::spec::all_scalar_values(input)
+}
+
+/// Contract for `basic_url_parse_in_place(&[u32], &mut ParsedUrl, State)`:
+/// the basic URL parser on input with no base, `url` as url and
+/// `state_override` as state override; `output` is url as the parser
+/// leaves it.
+pub open spec fn basic_url_parse_in_place_ensures(input: Seq<u32>, url: Url, state_override: State, output: Url) -> bool {
+    output == basic_url_parse_in_place(input, url, state_override, url_domain_parser())
 }
 
 /// Contract for `url_path_serializer(&ParsedPath) -> Vec<u32>`: the URL
