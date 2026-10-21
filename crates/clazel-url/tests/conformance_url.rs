@@ -190,6 +190,55 @@ fn wpt_urltestdata() {
     assert!(failures.is_empty(), "{}", failures.join("\n"));
 }
 
+/// URL §4.5 / Goals: "a non-failure result of a parse-then-serialize
+/// operation will not change with any further parse-then-serialize
+/// operations applied to it". Checked on every WPT row that parses and on
+/// the differential test's random inputs: parsing the href again (without
+/// a base) gives the same href. (`url/lemmas.rs` proves this for a class
+/// of URLs; this is the evidence for the rest.)
+fn reparses_to_itself(input: &str, base: Option<&str>) -> Result<(), String> {
+    let Some(u) = new_url(input, base) else {
+        return Ok(());
+    };
+    let href = string(&u.serialize(false));
+    match new_url(&href, None) {
+        Some(again) if string(&again.serialize(false)) == href => Ok(()),
+        Some(again) => Err(format!(
+            "{input:?} against {base:?}: {href:?} reparses as {:?}",
+            string(&again.serialize(false))
+        )),
+        None => Err(format!(
+            "{input:?} against {base:?}: {href:?} does not reparse"
+        )),
+    }
+}
+
+#[test]
+fn idempotence() {
+    let mut failures = Vec::new();
+    for case in URLTESTDATA {
+        if let Err(e) = reparses_to_itself(case.input, case.base) {
+            failures.push(e);
+        }
+    }
+    let mut rng = Lcg(11);
+    for _ in 0..samples(200_000, 300) {
+        let input = random_input(&mut rng);
+        let n = u64::try_from(BASES.len()).unwrap_or(1);
+        let base = BASES.get(rng.below(n)).copied().flatten();
+        if let Err(e) = reparses_to_itself(&input, base) {
+            failures.push(e);
+        }
+    }
+    let shown: Vec<&String> = failures.iter().take(40).collect();
+    assert!(
+        failures.is_empty(),
+        "{} failures:\n{:#?}",
+        failures.len(),
+        shown
+    );
+}
+
 /// The path of a parsed URL is opaque exactly when rust-url says it
 /// "cannot be a base".
 fn opaque(url: &ParsedUrl) -> bool {

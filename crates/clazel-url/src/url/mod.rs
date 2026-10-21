@@ -19,6 +19,8 @@
 //!   §5.2, §5.3), and the class of bases and references on which it is
 //!   proven to agree with the basic URL parser; [`runs`]: the lemmas about
 //!   parser runs that proof uses.
+//! - [`round_trip`]: serialize then parse returns the URL, for a class of
+//!   URLs (and so parse-then-serialize is idempotent on it).
 
 pub mod contract;
 pub mod examples;
@@ -28,6 +30,7 @@ pub mod machine;
 pub mod parse;
 pub mod path_ops;
 pub mod record;
+pub mod round_trip;
 pub mod runs;
 pub mod serialize;
 pub mod spec;

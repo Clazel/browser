@@ -36,6 +36,84 @@ pub open spec fn segment_chars_between(s: Seq<u32>, i: int, j: int) -> bool {
     forall|k: int| i <= k < j ==> (is_ascii_alphanumeric(#[trigger] s[k]) || s[k] == 0x2E)
 }
 
+/// `c` is an ASCII code point outside `set`: what UTF-8 percent-encoding
+/// with `set` leaves as it is.
+pub open spec fn outside(c: u32, set: clazel_percent::spec::PercentEncodeSet) -> bool {
+    c <= 0x7F && !clazel_percent::spec::contains(set, c)
+}
+
+/// `s[i..j)` holds code points [`outside`] `set`.
+pub open spec fn outside_between(s: Seq<u32>, i: int, j: int, set: clazel_percent::spec::PercentEncodeSet) -> bool {
+    forall|k: int| i <= k < j ==> outside(#[trigger] s[k], set)
+}
+
+/// Every code point of `s` is [`outside`] `set`.
+pub open spec fn outside_all(s: Seq<u32>, set: clazel_percent::spec::PercentEncodeSet) -> bool {
+    forall|k: int| 0 <= k < s.len() ==> outside(#[trigger] s[k], set)
+}
+
+/// The query state's percent-encode set for `url` (step 2.1).
+pub open spec fn query_set(url: Url) -> clazel_percent::spec::PercentEncodeSet {
+    if is_special(url) {
+        clazel_percent::spec::PercentEncodeSet::SpecialQuery
+    } else {
+        clazel_percent::spec::PercentEncodeSet::Query
+    }
+}
+
+/// A path segment the path state reads as it is: code points outside the
+/// path percent-encode set, none of them U+002F (/). (The set holds "?"
+/// and "#".)
+pub open spec fn path_segment_ok(s: Seq<u32>) -> bool {
+    forall|k: int| 0 <= k < s.len() ==> outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path) && s[k]
+        != 0x2F
+}
+
+/// `s[i..j)` holds code points a path segment may hold.
+pub open spec fn path_chars_between(s: Seq<u32>, i: int, j: int) -> bool {
+    forall|k: int| i <= k < j ==> outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path) && s[k] != 0x2F
+}
+
+/// ASCII alphanumerics are outside the fragment, query, special-query and
+/// path sets, and are not "/".
+pub proof fn lemma_alphanumeric_outside(s: Seq<u32>, i: int, j: int)
+    requires
+        alphanumeric_between(s, i, j),
+    ensures
+        outside_between(s, i, j, clazel_percent::spec::PercentEncodeSet::Fragment),
+        outside_between(s, i, j, clazel_percent::spec::PercentEncodeSet::Query),
+        outside_between(s, i, j, clazel_percent::spec::PercentEncodeSet::SpecialQuery),
+{
+    assert forall|k: int| i <= k < j implies outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Fragment)
+        && outside(s[k], clazel_percent::spec::PercentEncodeSet::Query) && outside(
+        s[k],
+        clazel_percent::spec::PercentEncodeSet::SpecialQuery,
+    ) by {
+        lemma_alphanumeric_not_in_sets(s[k]);
+    }
+}
+
+/// The segments of the RFC 3986 agreement class are path segments the
+/// path state reads as they are.
+pub proof fn lemma_segments_path_ok(segs: Seq<Seq<u32>>)
+    requires
+        forall|i: int| 0 <= i < segs.len() ==> segment_ok(#[trigger] segs[i]),
+    ensures
+        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i]),
+{
+    assert forall|i: int| 0 <= i < segs.len() implies path_segment_ok(#[trigger] segs[i]) by {
+        let s = segs[i];
+        assert(segment_ok(s));
+        assert forall|k: int| 0 <= k < s.len() implies outside(#[trigger] s[k], clazel_percent::spec::PercentEncodeSet::Path)
+            && s[k] != 0x2F by {
+            if !all_alphanumeric(s) {
+                assert(s == seq![0x2Eu32] || s == seq![0x2Eu32, 0x2E]);
+            }
+            lemma_alphanumeric_not_in_sets(s[k]);
+        }
+    }
+}
+
 /// The segments joined with "/", first to last.
 pub open spec fn join(segs: Seq<Seq<u32>>) -> Seq<u32>
     decreases segs.len()
@@ -106,18 +184,15 @@ pub proof fn lemma_encode_identity(s: Seq<u32>, set: clazel_percent::spec::Perce
     assert(s.subrange(0, s.len() as int) =~= s);
 }
 
-/// UTF-8 percent-encoding an ASCII alphanumeric or U+002E (.) with any of
-/// the parser's sets gives the code point itself.
+/// UTF-8 percent-encoding a code point outside the set gives the code
+/// point itself.
 pub proof fn lemma_encode_code_point_identity(c: u32, set: clazel_percent::spec::PercentEncodeSet)
     requires
-        is_ascii_alphanumeric(c) || c == 0x2E,
-        set == clazel_percent::spec::PercentEncodeSet::C0Control || set == clazel_percent::spec::PercentEncodeSet::Fragment
-            || set == clazel_percent::spec::PercentEncodeSet::Query || set
-            == clazel_percent::spec::PercentEncodeSet::SpecialQuery || set == clazel_percent::spec::PercentEncodeSet::Path,
+        outside(c, set),
+        set != clazel_percent::spec::PercentEncodeSet::ApplicationXWwwFormUrlencoded,
     ensures
         clazel_percent::spec::utf8_percent_encode_code_point(c, set) == seq![c],
 {
-    lemma_alphanumeric_not_in_sets(c);
     lemma_encode_identity(seq![c], set);
 }
 
@@ -185,7 +260,7 @@ pub proof fn lemma_fragment_run(ctx: Ctx, m: Machine, f: Seq<u32>)
         m.state is Fragment,
         0 <= m.pointer <= ctx.input.len(),
         m.url.fragment == Some(f),
-        alphanumeric_between(ctx.input, m.pointer, ctx.input.len() as int),
+        outside_between(ctx.input, m.pointer, ctx.input.len() as int, clazel_percent::spec::PercentEncodeSet::Fragment),
     ensures
         run(ctx, m) == Some(Url { fragment: Some(f + ctx.input.subrange(m.pointer, ctx.input.len() as int)), ..m.url }),
     decreases ctx.input.len() - m.pointer,
@@ -213,9 +288,14 @@ pub proof fn lemma_query_run(ctx: Ctx, m: Machine, q: Seq<u32>, e: int)
         ctx.state_override is None,
         0 <= m.pointer <= e <= ctx.input.len(),
         m.url.query == Some(q),
-        all_alphanumeric(m.buffer),
-        alphanumeric_between(ctx.input, m.pointer, e),
-        e == ctx.input.len() || (ctx.input[e] == 0x23 && alphanumeric_between(ctx.input, e + 1, ctx.input.len() as int)),
+        outside_all(m.buffer, query_set(m.url)),
+        outside_between(ctx.input, m.pointer, e, query_set(m.url)),
+        e == ctx.input.len() || (ctx.input[e] == 0x23 && outside_between(
+            ctx.input,
+            e + 1,
+            ctx.input.len() as int,
+            clazel_percent::spec::PercentEncodeSet::Fragment,
+        )),
     ensures
         run(ctx, m) == Some(
             Url {
@@ -235,9 +315,10 @@ pub proof fn lemma_query_run(ctx: Ctx, m: Machine, q: Seq<u32>, e: int)
     if m.pointer < e {
         let c = ctx.input[m.pointer];
         let n = Machine { buffer: m.buffer.push(c), pointer: m.pointer + 1, ..m };
-        assert(all_alphanumeric(m.buffer.push(c))) by {
-            assert forall|k: int| 0 <= k < m.buffer.push(c).len() implies is_ascii_alphanumeric(
+        assert(outside_all(m.buffer.push(c), query_set(m.url))) by {
+            assert forall|k: int| 0 <= k < m.buffer.push(c).len() implies outside(
                 #[trigger] m.buffer.push(c)[k],
+                query_set(m.url),
             ) by {
                 if k < m.buffer.len() {
                     assert(m.buffer.push(c)[k] == m.buffer[k]);
@@ -257,7 +338,7 @@ pub proof fn lemma_query_run(ctx: Ctx, m: Machine, q: Seq<u32>, e: int)
         } else {
             clazel_percent::spec::PercentEncodeSet::Query
         };
-        lemma_encode_alphanumeric(m.buffer, set);
+        lemma_encode_identity(m.buffer, set);
         assert(ctx.input.subrange(m.pointer, e) =~= seq![]);
         assert(q + m.buffer + ctx.input.subrange(m.pointer, e) =~= q + m.buffer);
         let url = Url { query: Some(q + m.buffer), ..m.url };
@@ -337,7 +418,7 @@ pub proof fn lemma_path_chars(ctx: Ctx, m: Machine, k: int)
         ctx.state_override is None,
         plain_path_url(m.url),
         0 <= m.pointer <= k <= ctx.input.len(),
-        segment_chars_between(ctx.input, m.pointer, k),
+        path_chars_between(ctx.input, m.pointer, k),
     ensures
         run(ctx, m) == run(ctx, Machine { buffer: m.buffer + ctx.input.subrange(m.pointer, k), pointer: k, ..m }),
     decreases k - m.pointer,
@@ -432,7 +513,7 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
         m.url.path == UrlPath::List(l),
         m.buffer == Seq::<u32>::empty(),
         segs.len() > 0,
-        forall|i: int| 0 <= i < segs.len() ==> segment_ok(#[trigger] segs[i]),
+        forall|i: int| 0 <= i < segs.len() ==> path_segment_ok(#[trigger] segs[i]),
         0 <= m.pointer,
         m.pointer + join(segs).len() <= ctx.input.len(),
         ctx.input.subrange(m.pointer, m.pointer + join(segs).len()) == join(segs),
@@ -471,10 +552,10 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
     let s = segs[0];
     let k = p + s.len();
     // The first segment's code points.
-    assert(segment_chars_between(ctx.input, p, k)) by {
-        assert forall|j: int| p <= j < k implies (is_ascii_alphanumeric(#[trigger] ctx.input[j]) || ctx.input[j]
-            == 0x2E) by {
-            assert(segment_ok(segs[0]));
+    assert(path_chars_between(ctx.input, p, k)) by {
+        assert forall|j: int| p <= j < k implies outside(#[trigger] ctx.input[j], clazel_percent::spec::PercentEncodeSet::Path)
+            && ctx.input[j] != 0x2F by {
+            assert(path_segment_ok(segs[0]));
             if segs.len() == 1 {
                 assert(join(segs) == s);
             } else {
@@ -514,7 +595,7 @@ pub proof fn lemma_path_run(ctx: Ctx, m: Machine, l: Seq<Seq<u32>>, segs: Seq<Se
             pointer: k + 1,
             ..m
         };
-        assert forall|i: int| 0 <= i < rest.len() implies segment_ok(#[trigger] rest[i]) by {
+        assert forall|i: int| 0 <= i < rest.len() implies path_segment_ok(#[trigger] rest[i]) by {
             assert(rest[i] == segs[i + 1]);
         }
         assert(ctx.input.subrange(k + 1, k + 1 + join(rest).len()) =~= join(rest)) by {

@@ -645,6 +645,8 @@ proof fn lemma_tail(ctx: Ctx, url: Url, m: Machine, e: int, query: Option<Seq<u3
                     assert(input[k] == q[k - e - 1]);
                 }
             }
+            super::runs::lemma_alphanumeric_outside(input, e + 1, len);
+            assert(super::runs::outside_all(Seq::<u32>::empty(), super::runs::query_set(mq.url)));
             super::runs::lemma_query_run(ctx, mq, seq![], len);
             assert(input.subrange(e + 1, len) =~= q);
             assert(Seq::<u32>::empty() + Seq::<u32>::empty() + q =~= q);
@@ -666,6 +668,9 @@ proof fn lemma_tail(ctx: Ctx, url: Url, m: Machine, e: int, query: Option<Seq<u3
                     assert(input[k] == f[k - ql - 1]);
                 }
             }
+            super::runs::lemma_alphanumeric_outside(input, e + 1, ql);
+            super::runs::lemma_alphanumeric_outside(input, ql + 1, len);
+            assert(super::runs::outside_all(Seq::<u32>::empty(), super::runs::query_set(mq.url)));
             super::runs::lemma_query_run(ctx, mq, seq![], ql);
             assert(input.subrange(e + 1, ql) =~= q);
             assert(input.subrange(ql + 1, len) =~= f);
@@ -681,6 +686,7 @@ proof fn lemma_tail(ctx: Ctx, url: Url, m: Machine, e: int, query: Option<Seq<u3
                     assert(input[k] == f[k - e - 1]);
                 }
             }
+            super::runs::lemma_alphanumeric_outside(input, e + 1, len);
             super::runs::lemma_fragment_run(ctx, mf, seq![]);
             assert(Seq::<u32>::empty() + input.subrange(e + 1, len) =~= f);
         },
@@ -800,7 +806,7 @@ proof fn lemma_reference_first_run(absolute: bool, segs: Seq<Seq<u32>>, query: O
 }
 
 /// The code point after the path, if any, is "?" or "#".
-proof fn lemma_tail_delimiter(r: Seq<u32>, e: int, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
+pub proof fn lemma_tail_delimiter(r: Seq<u32>, e: int, query: Option<Seq<u32>>, fragment: Option<Seq<u32>>)
     requires
         0 <= e < r.len(),
         r == with_fragment(with_query(r.subrange(0, e), query), fragment),
@@ -930,6 +936,7 @@ proof fn lemma_reference_absolute(base: Url, segs: Seq<Seq<u32>>, query: Option<
     if e < len {
         lemma_tail_delimiter(r, e, query, fragment);
     }
+    super::runs::lemma_segments_path_ok(segs);
     super::runs::lemma_path_run(ctx, m4, seq![], segs);
     lemma_tail(ctx, Url { path: UrlPath::List(super::runs::path_model(seq![], segs)), ..u_path }, m4, e, query, fragment);
     assert(Url { query: query, fragment: fragment, path: UrlPath::List(super::runs::path_model(seq![], segs)), ..u_path }
@@ -1012,6 +1019,7 @@ proof fn lemma_reference_relative(base: Url, segs: Seq<Seq<u32>>, query: Option<
     if e < len {
         lemma_tail_delimiter(r, e, query, fragment);
     }
+    super::runs::lemma_segments_path_ok(segs);
     super::runs::lemma_path_run(ctx, m4, shortened, segs);
     lemma_tail(ctx, Url { path: UrlPath::List(super::runs::path_model(shortened, segs)), ..u_path }, m4, e, query, fragment);
     assert(Url { query: query, fragment: fragment, path: UrlPath::List(super::runs::path_model(shortened, segs)), ..u_path }
@@ -1374,7 +1382,7 @@ proof fn lemma_serialize_chars(l: Seq<Seq<u32>>)
 
 /// The path serialization of a list, front first: "/", the first segment,
 /// then the serialization of the rest.
-proof fn lemma_serialize_front(l: Seq<Seq<u32>>)
+pub proof fn lemma_serialize_front(l: Seq<Seq<u32>>)
     requires
         l.len() > 0,
     ensures
