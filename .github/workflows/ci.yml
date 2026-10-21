@@ -1,0 +1,69 @@
+# Runs the checks in docs/VERIFICATION.md on every push to main and every
+# pull request. Two jobs:
+#
+#   check   `cargo xtask check`: the fast static checks (unsafe, lint
+#           overrides, escape hatches, tier declarations, pins, allowlist).
+#           Fails in a minute or two, so obvious mistakes show up early.
+#   verify  `scripts/setup.sh && scripts/verify.sh`: every check, with the
+#           pinned, checksummed proof toolchain. This is the job that counts.
+#           verify.sh exits 2 when a tool is missing and checks were skipped;
+#           any non-zero exit fails the job, so a skipped check is never green.
+#
+# Linux x86-64 only: it is the platform the Dockerfile reproduces, and Verus
+# publishes no Linux arm64 build.
+#
+# Actions are pinned by commit SHA (the tag is in the trailing comment). Only
+# setup.sh's download cache is cached: setup.sh re-checks every cached file
+# against scripts/checksums.txt before using it, so a stale or tampered cache
+# entry cannot reach the proof tools. Build output is never cached.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Static checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # rustup reads rust-toolchain.toml and installs the pinned toolchain.
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: cargo xtask check
+        run: cargo xtask check
+
+  verify:
+    name: Full verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache tool downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/clazel-tools/downloads
+          key: clazel-tools-${{ runner.os }}-${{ hashFiles('scripts/toolchains.env', 'scripts/checksums.txt') }}
+      - name: Install pinned toolchain
+        run: scripts/setup.sh
+      - name: Verify
+        run: scripts/verify.sh
