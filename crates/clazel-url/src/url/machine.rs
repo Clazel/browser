@@ -80,12 +80,18 @@ pub open spec fn ctx_of(input: Seq<u32>, base: Option<Url>) -> Ctx {
 /// before the host state, buffer is no longer than pointer (it holds code
 /// points read since the last reset, at most one per run). The last fact
 /// is what keeps the authority state's "decrease pointer by buffer's code
-/// point length + 1" from going below −1.
+/// point length + 1" from going below −1. In the port state, buffer holds
+/// ASCII digits.
 pub open spec fn wf(ctx: Ctx, m: Machine) -> bool {
     clazel_encoding::utf8::spec::all_scalar_values(ctx.input) && ctx.state_override is None && ctx.domain_parser
         == super::contract::url_domain_parser() && 0 <= m.pointer <= ctx.input.len() && (!(m.state is Path)
         ==> clazel_encoding::utf8::spec::all_scalar_values(m.buffer)) && (super::termination::phase(m.state) >= 1
-        ==> m.buffer.len() <= m.pointer)
+        ==> m.buffer.len() <= m.pointer) && (m.state is Port ==> all_ascii_digits(m.buffer))
+}
+
+/// Every code point of `s` is an ASCII digit (the port state's buffer).
+pub open spec fn all_ascii_digits(s: Seq<u32>) -> bool {
+    forall|k: int| 0 <= k < s.len() ==> crate::host::spec::is_ascii_digit(#[trigger] s[k])
 }
 
 /// The exec run that returned `flow` and left the machine as `after` did
