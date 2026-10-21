@@ -20,13 +20,17 @@ contributor rules for AI agents (`CLAUDE.md`), and honesty metrics script.
 UTF-8 encoding, percent-encoding, base64, MIME sniffing, WHATWG URL parser.
 *Exit:* WPT `url/` tests pass and the parsers are proven against spec functions.
 Detailed plan: [phases/phase-1.md](phases/phase-1.md).
-**Status: in progress.**
+**Status: all items done; `scripts/verify.sh` passes on macOS arm64
+(2026-10-21). Complete once the Linux x86-64 CI run is green.**
 
 ## Phase 2: Kernel and IPC
 Quark-style process model. A small kernel process owns all network, cookie
 and storage access. Each tab is a sandboxed renderer process that can only
 send typed messages. Same-origin policy is a proven property of the kernel.
 *Exit:* two renderer processes that provably cannot read each other's cookies.
+Detailed plan: [phases/phase-2.md](phases/phase-2.md).
+**Status: in progress. Items that do not wait on the sandbox decision
+(2.0) may start.**
 
 ## Phase 3: Networking
 Verified HTTP/1.1 parser, DNS, and TLS via rustls with verified crypto.
