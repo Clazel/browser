@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
-use crate::cbor::spec::be_bytes;
+use crate::cbor::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 

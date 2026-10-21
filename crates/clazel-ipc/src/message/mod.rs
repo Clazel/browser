@@ -7,3 +7,4 @@ pub mod contract;
 pub mod spec;
 pub mod lemmas;
 pub mod examples;
+pub mod codec;
