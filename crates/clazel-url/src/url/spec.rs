@@ -714,4 +714,533 @@ pub open spec fn no_scheme_state(ctx: Ctx, m: Machine) -> Step {
     }
 }
 
+// ---------------------------------------------------------------------
+// §4.4 states: authority (and the relative and file states that lead to
+// one).
+// ---------------------------------------------------------------------
+
+/// "special relative or authority state"
+/// (<https://url.spec.whatwg.org/#special-relative-or-authority-state>)
+pub open spec fn special_relative_or_authority_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x2F) && remaining_starts_with(ctx.input, m.pointer, 0x2F) {
+        // 1. "If c is U+002F (/) and remaining starts with U+002F (/), then
+        //    set state to special authority ignore slashes state and
+        //    increase pointer by 1."
+        Step::Continue(Machine { state: State::SpecialAuthorityIgnoreSlashes, pointer: m.pointer + 1, ..m })
+    } else {
+        // 2. "Otherwise, special-scheme-missing-following-solidus validation
+        //    error, set state to relative state and decrease pointer by 1."
+        Step::Continue(Machine { state: State::Relative, pointer: m.pointer - 1, ..m })
+    }
+}
+
+/// "path or authority state"
+/// (<https://url.spec.whatwg.org/#path-or-authority-state>)
+pub open spec fn path_or_authority_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x2F) {
+        // 1. "If c is U+002F (/), then set state to authority state."
+        Step::Continue(Machine { state: State::Authority, ..m })
+    } else {
+        // 2. "Otherwise, set state to path state, and decrease pointer by 1."
+        Step::Continue(Machine { state: State::Path, pointer: m.pointer - 1, ..m })
+    }
+}
+
+/// "relative state" (<https://url.spec.whatwg.org/#relative-state>)
+pub open spec fn relative_state(ctx: Ctx, m: Machine) -> Step {
+    let base = base_of(ctx);
+    // 1. "Assert: base's scheme is not "file"." (no scheme state step 3
+    //    and scheme state step 2.6 only come here when it is not)
+    // 2. "Set url's scheme to base's scheme."
+    let url = Url { scheme: base.scheme, ..m.url };
+    if c_is(ctx, m, 0x2F) {
+        // 3. "If c is U+002F (/), then set state to relative slash state."
+        Step::Continue(Machine { url: url, state: State::RelativeSlash, ..m })
+    } else if is_special(url) && c_is(ctx, m, 0x5C) {
+        // 4. "Otherwise, if url is special and c is U+005C (\),
+        //    invalid-reverse-solidus validation error, set state to relative
+        //    slash state."
+        Step::Continue(Machine { url: url, state: State::RelativeSlash, ..m })
+    } else {
+        // 5. "Otherwise:"
+        // 5.1 "Set url's username to base's username, url's password to
+        //     base's password, url's host to base's host, url's port to
+        //     base's port, url's path to a clone of base's path, and url's
+        //     query to base's query."
+        let url = Url {
+            username: base.username,
+            password: base.password,
+            host: base.host,
+            port: base.port,
+            path: base.path,
+            query: base.query,
+            ..url
+        };
+        if c_is(ctx, m, 0x3F) {
+            // 5.2 "If c is U+003F (?), then set url's query to the empty
+            //     string, and state to query state."
+            Step::Continue(Machine { url: Url { query: Some(seq![]), ..url }, state: State::Query, ..m })
+        } else if c_is(ctx, m, 0x23) {
+            // 5.3 "Otherwise, if c is U+0023 (#), set url's fragment to the
+            //     empty string and state to fragment state."
+            Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..url }, state: State::Fragment, ..m })
+        } else if !c_is_eof(ctx, m) {
+            // 5.4 "Otherwise, if c is not the EOF code point:"
+            // 5.4.1 "Set url's query to null."
+            let url = Url { query: None, ..url };
+            // 5.4.2 "Shorten url's path."
+            let url = shorten(url);
+            // 5.4.3 "Set state to path state and decrease pointer by 1."
+            Step::Continue(Machine { url: url, state: State::Path, pointer: m.pointer - 1, ..m })
+        } else {
+            Step::Continue(Machine { url: url, ..m })
+        }
+    }
+}
+
+/// "relative slash state" (<https://url.spec.whatwg.org/#relative-slash-state>)
+pub open spec fn relative_slash_state(ctx: Ctx, m: Machine) -> Step {
+    let base = base_of(ctx);
+    if is_special(m.url) && (c_is(ctx, m, 0x2F) || c_is(ctx, m, 0x5C)) {
+        // 1. "If url is special and c is U+002F (/) or U+005C (\), then:"
+        // 1.1 "If c is U+005C (\), invalid-reverse-solidus validation
+        //     error." (validation error only)
+        // 1.2 "Set state to special authority ignore slashes state."
+        Step::Continue(Machine { state: State::SpecialAuthorityIgnoreSlashes, ..m })
+    } else if c_is(ctx, m, 0x2F) {
+        // 2. "Otherwise, if c is U+002F (/), then set state to authority
+        //    state."
+        Step::Continue(Machine { state: State::Authority, ..m })
+    } else {
+        // 3. "Otherwise, set url's username to base's username, url's
+        //    password to base's password, url's host to base's host, url's
+        //    port to base's port, state to path state, and then, decrease
+        //    pointer by 1."
+        Step::Continue(
+            Machine {
+                url: Url {
+                    username: base.username,
+                    password: base.password,
+                    host: base.host,
+                    port: base.port,
+                    ..m.url
+                },
+                state: State::Path,
+                pointer: m.pointer - 1,
+                ..m
+            },
+        )
+    }
+}
+
+/// "special authority slashes state"
+/// (<https://url.spec.whatwg.org/#special-authority-slashes-state>)
+pub open spec fn special_authority_slashes_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x2F) && remaining_starts_with(ctx.input, m.pointer, 0x2F) {
+        // 1. "If c is U+002F (/) and remaining starts with U+002F (/), then
+        //    set state to special authority ignore slashes state and
+        //    increase pointer by 1."
+        Step::Continue(Machine { state: State::SpecialAuthorityIgnoreSlashes, pointer: m.pointer + 1, ..m })
+    } else {
+        // 2. "Otherwise, special-scheme-missing-following-solidus validation
+        //    error, set state to special authority ignore slashes state and
+        //    decrease pointer by 1."
+        Step::Continue(Machine { state: State::SpecialAuthorityIgnoreSlashes, pointer: m.pointer - 1, ..m })
+    }
+}
+
+/// "special authority ignore slashes state"
+/// (<https://url.spec.whatwg.org/#special-authority-ignore-slashes-state>)
+pub open spec fn special_authority_ignore_slashes_state(ctx: Ctx, m: Machine) -> Step {
+    if !c_is(ctx, m, 0x2F) && !c_is(ctx, m, 0x5C) {
+        // 1. "If c is neither U+002F (/) nor U+005C (\), then set state to
+        //    authority state and decrease pointer by 1."
+        Step::Continue(Machine { state: State::Authority, pointer: m.pointer - 1, ..m })
+    } else {
+        // 2. "Otherwise, special-scheme-missing-following-solidus validation
+        //    error." (validation error only)
+        Step::Continue(m)
+    }
+}
+
+/// Authority state step 1.4, "For each codePoint in buffer", from index
+/// `i`, with url and passwordTokenSeen so far.
+pub open spec fn authority_code_points(buffer: Seq<u32>, i: nat, url: Url, password_token_seen: bool) -> (Url, bool)
+    decreases buffer.len() - i
+{
+    if i >= buffer.len() {
+        (url, password_token_seen)
+    } else {
+        let code_point = buffer[i as int];
+        if code_point == 0x3A && !password_token_seen {
+            // 1.4.1 "If codePoint is U+003A (:) and passwordTokenSeen is
+            //       false, then set passwordTokenSeen to true and continue."
+            authority_code_points(buffer, i + 1, url, true)
+        } else {
+            // 1.4.2 "Let encodedCodePoints be the result of running UTF-8
+            //       percent-encode codePoint using the userinfo
+            //       percent-encode set."
+            let encoded_code_points = clazel_percent::spec::utf8_percent_encode_code_point(
+                code_point,
+                clazel_percent::spec::PercentEncodeSet::Userinfo,
+            );
+            if password_token_seen {
+                // 1.4.3 "If passwordTokenSeen is true, then append
+                //       encodedCodePoints to url's password."
+                authority_code_points(buffer, i + 1, Url { password: url.password + encoded_code_points, ..url }, password_token_seen)
+            } else {
+                // 1.4.4 "Otherwise, append encodedCodePoints to url's
+                //       username."
+                authority_code_points(buffer, i + 1, Url { username: url.username + encoded_code_points, ..url }, password_token_seen)
+            }
+        }
+    }
+}
+
+/// "authority state" (<https://url.spec.whatwg.org/#authority-state>)
+pub open spec fn authority_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x40) {
+        // 1. "If c is U+0040 (@), then:"
+        // 1.1 "Invalid-credentials validation error." (validation error
+        //     only)
+        // 1.2 "If atSignSeen is true, then prepend "%40" to buffer."
+        let buffer = if m.at_sign_seen {
+            seq![0x25u32, 0x34, 0x30] + m.buffer
+        } else {
+            m.buffer
+        };
+        // 1.3 "Set atSignSeen to true."
+        // 1.4 "For each codePoint in buffer:"
+        let (url, password_token_seen) = authority_code_points(buffer, 0, m.url, m.password_token_seen);
+        // 1.5 "Set buffer to the empty string."
+        Step::Continue(
+            Machine { url: url, buffer: seq![], at_sign_seen: true, password_token_seen: password_token_seen, ..m },
+        )
+    } else if ends_authority(ctx, m) {
+        // 2. "Otherwise, if one of the following is true: c is the EOF code
+        //    point, U+002F (/), U+003F (?), or U+0023 (#); url is special
+        //    and c is U+005C (\); then:"
+        if m.at_sign_seen && m.buffer.len() == 0 {
+            // 2.1 "If atSignSeen is true and buffer is the empty string,
+            //     host-missing validation error, return failure."
+            Step::Failure
+        } else {
+            // 2.2 "Decrease pointer by buffer's code point length + 1, set
+            //     buffer to the empty string, and set state to host state."
+            Step::Continue(
+                Machine { buffer: seq![], state: State::Host, pointer: m.pointer - (m.buffer.len() + 1), ..m },
+            )
+        }
+    } else {
+        // 3. "Otherwise, append c to buffer."
+        Step::Continue(Machine { buffer: m.buffer.push(c_of(ctx, m)), ..m })
+    }
+}
+
+/// "host state" and "hostname state"
+/// (<https://url.spec.whatwg.org/#host-state>)
+pub open spec fn host_state(ctx: Ctx, m: Machine) -> Step {
+    let url = m.url;
+    if ctx.state_override is Some && url.scheme == file_str() {
+        // 1. "If state override is given and url's scheme is "file", then
+        //    decrease pointer by 1 and set state to file host state."
+        Step::Continue(Machine { state: State::FileHost, pointer: m.pointer - 1, ..m })
+    } else if c_is(ctx, m, 0x3A) && !m.inside_brackets {
+        // 2. "Otherwise, if c is U+003A (:) and insideBrackets is false:"
+        if m.buffer.len() == 0 {
+            // 2.1 "If buffer is the empty string, host-missing validation
+            //     error, return failure."
+            Step::Failure
+        } else if ctx.state_override == Some(State::Hostname) {
+            // 2.2 "If state override is given and state override is hostname
+            //     state, then return failure."
+            Step::Failure
+        } else {
+            // 2.3 "Let host be the result of host parsing buffer with url is
+            //     not special."
+            match crate::host::spec::host_parser(m.buffer, !is_special(url), ctx.domain_parser) {
+                // 2.4 "If host is failure, then return failure."
+                None => Step::Failure,
+                // 2.5 "Set url's host to host, buffer to the empty string, and
+                //     state to port state."
+                Some(host) => Step::Continue(
+                    Machine { url: Url { host: Some(host), ..url }, buffer: seq![], state: State::Port, ..m },
+                ),
+            }
+        }
+    } else if ends_authority(ctx, m) {
+        // 3. "Otherwise, if one of the following is true: c is the EOF code
+        //    point, U+002F (/), U+003F (?), or U+0023 (#); url is special
+        //    and c is U+005C (\); then decrease pointer by 1, and:"
+        let pointer = m.pointer - 1;
+        if is_special(url) && m.buffer.len() == 0 {
+            // 3.1 "If url is special and buffer is the empty string,
+            //     host-missing validation error, return failure."
+            Step::Failure
+        } else if ctx.state_override is Some && m.buffer.len() == 0 && (includes_credentials(url)
+            || url.port is Some) {
+            // 3.2 "Otherwise, if state override is given, buffer is the empty
+            //     string, and either url includes credentials or url's port
+            //     is non-null, then return failure."
+            Step::Failure
+        } else {
+            // 3.3 "Let host be the result of host parsing buffer with url is
+            //     not special."
+            match crate::host::spec::host_parser(m.buffer, !is_special(url), ctx.domain_parser) {
+                // 3.4 "If host is failure, then return failure."
+                None => Step::Failure,
+                Some(host) => {
+                    // 3.5 "Set url's host to host, buffer to the empty
+                    //     string, and state to path start state."
+                    let url = Url { host: Some(host), ..url };
+                    if ctx.state_override is Some {
+                        // 3.6 "If state override is given, then return."
+                        Step::Return(url)
+                    } else {
+                        Step::Continue(
+                            Machine { url: url, buffer: seq![], state: State::PathStart, pointer: pointer, ..m },
+                        )
+                    }
+                },
+            }
+        }
+    } else {
+        // 4. "Otherwise:"
+        // 4.1 "If c is U+005B ([), then set insideBrackets to true."
+        // 4.2 "If c is U+005D (]), then set insideBrackets to false."
+        let inside_brackets = if c_is(ctx, m, 0x5B) {
+            true
+        } else if c_is(ctx, m, 0x5D) {
+            false
+        } else {
+            m.inside_brackets
+        };
+        // 4.3 "Append c to buffer."
+        Step::Continue(Machine { buffer: m.buffer.push(c_of(ctx, m)), inside_brackets: inside_brackets, ..m })
+    }
+}
+
+/// "The mathematical integer value that is represented by buffer in
+/// radix-10 using ASCII digits for digits with values 0 through 9" (port
+/// state step 2.1.1), most significant digit first.
+pub open spec fn decimal_value(s: Seq<u32>) -> nat
+    decreases s.len()
+{
+    if s.len() == 0 {
+        0
+    } else {
+        decimal_value(s.drop_last()) * 10 + (s.last() - 0x30) as nat
+    }
+}
+
+/// "port state" (<https://url.spec.whatwg.org/#port-state>)
+pub open spec fn port_state(ctx: Ctx, m: Machine) -> Step {
+    if !c_is_eof(ctx, m) && crate::host::spec::is_ascii_digit(c_of(ctx, m)) {
+        // 1. "If c is an ASCII digit, append c to buffer."
+        Step::Continue(Machine { buffer: m.buffer.push(c_of(ctx, m)), ..m })
+    } else if ends_authority(ctx, m) || ctx.state_override is Some {
+        // 2. "Otherwise, if one of the following is true: c is the EOF code
+        //    point, U+002F (/), U+003F (?), or U+0023 (#); url is special
+        //    and c is U+005C (\); or state override is given, then:"
+        if m.buffer.len() > 0 {
+            // 2.1 "If buffer is not the empty string:"
+            // 2.1.1 "Let port be the mathematical integer value that is
+            //       represented by buffer in radix-10 using ASCII digits for
+            //       digits with values 0 through 9."
+            let port = decimal_value(m.buffer);
+            if port > 0xFFFF {
+                // 2.1.2 "If port is not a 16-bit unsigned integer,
+                //       port-out-of-range validation error, return failure."
+                Step::Failure
+            } else {
+                // 2.1.3 "Set url's port to null, if port is url's scheme's
+                //       default port; otherwise to port."
+                let url = if default_port(m.url.scheme) == Some(port) {
+                    Url { port: None, ..m.url }
+                } else {
+                    Url { port: Some(port), ..m.url }
+                };
+                // 2.1.4 "Set buffer to the empty string."
+                if ctx.state_override is Some {
+                    // 2.1.5 "If state override is given, then return."
+                    Step::Return(url)
+                } else {
+                    // 2.3 "Set state to path start state and decrease pointer
+                    //     by 1."
+                    Step::Continue(
+                        Machine { url: url, buffer: seq![], state: State::PathStart, pointer: m.pointer - 1, ..m },
+                    )
+                }
+            }
+        } else if ctx.state_override is Some {
+            // 2.2 "If state override is given, then return failure."
+            Step::Failure
+        } else {
+            // 2.3 "Set state to path start state and decrease pointer by 1."
+            Step::Continue(Machine { state: State::PathStart, pointer: m.pointer - 1, ..m })
+        }
+    } else {
+        // 3. "Otherwise, port-invalid validation error, return failure."
+        Step::Failure
+    }
+}
+
+/// "The code point substring from pointer to the end of input".
+pub open spec fn substring_from_pointer(ctx: Ctx, m: Machine) -> Seq<u32> {
+    if 0 <= m.pointer <= ctx.input.len() {
+        ctx.input.subrange(m.pointer, ctx.input.len() as int)
+    } else {
+        seq![]
+    }
+}
+
+/// "file state" (<https://url.spec.whatwg.org/#file-state>)
+pub open spec fn file_state(ctx: Ctx, m: Machine) -> Step {
+    // 1. "Set url's scheme to "file"."
+    // 2. "Set url's host to the empty string."
+    let url = Url { scheme: file_str(), host: Some(crate::host::spec::Host::Empty), ..m.url };
+    if c_is(ctx, m, 0x2F) || c_is(ctx, m, 0x5C) {
+        // 3. "If c is U+002F (/) or U+005C (\), then:"
+        // 3.1 "If c is U+005C (\), invalid-reverse-solidus validation
+        //     error." (validation error only)
+        // 3.2 "Set state to file slash state."
+        Step::Continue(Machine { url: url, state: State::FileSlash, ..m })
+    } else if ctx.base matches Some(base) && base.scheme == file_str() {
+        // 4. "Otherwise, if base is non-null and base's scheme is "file":"
+        let base = base_of(ctx);
+        // 4.1 "Set url's host to base's host, url's path to a clone of
+        //     base's path, and url's query to base's query."
+        let url = Url { host: base.host, path: base.path, query: base.query, ..url };
+        if c_is(ctx, m, 0x3F) {
+            // 4.2 "If c is U+003F (?), then set url's query to the empty
+            //     string and state to query state."
+            Step::Continue(Machine { url: Url { query: Some(seq![]), ..url }, state: State::Query, ..m })
+        } else if c_is(ctx, m, 0x23) {
+            // 4.3 "Otherwise, if c is U+0023 (#), set url's fragment to the
+            //     empty string and state to fragment state."
+            Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..url }, state: State::Fragment, ..m })
+        } else if !c_is_eof(ctx, m) {
+            // 4.4 "Otherwise, if c is not the EOF code point:"
+            // 4.4.1 "Set url's query to null."
+            let url = Url { query: None, ..url };
+            let url = if !starts_with_windows_drive_letter(substring_from_pointer(ctx, m)) {
+                // 4.4.2 "If the code point substring from pointer to the end
+                //       of input does not start with a Windows drive letter,
+                //       then shorten url's path."
+                shorten(url)
+            } else {
+                // 4.4.3 "Otherwise:"
+                // 4.4.3.1 "File-invalid-Windows-drive-letter validation
+                //         error." (validation error only)
+                // 4.4.3.2 "Set url's path to « »."
+                Url { path: UrlPath::List(seq![]), ..url }
+            };
+            // 4.4.4 "Set state to path state and decrease pointer by 1."
+            Step::Continue(Machine { url: url, state: State::Path, pointer: m.pointer - 1, ..m })
+        } else {
+            Step::Continue(Machine { url: url, ..m })
+        }
+    } else {
+        // 5. "Otherwise, set state to path state, and decrease pointer by 1."
+        Step::Continue(Machine { url: url, state: State::Path, pointer: m.pointer - 1, ..m })
+    }
+}
+
+/// "file slash state" (<https://url.spec.whatwg.org/#file-slash-state>)
+pub open spec fn file_slash_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x2F) || c_is(ctx, m, 0x5C) {
+        // 1. "If c is U+002F (/) or U+005C (\), then:"
+        // 1.1 "If c is U+005C (\), invalid-reverse-solidus validation
+        //     error." (validation error only)
+        // 1.2 "Set state to file host state."
+        Step::Continue(Machine { state: State::FileHost, ..m })
+    } else {
+        // 2. "Otherwise:"
+        let url = if ctx.base matches Some(base) && base.scheme == file_str() {
+            // 2.1 "If base is non-null and base's scheme is "file", then:"
+            let base = base_of(ctx);
+            // 2.1.1 "Set url's host to base's host."
+            let url = Url { host: base.host, ..m.url };
+            // 2.1.2 "If the code point substring from pointer to the end of
+            //       input does not start with a Windows drive letter and
+            //       base's path[0] is a normalized Windows drive letter, then
+            //       append base's path[0] to url's path."
+            if !starts_with_windows_drive_letter(substring_from_pointer(ctx, m)) && (base.path matches UrlPath::List(
+                p,
+            ) && p.len() > 0 && is_normalized_windows_drive_letter(p[0])) {
+                let p0 = match base.path {
+                    UrlPath::List(p) => p[0],
+                    UrlPath::Opaque(_) => seq![],
+                };
+                Url { path: path_append(url.path, p0), ..url }
+            } else {
+                url
+            }
+        } else {
+            m.url
+        };
+        // 2.2 "Set state to path state, and decrease pointer by 1."
+        Step::Continue(Machine { url: url, state: State::Path, pointer: m.pointer - 1, ..m })
+    }
+}
+
+/// "file host state" (<https://url.spec.whatwg.org/#file-host-state>)
+pub open spec fn file_host_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is_eof(ctx, m) || c_is(ctx, m, 0x2F) || c_is(ctx, m, 0x5C) || c_is(ctx, m, 0x3F) || c_is(ctx, m, 0x23) {
+        // 1. "If c is the EOF code point, U+002F (/), U+005C (\), U+003F (?),
+        //    or U+0023 (#), then decrease pointer by 1 and then:"
+        let pointer = m.pointer - 1;
+        if ctx.state_override is None && is_windows_drive_letter(m.buffer) {
+            // 1.1 "If state override is not given and buffer is a Windows
+            //     drive letter, file-invalid-Windows-drive-letter-host
+            //     validation error, set state to path state." (buffer is
+            //     kept, for the path state)
+            Step::Continue(Machine { state: State::Path, pointer: pointer, ..m })
+        } else if m.buffer.len() == 0 {
+            // 1.2 "Otherwise, if buffer is the empty string, then:"
+            // 1.2.1 "Set url's host to the empty string."
+            let url = Url { host: Some(crate::host::spec::Host::Empty), ..m.url };
+            if ctx.state_override is Some {
+                // 1.2.2 "If state override is given, then return."
+                Step::Return(url)
+            } else {
+                // 1.2.3 "Set state to path start state."
+                Step::Continue(Machine { url: url, state: State::PathStart, pointer: pointer, ..m })
+            }
+        } else {
+            // 1.3 "Otherwise, run these steps:"
+            // 1.3.1 "Let host be the result of host parsing buffer with url
+            //       is not special."
+            match crate::host::spec::host_parser(m.buffer, !is_special(m.url), ctx.domain_parser) {
+                // 1.3.2 "If host is failure, then return failure."
+                None => Step::Failure,
+                Some(host) => {
+                    // 1.3.3 "If host is "localhost", then set host to the
+                    //       empty string."
+                    let host = if host == crate::host::spec::Host::Domain(localhost_str()) {
+                        crate::host::spec::Host::Empty
+                    } else {
+                        host
+                    };
+                    // 1.3.4 "Set url's host to host."
+                    let url = Url { host: Some(host), ..m.url };
+                    if ctx.state_override is Some {
+                        // 1.3.5 "If state override is given, then return."
+                        Step::Return(url)
+                    } else {
+                        // 1.3.6 "Set buffer to the empty string and state to
+                        //       path start state."
+                        Step::Continue(
+                            Machine { url: url, buffer: seq![], state: State::PathStart, pointer: pointer, ..m },
+                        )
+                    }
+                },
+            }
+        }
+    } else {
+        // 2. "Otherwise, append c to buffer."
+        Step::Continue(Machine { buffer: m.buffer.push(c_of(ctx, m)), ..m })
+    }
+}
+
 } // verus!
