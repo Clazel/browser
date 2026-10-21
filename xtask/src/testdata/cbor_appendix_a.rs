@@ -48,7 +48,7 @@ fn flatten(v: &Value, out: &mut Vec<Tok>) -> Option<()> {
 }
 
 fn parse_hex(h: &str) -> Result<Vec<u8>, String> {
-    if h.len() % 2 != 0 {
+    if !h.len().is_multiple_of(2) {
         return Err(format!("odd hex length: {h}"));
     }
     (0..h.len())
@@ -88,7 +88,10 @@ pub fn convert(dir: &Path) -> Result<String, String> {
             .get("roundtrip")
             .and_then(Value::as_bool)
             .ok_or_else(|| at("no roundtrip".into()))?;
-        let major = bytes.first().map(|b| b / 32).ok_or_else(|| at("empty".into()))?;
+        let major = bytes
+            .first()
+            .map(|b| b / 32)
+            .ok_or_else(|| at("empty".into()))?;
         let mut toks = Vec::new();
         let inside = roundtrip
             && major != 6

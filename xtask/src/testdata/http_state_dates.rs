@@ -24,11 +24,13 @@ struct Case {
     file: &'static str,
     index: usize,
     input: Vec<u8>,
-    /// (year, month, day, hour, minute, second, weekday with Monday 0).
-    expected: Option<(u32, u32, u32, u32, u32, u32, u32)>,
+    expected: Option<Expected>,
 }
 
-fn parse_expected(file: &str, s: &str) -> Result<(u32, u32, u32, u32, u32, u32, u32), String> {
+/// (year, month, day, hour, minute, second, weekday with Monday 0).
+type Expected = (u32, u32, u32, u32, u32, u32, u32);
+
+fn parse_expected(file: &str, s: &str) -> Result<Expected, String> {
     let bad = || format!("{file}: cannot read expected date {s:?}");
     let parts: Vec<&str> = s.split([' ', ',', ':']).filter(|p| !p.is_empty()).collect();
     let [wd, day, mon, year, h, m, sec, gmt] = parts.as_slice() else {
@@ -98,7 +100,9 @@ pub fn convert(dir: &Path) -> Result<String, String> {
         let input: Vec<String> = c.input.iter().map(|b| format!("0x{b:02X}")).collect();
         let expected = match c.expected {
             None => "None".to_owned(),
-            Some((y, mo, d, h, mi, s, wd)) => format!("Some(({y}, {mo}, {d}, {h}, {mi}, {s}, {wd}))"),
+            Some((y, mo, d, h, mi, s, wd)) => {
+                format!("Some(({y}, {mo}, {d}, {h}, {mi}, {s}, {wd}))")
+            }
         };
         writeln!(
             out,
