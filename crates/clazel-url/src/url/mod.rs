@@ -3,6 +3,9 @@
 //!
 //! - [`spec`]: a step-by-step transcription of the standard, one spec
 //!   function per parser state.
+//! - [`termination`]: why the parser's state machine terminates.
+//! - [`contract`]: what the executable functions are proven to satisfy.
 
+pub mod contract;
 pub mod spec;
 pub mod termination;
