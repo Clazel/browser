@@ -308,10 +308,12 @@ pub open spec fn decode(b: Seq<u8>) -> Option<Seq<Token>> {
 // Items: which token sequences are one data item of the profile.
 // ---------------------------------------------------------------------------
 
-/// A token the profile can encode: a text string must be valid UTF-8.
+/// A token the profile can encode: a string's length is an argument, so
+/// it is below 2^64, and a text string must be valid UTF-8.
 pub open spec fn token_ok(token: Token) -> bool {
     match token {
-        Token::Text(s) => utf8_valid(s),
+        Token::Bytes(s) => s.len() < 0x1_0000_0000_0000_0000,
+        Token::Text(s) => s.len() < 0x1_0000_0000_0000_0000 && utf8_valid(s),
         _ => true,
     }
 }
