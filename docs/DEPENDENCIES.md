@@ -59,6 +59,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | cfg-if | 1.0.5 | test | `#[cfg]` helper macro, required by `encoding_rs`. |
 | percent-encoding | 2.3.2 | test | rust-url's percent-encoding (used by the `url` crate and Servo): a reference engine in `clazel-percent`'s differential test (`tests/conformance_percent.rs`). No dependencies. |
 | form_urlencoded | 1.2.2 | test | rust-url's `application/x-www-form-urlencoded` serializer: the reference for that percent-encode set in the same test. Its only dependency is `percent-encoding`. |
+| url | 2.5.8 | test | rust-url, the WHATWG URL parser used by Servo: the reference engine in `clazel-url`'s differential test (`tests/conformance_url.rs`). Used without default features, so its `std` feature (which names `serde` as a weak dependency) is off; its dependencies (`form_urlencoded`, `idna`, `percent-encoding`) are already listed. |
 | idna | 1.1.0 | test | rust-url's IDNA implementation (used by the `url` crate, Servo and Firefox): the reference engine in `clazel-idna`'s Punycode and UTS #46 differential tests (`tests/conformance_punycode.rs`, `tests/conformance_uts46.rs`). |
 | idna_adapter | 1.1.0 | test | `idna`'s Unicode back end, pinned to 1.1.0, the unicode-rs one (the 1.2 releases pull in ICU4X, about twenty crates). |
 | idna_mapping | 1.1.0 | test | UTS #46 mapping data for `idna_adapter` 1.1.0. |

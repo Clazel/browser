@@ -19,6 +19,8 @@ mod wpt_mime_types;
 mod wpt_mimesniff;
 mod wpt_url_hosts;
 mod wpt_url_percent;
+mod wpt_url_setters;
+mod wpt_urltestdata;
 
 use std::path::{Path, PathBuf};
 
@@ -52,6 +54,16 @@ const CONVERTERS: &[(&str, Convert, &[&str])] = &[
         "wpt-url-percent-encoding",
         wpt_url_percent::convert,
         wpt_url_percent::FILES,
+    ),
+    (
+        "wpt-url-setters",
+        wpt_url_setters::convert,
+        wpt_url_setters::FILES,
+    ),
+    (
+        "wpt-urltestdata",
+        wpt_urltestdata::convert,
+        wpt_urltestdata::FILES,
     ),
 ];
 

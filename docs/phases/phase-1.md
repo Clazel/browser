@@ -368,10 +368,176 @@ equivalent on the input class where the two standards agree (stated
 precisely; the WHATWG parser intentionally differs elsewhere).
 Conformance: `urltestdata.json`.
 
+**As built:** `crates/clazel-url/src/url/`, from `url.bs` at `845bafca`
+(the commit 1.9 used). `spec.rs` has one spec function per state, named
+after it (the host and hostname states share one, as in the standard),
+with the standard's step numbers; step 9's state machine is `run`, whose
+termination is the lexicographic measure (phase, code points left, rank)
+in `termination.rs`. Modelling choices at the top of `spec.rs`: query
+encoding is UTF-8 only; validation errors are not modelled; the blob URL
+entry is not (only the URL parser, not the basic URL parser, sets it);
+"start over" sets pointer to −1; base, path, query and fragment reads that
+the standard only makes when they are set are total functions with an
+unreachable default; the switch on state, `state_step`, is
+`#[verifier::opaque]` as a proof aid. **State override is transcribed**
+(every "if state override is given" step, and the hostname state) as the
+hook for 1.11, but nothing proves or tests those branches yet: the exec
+parser, its contract and every theorem take no state override. The exec
+parser (`parse.rs`, `states_*.rs`, `machine.rs`) is one proven function
+per state and a loop whose invariant is that the spec's `run` from the
+current machine is the result; the host and file host states run
+`host_parser_full`, so `basic_url_parser` is proven equal to the spec with
+`clazel-idna`'s domain parser. The URL and URL path serializers
+(`serialize.rs`) are proven. `lemmas.rs`: the parser is total, deciding
+every input within 12·(n + 1) runs and never ending in a valueless
+"return" without a state override; §4.1's invariants (a special URL's
+path is a list; the port is 16-bit) hold of every result. `examples.rs`
+evaluates 42 inputs on the spec (the §4.1 table, §4.5's "/." note, WPT's
+"///test", one input per step) and all 42 of RFC 3986 §5.4's examples on
+the independent transcription. `independent.rs` transcribes RFC 3986
+Appendix B, §5.2.2 (strict), §5.2.3, §5.2.4 and §5.3 (written after
+`spec.rs`, by the same author: independent in source, not authorship).
+`lemma_resolution_agrees` proves that the basic URL parser resolving a
+reference against a base record and RFC 3986 resolving it against the
+record's serialization give the same string, for every domain parser, on
+exactly this class: bases with a non-special scheme of ASCII lower
+alphas, no credentials or port, an opaque host of ASCII lower
+alphanumerics, a list path of ASCII alphanumeric segments, an optional
+alphanumeric query and no fragment; references that are a path (empty,
+"/"-absolute not starting "//", or relative with a non-empty first
+segment) of segments that are ASCII alphanumerics, "." or "..", then an
+optional alphanumeric query and fragment. Network-path references ("//")
+are outside it (they would need the authority states), as is everything
+where the standards intentionally differ. `round_trip.rs` proves
+serialize-then-parse returns the URL, and so parse-then-serialize is
+idempotent (`lemma_idempotent`), for every URL whose components are in
+parsed form: a scheme other than "file"; no credentials; an opaque host,
+or for a special scheme a domain with no "%" that does not end in a
+number and that the domain parser returns unchanged (a hypothesis, since
+the domain parser is a parameter); any non-default port; a list path
+(non-empty if special) of segments outside the path percent-encode set
+without "/" (or U+005C if special) and no dot segments; a query and fragment
+outside their sets. **Gap:** the round trip is not proven for
+credentials, IPv4 and IPv6 hosts, empty or null hosts, opaque paths,
+"file" URLs, or domains the domain parser changes; `tests/conformance_url.rs`
+checks idempotence on every WPT row and 200,000 random inputs through the
+proven parser, with no exception. Mutations: 39 new ones, each
+certified `killed` by an example the mutant gets wrong. **One mutation
+has no certificate and is left out:** removing host state step 3.1 (fail
+on a special URL's empty host) only changes the result for a domain parser
+that accepts the empty string; then the host parser runs the ends in a
+number checker on the empty string, which step 1 asserts never happens and
+whose "last item in parts" does not exist, and Verus's evaluator did not
+finish on it (a mutation run sat on that mutant for over 14 minutes
+before it was stopped). With a domain parser that
+rejects the empty string, as `clazel-idna`'s does, the step is redundant.
+Conformance: all 896 rows of WPT `url/resources/urltestdata.json`
+(vendored at WPT `d928657a`, the host suite's commit, converted by
+`xtask/src/testdata/wpt_urltestdata.rs`) through the proven parser and
+serializer, comparing the ten getters `url-constructor.any.js` checks: 896
+of 896, no expected failures (`searchParams`, which 9 rows also check, is
+URLSearchParams, not the parser; `urltestdata-javascript-only.json` tests
+lone surrogates and is not vendored). Differential against rust-url
+(`url` 2.5.8, test-only): of 200,000 random URL-like inputs, 199,617 give
+the same href or failure after two adjustments for rules newer than
+rust-url (U+005E in the path set, "%20" before "?" or "#" in an opaque
+path); the other 383 fall in eight named classes where rust-url
+contradicts a cited step of the standard (several also contradict a WPT
+row we pass, e.g. "///test" against "http://example.org/"), and any other
+mismatch fails the test.
+
 ### 1.11 URL API setters (M)
 
 URL §6.1 setters reuse the parser with a state override. Conformance:
 `setters_tests.json`. **Exit criterion 2 is met here.**
+
+**As built:** from `url.bs` at `845bafca` (the commit 1.9 and 1.10 used).
+*State override:* 1.10 had transcribed every "if state override is given"
+step of §4.4; 1.11 adds what reading them needs. With url given, the
+setters read url after the parser, whatever it returned, so a change made
+before "return failure" stays (WPT: the host setter given
+"example.com:65536" sets the host, then the port state fails). That is
+`run_in_place` and `basic_url_parse_in_place` in `url/spec.rs`, a
+modelling choice listed in its header with the argument that it means
+the standard: every "return failure" step comes before any change to url
+in the same run, so on failure the url left is the one the failing run
+started with. Also added: "cannot have a username/password/port" (§4.2)
+and "set the username/password" (§4.4). The exec states take the state
+override and implement every override branch; `flow_ok` now also says
+that a failing run leaves url as it was and that "return" leaves the url
+returned, and `parse::basic_url_parse_in_place` is proven against
+`basic_url_parse_in_place_ensures`. 1.10's contracts and theorems are
+unchanged and still verify (`lemma_no_return_without_override` and
+`lemma_rfc_reference` needed their final steps split, as the larger
+crate pushed them over Verus's resource limit). *Setters:*
+`api/spec.rs` transcribes the ten §6.1 setters as functions on the URL
+record (this's URL in, this's URL out; modelling choices in its header:
+the query object, `URLSearchParams`, is not modelled and only the steps
+that touch it are comments; "throw a TypeError" is `None` with the URL
+unchanged). `searchParams`, `URLSearchParams` (§6.2) and
+`application/x-www-form-urlencoded` (§5) are out of scope for Phase 1.
+`api/setters.rs` has one proven exec setter each, against
+`api/contract.rs`; contracts were committed before the code.
+*Lemmas* (`api/lemmas.rs`): with url given and any state override the
+parser is total within 12·(n + 1) runs, and when it returns a url that is
+the url left in place; no setter breaks §4.1's invariants (a special
+URL's path is a list, the port is 16-bit), for every value and domain
+parser, given a URL that has them, and no setter but `href` changes
+whether a URL is special; setting the same value twice equals setting it
+once for `username`, `password`, `port`, `pathname`, `search`, `hash`,
+`protocol` and `hostname`, for every URL, value and domain parser. **Not
+proven:** idempotence of `host` (its run can go on from the host state
+to the port state, which may fail after the host is set; the WPT and
+differential runs below exercise it), and of `href` (1.10's
+parse-then-serialize question, proven there for a class). *Independent* (`api/independent.rs`): RFC 3986's scheme,
+userinfo, reg-name, port, path-abempty, query and fragment grammar,
+written from the RFC by the author of `api/spec.rs`, with theorems that
+each setter stores the component exactly as RFC 3986 reads it, on these
+classes: `protocol`, an RFC scheme becomes the scheme in lowercase
+(§6.2.2.1) for a URL with a null port whose specialness the scheme keeps,
+not switching to "file" with credentials, not a "file" URL with an empty
+host; `username`/`password`, RFC userinfo without ":", ";" or "=" is
+stored unchanged for a URL that can have one; `host`/`hostname`, a
+non-empty reg-name becomes the opaque host for a URL that is not special,
+not "file", without an opaque path; `port`, a non-empty `*DIGIT` of
+16-bit value becomes the port (null if the scheme's default) for a URL
+that can have one; `pathname`, a path-abempty of one or more segments of
+pchar without pct-encoded, none a dot-segment, becomes the path segment by
+segment for a URL that is not "file", without an opaque path; `search`,
+"?" and an RFC query becomes the query (without "'" if special); `hash`,
+"#" and an RFC fragment becomes the fragment. `href` is the basic URL
+parser, covered by `url/independent.rs`. Special hosts (the domain
+parser, UTS #46) are outside RFC 3986. *Examples* (`api/examples.rs`):
+46 setter cases (most from WPT, the rest one cited step each), each its
+own lemma, evaluated with the stand-in domain parser. *Mutations:*
+46 new ones (144 in all), each certified `killed` by
+the example the mutant gets wrong: every state override branch of §4.4
+(28 in `url/spec.rs`: scheme state steps 2.1.1 to 2.1.4 and 2.3.1, host
+state steps 1, 2.2, 3.2 and 3.6, port state steps 2, 2.1.5 and 2.2, file
+host state steps 1.1, 1.2.2 and 1.3.5, path start state steps 2, 3 and 5,
+the path and query states' "state override is not given", basic URL
+parser steps 1 and 3 with url given, the url kept on failure, "cannot have
+a username/password/port" and the userinfo set) and every setter step (18
+in `api/spec.rs`). None was left out. Two state override steps have no
+mutation because no mutant of them changes a result: scheme start state
+step 3 and scheme state step 4 ("otherwise, return failure" with a state
+override) lead, if dropped, to the no scheme state, which returns failure
+without a base, and the setters never pass one.*Conformance:* every case of WPT
+`url/resources/setters_tests.json` (vendored at WPT `d928657a`, the
+`urltestdata.json` commit, with `url/url-setters.any.js`, converted by
+`xtask/src/testdata/wpt_url_setters.rs`), through the proven parser
+(`new URL(href)`) and setters, comparing every getter the case names: 278
+of 278, no expected failures. Differential against rust-url 2.5.8's
+`url::quirks` setters on 200,000 random (URL, setter, value) triples:
+196,562 give the same href (after the 1.10 adjustment for U+005E in the
+path set); the other 3,438 fall in seven named classes where rust-url
+contradicts a cited step and a WPT case we pass (a stale "/." prefix kept
+after the path or host changes; "/" put before a pathname value before
+tab and newline removal; leading empty segments of a file path removed;
+a file host not emptied when the value starts with a delimiter or is only
+tab and newline; an empty host set on ":"; a port removed for a value of
+only tab and newline; switching a URL with a host to "file" refused), and
+any other mismatch fails the test.
 
 ### 1.12 WPT pass rates in the README table (S)
 
@@ -415,7 +581,8 @@ case), the others count cases. A new conformance test (1.7 stage B, 1.8,
 | 1.7 MIME types and sniffing | Done. Whole crate: 288 verified, 0 errors; 35 mutations, all certified `killed`; tier 2 holds for everything shipped. MIME types (stage A): parse, serialize (to/from bytes) and the §4.6 groups proven against `contract.rs`; round trip `lemma_parse_serialize_parse`; `independent.rs` (RFC 9110 media-type) proven equal on valid media types with no repeated parameter names; 15 mutations certified; 955 WPT `mimesniff/mime-types` cases pass; differential against `mime` 0.3.17. Sniffing (stage B): §5.1, §6 (pattern matching, the four tables, MP4/WebM/MP3 signatures), §7, §7.1, §7.2 proven against `sniff/contract.rs`; lemmas: pattern matching never depends on bytes past the input (§6 erratum), matches survive appending bytes, tables meet §6 step 1, no scriptable type without the sniff-scriptable flag, the apache-bug path gives only text/plain or application/octet-stream; `sniff/independent.rs` (row notes + format specs, ISO BMFF for MP4, Unicode BOMs) proven equal on every input for every table, MP4, §6.2, §7.1, §7.2 (WebM and MP3-without-ID3 not independently transcribed; WPT media examples cover them); 20 mutations certified; WPT `mimesniff/media` 6/7 (FLAC: expected failure, the standard has no FLAC row) and `mimesniff/sniffing` 5/5; differential against `infer` 0.19.0, format by format. Not converted: `test-file.zip` (gzip-encoded), the tentative `<!--` test (a proposed change). Errata: Fetch quoted string step 7, §6 pattern matching past the end, WebM/vint and MP3 (several already open upstream) |
 | 1.8 IDNA | done: `crates/clazel-idna`, 375 verified, 0 errors. Punycode (RFC 3492 §6, 32-bit `maxint`): decoder and encoder proven against `contract.rs`; round trip `lemma_decode_encode` (bounded inputs, any 100 scalar values); `independent.rs` (Appendix C sample code) proven equal on all inputs; all 19 §7.1 samples pass; differential against `idna` 1.1.0. UTS #46 (Unicode 18.0.0, data vendored with SHA-256, tables generated by `cargo xtask tables`): NFC, processing, ToASCII, ToUnicode and the URL domain parser proven against `uts46/contract.rs` relative to the tables; `uts46/independent.rs` (RFC 5893, RFC 5892, criteria 5 and 7, §3.12 Hangul sample code, D115, D117 R1) proven equal; `lemma_join_break`, D109 postcondition; all 2762 WPT IdnaTestV2.json and toascii.json rows pass, no expected failures; 100 000-domain differential against `idna`; 69 mutations, all certified `killed`; **`clazel-idna` raised to tier 2** |
 | 1.9 Host parsing | done: 186 verified, 0 errors; IPv4 (number parser, ends in a number, parser), IPv6 parser, opaque-host parser and the IPv4, IPv6 and host serializers proven against `contract.rs`; the host parser ships as `host_parser_start` (steps 1 to 5) and `host_parser_finish` (steps 7 to 9), proven for every domain parser, and `host_parser_full` (steps 1 to 9), proven equal to the spec with `clazel-idna`'s URL domain parser (URL §3.3, UTS #46 ToASCII) as step 6; round trips `lemma_ipv4_serialize_parse`, `lemma_ipv6_serialize_parse`, `lemma_host_serialize_parse`; `independent.rs` (RFC 3986 §3.2.2, RFC 4291 §2.2, RFC 5952 §4) proven to agree on every `IPv4address`, `IPv6address`, IP-literal and `reg-name`, and both serializers proven to write the RFC text (IPv6 converse not proven, tested); all 59 mutations certified `killed`; WPT url/ hosts: 446 of 446 cases pass through the real domain parser, no expected failures; differential against `std::net` agrees; **`clazel-url` at tier 2**, domain branch included |
-| 1.10–1.11 | not started |
+| 1.10 Basic URL parser | done: `clazel-url` 448 verified, 0 errors; the basic URL parser (URL §4.4, one spec function per state, no state override) and the URL and URL path serializers (§4.5) proven against `url/contract.rs`, with `clazel-idna`'s domain parser; totality (at most 12(n+1) runs) and §4.1's record invariants proven; `url/independent.rs` (RFC 3986 Appendix B, §5.2, §5.3) proven to agree on a stated class of bases and same-document, absolute-path and relative-path references; serialize-then-parse and idempotence proven for URLs in parsed form with no credentials and an opaque host or (under a domain parser hypothesis) a domain (gap: credentials, IP and empty hosts, opaque paths, file URLs; tested on all WPT rows and 200,000 random inputs); 39 new mutations, all certified `killed` (one uncertifiable mutation left out, see above); WPT `urltestdata.json`: 896 of 896 rows, no expected failures; differential against rust-url 2.5.8 (199,617 of 200,000 agree; the rest in eight named rust-url divergences); `clazel-url` stays at tier 2 |
+| 1.11 URL API setters | done: `clazel-url` 565 verified, 0 errors; state override in the exec parser and `basic_url_parse_in_place` (url modified in place) proven against `url/contract.rs`; the ten §6.1 setters (`api/`) proven against `api/contract.rs`; totality with a state override, §4.1's invariants kept by every setter, idempotence of eight setters (not `host` or `href`); `api/independent.rs` (RFC 3986 component grammar) proven to agree for every setter but `href` (covered by `url/independent.rs`) on stated classes; 46 new mutations, all certified `killed` (144 in all); WPT `setters_tests.json`: 278 of 278, no expected failures; differential against rust-url 2.5.8's setters (196,562 of 200,000 agree; the rest in seven named rust-url divergences); `clazel-url` stays at tier 2. **Exit criterion 2 holds**: `urltestdata.json` 896/896, `setters_tests.json` 278/278, `toascii.json` 87/87 (in `clazel-idna` and `clazel-url`), `IdnaTestV2.json` 2675/2675, `percent-encoding.json` 23/32 with 9 expected failures, each listed by name (legacy encodings, out of Phase 1) |
 | 1.12 WPT pass rates in the README table | done: "Conformance" column measured from `clazel-conformance:` summary lines (`xtask/src/conformance.rs`); all four existing conformance tests emit them; both planted violations caught (hand-edited README count, test without a summary) |
 
 ## Risks
