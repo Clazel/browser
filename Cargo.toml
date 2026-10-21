@@ -14,7 +14,8 @@ publish = false
 unsafe_code = "forbid"
 missing_docs = "warn"
 # Verus sets `verus_only` while verifying; it may only guard ghost imports.
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(verus_only)"] }
+# Kani sets `kani` while checking harnesses; it may only guard harness modules.
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(verus_only)", "cfg(kani)"] }
 
 [workspace.lints.clippy]
 # Code that parses untrusted input must never panic. Kani proves the absence
