@@ -14,7 +14,7 @@ See "Trust without reviewers" below.
 
 | Tier | Guarantee | How it is checked |
 |------|-----------|-------------------|
-| 0 | Memory safe, no undefined behaviour | Safe Rust (`unsafe_code = "forbid"`), Miri on tests, workspace clippy deny-lints |
+| 0 | Memory safe, no undefined behaviour | Safe Rust (`unsafe_code = "forbid"`, except in `clazel-sys`, below), Miri on tests, workspace clippy deny-lints |
 | 1 | Never panics, overflows or indexes out of bounds, on **any** input | Kani bounded model checking harnesses over all inputs up to a stated bound |
 | 2 | Functionally correct: the implementation refines an executable spec | Verus proofs (SMT-backed, unbounded) |
 
@@ -57,9 +57,11 @@ harnesses), and it reports every crate whose `tier` is below its
 - **Kani**: bit-precise bounded model checking of ordinary Rust. Used for
   panic-freedom and for cross-checking Verus specs on small inputs.
 - **Miri**: `cargo xtask verify` runs every test under Miri, which reports
-  undefined behaviour. Our code has no `unsafe`, so today it checks the
-  dependency code our tests execute; later it will check the audited `sys`
-  crate. Miri sees only code paths the tests run, so it is evidence, not
+  undefined behaviour. Our code has no `unsafe` outside `clazel-sys`, so it
+  checks the dependency code our tests execute and `clazel-sys`'s safe
+  parts. Miri cannot run foreign calls, so `clazel-sys`'s tests skip them
+  under Miri (`cfg_attr(miri, ignore)`) and its evidence for them is the
+  audit and the sandbox integration tests (Phase 2, items 2.15 and 2.16). Miri sees only code paths the tests run, so it is evidence, not
   proof. (Smoke test: an out-of-bounds read and a use-after-free that plain
   `cargo test` passes are both reported.)
 
@@ -82,12 +84,56 @@ installs nothing if a checksum differs.
 We list this openly. Proofs are only as good as their assumptions.
 
 - The Rust compiler, LLVM, and the Verus and Kani tools themselves
-- The OS kernel and its sandboxing primitives (macOS Seatbelt, Linux seccomp and namespaces)
+- The OS kernel and its sandboxing primitives (macOS Seatbelt, Linux seccomp,
+  Landlock and namespaces)
+- `clazel-sys`, the one crate with `unsafe` (see "The `unsafe` exception"
+  below): a handful of foreign calls that enter the OS sandbox, and `libc`,
+  its only shipped dependency, for struct layouts and constants
 - Cryptography, which comes from formally verified libraries (libcrux / HACL\*), not our own code
 - That each spec matches the standard it transcribes. No proof can check
   this, because the standard is English. It is backed by machine-checked
   evidence instead of a reviewer (next section), and that evidence is only as
   good as the test suites and the independence of the transcriptions.
+
+## The `unsafe` exception
+
+`unsafe_code` is forbidden workspace-wide (Tier 0) except in
+`crates/clazel-sys`, because entering an OS sandbox needs calls that Rust's
+standard library does not have: `sandbox_init` on macOS, and `prctl`,
+`seccomp`, the `landlock_*` system calls and `unshare` on Linux. The choice,
+and the options rejected, are in
+[phases/phase-2.md](phases/phase-2.md#20-the-sandbox-and-unsafe-decision-s).
+That crate is trusted, not proven, so what we claim for it is stated
+precisely. "Audited" means two things, neither of them a human approval:
+
+1. **Machine checks** (`cargo xtask check`):
+   - `unsafe_code` is overridden in `clazel-sys` and nowhere else, and only
+     that lint;
+   - its only dependency is `libc`, pinned exactly;
+   - only foreign functions from a fixed list in `xtask/src/sys.rs` may be
+     declared or called (`sandbox_init`, `sandbox_free_error`, `prctl`,
+     `unshare`, and `syscall` with only the numbers of `seccomp` and the three
+     `landlock_*` calls);
+   - every `unsafe` is a block or an `unsafe extern` block, with exactly one
+     foreign call per block, and a `// SAFETY:` comment directly above it that
+     cites a man page;
+   - no raw pointer arithmetic and no dereference inside a block, and every
+     `pub fn` is safe;
+   - the README states the measured number of `unsafe` blocks and lines, and
+     the generated status table lists them per crate.
+2. **An LLM audit** of every change, by a session other than the one that
+   wrote it, recorded in [SYS-AUDITS.md](SYS-AUDITS.md) with the SHA-256 of the
+   crate's source. `check` fails if the latest audit's hash differs from the
+   source. The auditor checks each `unsafe` block against the man page and
+   the `libc` declaration it uses. That the author never audits its own
+   change is a rule in `CLAUDE.md`, not a machine check, because the checker
+   cannot tell which session wrote a row. It is therefore weaker than the
+   machine checks: an audit is a second opinion from a model, not a proof.
+
+`clazel-sys` makes no policy decisions. What a sandbox allows is data built
+by safe, verified `clazel-sandbox`; `clazel-sys` hands it to the OS. The
+crate stays at Tier 0, and renderers fail closed if any layer cannot be
+applied.
 
 ## Trust without reviewers
 

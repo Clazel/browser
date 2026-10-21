@@ -4,9 +4,29 @@ This codebase is written by AI agents. These rules exist so that nobody has
 to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 
 ## Hard rules
-1. **No `unsafe`.** `unsafe_code` is forbidden workspace-wide. Do not add
-   `#[allow]` overrides. The only exception is a future audited `sys` crate.
-2. **Never weaken workspace lints** in a crate or with inline `#[allow]`.
+1. **`unsafe` lives in one crate, `clazel-sys`.** `unsafe_code` is forbidden
+   workspace-wide except in `crates/clazel-sys`, the crate that enters the OS
+   sandbox. No other crate may override that lint, and `clazel-sys` overrides
+   only that lint, in its `Cargo.toml` (never an inline `#[allow]`). Its only
+   dependency is `libc`. Inside it, every `unsafe` is one block holding one
+   call to a foreign function from the fixed list in `xtask/src/sys.rs`, with
+   a `// SAFETY:` comment directly above it citing the man page and the
+   `libc` declaration; there is no raw pointer arithmetic and every `pub fn`
+   is safe. It makes no policy decisions: it takes data that safe, verified
+   code built and hands it to the OS. `cargo xtask check` enforces all of
+   this, and the README states the measured `unsafe` count.
+   **Every change to `clazel-sys` is audited** by a different LLM session
+   from the one that wrote it. The audit is a new row in
+   `docs/SYS-AUDITS.md` carrying the SHA-256 of the crate's source
+   (`cargo xtask check` prints it); `check` fails while the latest row's hash
+   differs from the source. **Whoever writes or edits any file of
+   `clazel-sys` never writes its audit row, in the same session or a
+   continuation of it.** This is a rule, not a machine check: the checker
+   cannot tell who wrote a row. After changing `clazel-sys`, leave the audit
+   step failing and say so in the PR. An auditor follows the instructions in
+   `docs/SYS-AUDITS.md`.
+2. **Never weaken workspace lints** in a crate or with inline `#[allow]`
+   (rule 1's `unsafe_code` in `clazel-sys` is the one exception).
    If a lint fires, restructure the code (use `get()`, checked arithmetic,
    explicit error types).
 3. **Contracts before code.** In a Tier 2 crate, write the `spec fn` and the
@@ -58,11 +78,12 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
 ## Workflow
 - Run `scripts/verify.sh` (same as `cargo xtask verify`) before calling any
   work done, and report its output honestly. `cargo xtask check` runs only the
-  fast static checks (unsafe, lint overrides, escape hatches, tier
+  fast static checks (unsafe, the `clazel-sys` audit, lint overrides, escape hatches, tier
   declarations, pins); use it while iterating, never as the final check.
-- The only accepted lint override is `#[allow(unused_imports)]` directly on
+- The only accepted lint overrides are `#[allow(unused_imports)]` directly on
   `use vstd::prelude::*;` or `use super::spec::*;` (ghost imports look unused
-  to normal builds). The checker rejects everything else.
+  to normal builds), and `unsafe_code = "allow"` in `clazel-sys`'s manifest.
+  The checker rejects everything else.
 - Never edit README.md's status table by hand. After changing proofs,
   harnesses, axioms or mutations, run `cargo xtask report --write` and commit
   the regenerated table together with the change that moved the numbers.

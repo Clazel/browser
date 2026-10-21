@@ -47,6 +47,9 @@ pub struct Metrics {
     pub is_verus: bool,
     pub kani_harnesses: usize,
     pub axioms: usize,
+    /// `unsafe` blocks and the lines they cover (only `clazel-sys` may have any).
+    pub unsafe_blocks: usize,
+    pub unsafe_lines: usize,
     /// Verus summary, e.g. "16 verified, 0 errors".
     pub verus: Option<String>,
     /// Kani summary, e.g. "3 successfully verified harnesses, 0 failures, 3 total".
@@ -78,8 +81,8 @@ pub fn render(table: &Table) -> String {
     let dash = || "—".to_owned();
     let mut out = vec![
         BEGIN.to_owned(),
-        "| Crate | Tier (target) | Verus | Kani | Axioms | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |".to_owned(),
-        "|-------|---------------|-------|------|--------|-----------------------------|---------------------------------------------------|--------------|--------------|".to_owned(),
+        "| Crate | Tier (target) | Verus | Kani | Axioms | `unsafe` blocks (lines)⁵ | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |".to_owned(),
+        "|-------|---------------|-------|------|--------|--------------------------|-----------------------------|---------------------------------------------------|--------------|--------------|".to_owned(),
     ];
     for (name, m) in table {
         let tier = match (m.tier, m.target_tier) {
@@ -116,8 +119,8 @@ pub fn render(table: &Table) -> String {
             .as_deref()
             .map_or_else(dash, conformance::cell);
         out.push(format!(
-            "| {name} | {tier} | {verus} | {kani} | {} | {lines} | {mutations} | {suites} | {review} |",
-            m.axioms
+            "| {name} | {tier} | {verus} | {kani} | {} | {} ({}) | {lines} | {mutations} | {suites} | {review} |",
+            m.axioms, m.unsafe_blocks, m.unsafe_lines
         ));
     }
     out.push(String::new());
@@ -142,6 +145,14 @@ pub fn render(table: &Table) -> String {
          `tests/conformance*.rs` reports them. Expected failures are counted \
          separately and never as passes. See \
          [docs/VERIFICATION.md](docs/VERIFICATION.md#honesty-metrics)."
+            .to_owned(),
+    );
+    out.push(
+        "⁵ Counted by `cargo xtask check`: `unsafe` blocks (and `unsafe extern` blocks), \
+         with the lines from the `unsafe` keyword to the closing brace. Only \
+         `clazel-sys` may have any; the rule and its audits are in \
+         [docs/VERIFICATION.md](docs/VERIFICATION.md) and \
+         [docs/SYS-AUDITS.md](docs/SYS-AUDITS.md)."
             .to_owned(),
     );
     out.push(END.to_owned());
@@ -221,7 +232,7 @@ mod tests {
         assert!(new.starts_with("intro\n") && new.ends_with("\noutro\n"));
         assert_eq!(current(&new), Some(block.as_str()));
         assert!(new.contains(
-            "| a | 0 (0) | not used | no harnesses | 0 | — | — | none | no spec files |"
+            "| a | 0 (0) | not used | no harnesses | 0 | 0 (0) | — | — | none | no spec files |"
         ));
         Ok(())
     }

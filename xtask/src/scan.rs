@@ -33,6 +33,10 @@ pub struct Scan {
     pub findings: Vec<Finding>,
     /// Number of `#[kani::proof]` harnesses.
     pub kani_proofs: usize,
+    /// Every `unsafe` block, as (first line, last line): from the `unsafe`
+    /// keyword to the closing brace of the next `{ }` group (a function or
+    /// `impl` body, an `unsafe extern` block, or a block expression).
+    pub unsafe_spans: Vec<(usize, usize)>,
 }
 
 /// `#[verifier::X]` attributes that make Verus trust instead of check.
@@ -86,7 +90,10 @@ fn scan_stream(stream: TokenStream, out: &mut Scan) {
                         push(out, Kind::EscapeHatch, tt, format!("{name}(...)"));
                     }
                     "assume_specification" => push(out, Kind::EscapeHatch, tt, name),
-                    "unsafe" => push(out, Kind::Unsafe, tt, name),
+                    "unsafe" => {
+                        push(out, Kind::Unsafe, tt, name);
+                        out.unsafe_spans.push(unsafe_span(&tokens, k));
+                    }
                     _ => {}
                 }
             }
@@ -95,6 +102,26 @@ fn scan_stream(stream: TokenStream, out: &mut Scan) {
         }
         k = next;
     }
+}
+
+/// Lines covered by the `unsafe` at `k`: up to the closing brace of the
+/// first `{ }` group after it, unless a `;` comes first.
+fn unsafe_span(tokens: &[TokenTree], k: usize) -> (usize, usize) {
+    let start = tokens.get(k).map_or(0, line_of);
+    let end = tokens
+        .get(k.saturating_add(1)..)
+        .unwrap_or(&[])
+        .iter()
+        .find_map(|t| match t {
+            TokenTree::Group(g) if g.delimiter() == Delimiter::Brace => {
+                Some(Some(g.span_close().end().line))
+            }
+            TokenTree::Punct(p) if p.as_char() == ';' => Some(None),
+            _ => None,
+        })
+        .flatten()
+        .unwrap_or(start);
+    (start, end.max(start))
 }
 
 /// Check the contents of one `#[...]` / `#![...]`; `rest` is what follows it.
@@ -272,8 +299,9 @@ mod tests {
 
     #[test]
     fn finds_unsafe_and_counts_kani_proofs() -> Result<(), String> {
-        let s = scan("#[kani::proof] fn a() {} #[kani::proof] fn b() { unsafe {} }")?;
+        let s = scan("#[kani::proof] fn a() {} #[kani::proof] fn b() {\n unsafe {\n } }")?;
         assert_eq!(s.kani_proofs, 2);
+        assert_eq!(s.unsafe_spans, vec![(2, 3)]);
         assert_eq!(
             s.findings.iter().map(|f| f.kind).collect::<Vec<_>>(),
             vec![Kind::Unsafe]

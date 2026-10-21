@@ -25,6 +25,7 @@ mod pins;
 mod report;
 mod reviews;
 mod scan;
+mod sys;
 mod testdata;
 mod unicode;
 mod verus;
@@ -124,6 +125,8 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     let mut decl_problems = Vec::new();
     let mut decl_notes = Vec::new();
     let mut axioms = 0usize;
+    let (mut unsafe_blocks, mut unsafe_lines) = (0usize, 0usize);
+    let workspace_manifest = std::fs::read_to_string("Cargo.toml").unwrap_or_default();
     let (review_status, review_problems) = match reviews::status(crates) {
         Ok(s) => s,
         Err(e) => (std::collections::BTreeMap::new(), vec![e]),
@@ -143,6 +146,10 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             Ok(s) => {
                 m.axioms = s.axioms;
                 m.kani_harnesses = s.kani_proofs;
+                m.unsafe_blocks = s.unsafe_blocks;
+                m.unsafe_lines = s.unsafe_lines;
+                unsafe_blocks = unsafe_blocks.saturating_add(s.unsafe_blocks);
+                unsafe_lines = unsafe_lines.saturating_add(s.unsafe_lines);
                 violations.extend(s.violations);
                 axioms = axioms.saturating_add(s.axioms);
                 let evidence = mutate::gaps(c).and_then(|mutations| {
@@ -163,20 +170,62 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             }
             Err(e) => violations.push(e),
         }
-        match workspace::inherits_workspace_lints(c) {
-            Ok(true) => {}
-            Ok(false) => {
-                decl_problems.push(format!(
-                    "{}: missing [lints] workspace = true",
-                    workspace::relative(&c.manifest)
+        // Lints: every crate inherits the workspace's, except `clazel-sys`,
+        // which lists them itself with `unsafe_code` allowed (sys.rs).
+        let rel_dir = workspace::relative(&c.dir);
+        match std::fs::read_to_string(&c.manifest) {
+            Ok(text) => violations.extend(sys::lint_problems(&rel_dir, &text, &workspace_manifest)),
+            Err(e) => violations.push(format!("{}: {e}", c.manifest.display())),
+        }
+        if c.is_sys() {
+            violations.extend(sys::dependency_problems(&c.deps_normal(), &c.dev_deps));
+            if c.dir.join("build.rs").exists() {
+                violations.push(format!(
+                    "{rel_dir}/build.rs: a build script could run anything"
                 ));
             }
-            Err(e) => decl_problems.push(e),
+        } else if c.name == sys::CRATE_NAME {
+            violations.push(format!(
+                "{rel_dir}: a crate named {} must live in {}",
+                sys::CRATE_NAME,
+                sys::CRATE_DIR
+            ));
+        } else {
+            match workspace::inherits_workspace_lints(c) {
+                Ok(true) => {}
+                Ok(false) => {
+                    decl_problems.push(format!(
+                        "{}: missing [lints] workspace = true",
+                        workspace::relative(&c.manifest)
+                    ));
+                }
+                Err(e) => decl_problems.push(e),
+            }
         }
     }
     r.step(
         "no unsafe, lint overrides or proof escape hatches",
-        outcome(violations, vec![format!("documented axioms: {axioms}")]),
+        outcome(
+            violations,
+            vec![
+                format!("documented axioms: {axioms}"),
+                format!("`unsafe` blocks: {unsafe_blocks} ({unsafe_lines} lines)"),
+            ],
+        ),
+    );
+    r.step(
+        "clazel-sys audit",
+        sys_audit(crates.iter().find(|c| c.is_sys())),
+    );
+    r.step(
+        "README unsafe claim",
+        outcome(
+            std::fs::read_to_string(report::README).map_or_else(
+                |e| vec![format!("{}: {e}", report::README)],
+                |t| sys::readme_problems(&t, unsafe_blocks, unsafe_lines),
+            ),
+            Vec::new(),
+        ),
     );
     r.step(
         "crate tier declarations",
@@ -221,6 +270,28 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             Err(problems) => Outcome::Fail(problems),
         },
     );
+}
+
+/// The latest audit in `docs/SYS-AUDITS.md` covers the crate's current source.
+fn sys_audit(sys_crate: Option<&Crate>) -> Outcome {
+    let Some(c) = sys_crate else {
+        return Outcome::Pass(vec![format!("{} does not exist yet", sys::CRATE_DIR)]);
+    };
+    let (hash, files) = match sys::source_hash(&c.dir) {
+        Ok(h) => h,
+        Err(e) => return Outcome::Fail(vec![e]),
+    };
+    let log = std::fs::read_to_string(sys::AUDITS)
+        .map_err(|e| format!("{}: {e}", sys::AUDITS))
+        .map(|text| sys::audit_problems(&text, &hash));
+    let notes = vec![
+        format!("source SHA-256 {hash}"),
+        format!("covers {} files: {}", files.len(), files.join(", ")),
+    ];
+    match log {
+        Ok(problems) => outcome(problems, notes),
+        Err(e) => Outcome::Fail(vec![e]),
+    }
 }
 
 const CHECKSUMS: &str = "scripts/checksums.txt";
