@@ -96,8 +96,6 @@
 //!   (`lemma_root_of_suffix`) proves the property the cookie crate needs,
 //!   and 2.9 explains it.
 
-use clazel_url::host::lemmas::split_join;
-use clazel_url::host::spec::{Host, strictly_split};
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -213,7 +211,7 @@ pub open spec fn strip_trailing_dot(domain: Seq<u32>) -> Seq<u32> {
 /// strictly splitting domain on U+002E (.)", with the trailing dot set
 /// aside.
 pub open spec fn domain_labels(domain: Seq<u32>) -> Seq<Seq<u32>> {
-    strictly_split(strip_trailing_dot(domain), 0x2E)
+    clazel_url::host::spec::strictly_split(strip_trailing_dot(domain), 0x2E)
 }
 
 /// "Empty labels are not permitted."
@@ -224,7 +222,7 @@ pub open spec fn has_empty_label(labels: Seq<Seq<u32>>) -> bool {
 /// `labels` joined with ".", and "A trailing dot shall be added if the
 /// domain included one."
 pub open spec fn labels_string(labels: Seq<Seq<u32>>, trailing_dot: bool) -> Seq<u32> {
-    split_join(labels, 0x2E) + (if trailing_dot {
+    clazel_url::host::lemmas::split_join(labels, 0x2E) + (if trailing_dot {
         seq![0x2Eu32]
     } else {
         seq![]
@@ -285,18 +283,18 @@ pub open spec fn registrable_domain_of_domain(rules: Seq<Rule>, domain: Seq<u32>
 }
 
 /// URL §3.2 "obtain the public suffix of a host".
-pub open spec fn public_suffix(rules: Seq<Rule>, host: Host) -> Option<Seq<u32>> {
+pub open spec fn public_suffix(rules: Seq<Rule>, host: clazel_url::host::spec::Host) -> Option<Seq<u32>> {
     match host {
-        Host::Domain(domain) => public_suffix_of_domain(rules, domain),
+        clazel_url::host::spec::Host::Domain(domain) => public_suffix_of_domain(rules, domain),
         // 1. "If host is not a domain, then return null."
         _ => None,
     }
 }
 
 /// URL §3.2 "obtain the registrable domain of a host".
-pub open spec fn registrable_domain(rules: Seq<Rule>, host: Host) -> Option<Seq<u32>> {
+pub open spec fn registrable_domain(rules: Seq<Rule>, host: clazel_url::host::spec::Host) -> Option<Seq<u32>> {
     match host {
-        Host::Domain(domain) => registrable_domain_of_domain(rules, domain),
+        clazel_url::host::spec::Host::Domain(domain) => registrable_domain_of_domain(rules, domain),
         // A host that is not a domain has a null public suffix (§3.2
         // "obtain the public suffix", step 1), so step 1 here returns null.
         _ => None,
@@ -335,9 +333,9 @@ pub open spec fn cookie_root_of_domain(rules: Seq<Rule>, domain: Seq<u32>) -> Se
 
 /// The cookie root of a host: of a domain, as above; "for an IP address,
 /// the address"; an opaque host and the empty host are their own.
-pub open spec fn cookie_root(rules: Seq<Rule>, host: Host) -> Host {
+pub open spec fn cookie_root(rules: Seq<Rule>, host: clazel_url::host::spec::Host) -> clazel_url::host::spec::Host {
     match host {
-        Host::Domain(domain) => Host::Domain(cookie_root_of_domain(rules, domain)),
+        clazel_url::host::spec::Host::Domain(domain) => clazel_url::host::spec::Host::Domain(cookie_root_of_domain(rules, domain)),
         _ => host,
     }
 }

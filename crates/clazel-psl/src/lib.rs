@@ -11,6 +11,9 @@
 
 pub mod contract;
 pub mod data;
+pub mod exec;
+pub mod join;
+pub mod lemmas;
 pub mod spec;
 pub mod table;
 pub mod tables;
