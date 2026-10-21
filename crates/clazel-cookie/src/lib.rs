@@ -11,4 +11,5 @@
 pub mod ascii;
 pub mod date;
 pub mod matching;
+pub mod set_cookie;
 pub mod strings;
