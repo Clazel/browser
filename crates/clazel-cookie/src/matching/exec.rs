@@ -4,7 +4,7 @@
 
 #[allow(unused_imports)]
 use super::spec::*;
-use crate::strings::{at, copy, slice_eq, sub};
+use crate::strings::{at, slice_eq, sub};
 use clazel_url::host::record::ParsedHost;
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -71,6 +71,16 @@ fn narrow_exec(s: &[u32]) -> (out: Option<Vec<u8>>)
     Some(v)
 }
 
+/// A canonical host name from ASCII code points, or failure.
+fn canonical_from_code_points(s: &[u32], is_ip_address: bool) -> (out: Option<CanonicalHostName>)
+    ensures
+        all_ascii(s@) ==> (out is Some && out->Some_0@ == CanonicalHost { name: narrow(s@), is_ip_address }),
+        !all_ascii(s@) ==> out is None,
+{
+    let name = narrow_exec(s)?;
+    Some(CanonicalHostName { name, is_ip_address })
+}
+
 /// §5.1.2: the canonicalized host name of a host record. `None` is failure.
 pub fn canonicalize_a_host_name(host: &Option<ParsedHost>) -> (output: Option<CanonicalHostName>)
     ensures
@@ -80,18 +90,10 @@ pub fn canonicalize_a_host_name(host: &Option<ParsedHost>) -> (output: Option<Ca
         ),
 {
     match host {
-        Some(ParsedHost::Domain(domain)) => {
-            match narrow_exec(domain.as_slice()) {
-                Some(name) => Some(CanonicalHostName { name, is_ip_address: false }),
-                None => None,
-            }
-        },
+        Some(ParsedHost::Domain(domain)) => canonical_from_code_points(domain.as_slice(), false),
         Some(h @ (ParsedHost::Ipv4(_) | ParsedHost::Ipv6(_))) => {
             let text = h.serialize();
-            match narrow_exec(text.as_slice()) {
-                Some(name) => Some(CanonicalHostName { name, is_ip_address: true }),
-                None => None,
-            }
+            canonical_from_code_points(text.as_slice(), true)
         },
         Some(ParsedHost::Opaque(_)) => None,
         Some(ParsedHost::Empty) => None,
@@ -195,8 +197,7 @@ pub fn default_path(uri_path: &[u8]) -> (output: Vec<u8>)
     ensures
         super::contract::default_path_ensures(uri_path@, output@),
 {
-    let mut slash: Vec<u8> = Vec::new();
-    slash.push(0x2F);
+    let slash: Vec<u8> = vec![0x2F];
     assert(slash@ =~= seq![0x2Fu8]);
     if uri_path.is_empty() || at(uri_path, 0) != Some(0x2F) {
         return slash;
@@ -233,7 +234,7 @@ pub fn path_matches(request_path: &[u8], cookie_path: &[u8]) -> (output: bool)
     }
     assert(cookie_path@.is_prefix_of(request_path@));
     // The cookie-path is a prefix of the request-path.
-    if cookie_path.len() > 0 {
+    if !cookie_path.is_empty() {
         // Never saturates: cookie_path.len() > 0.
         if at(cookie_path, cookie_path.len().saturating_sub(1)) == Some(0x2F) {
             return true;

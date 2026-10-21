@@ -33,7 +33,7 @@ pub proof fn lemma_domain_match_transitive(s: Seq<u8>, d1: Seq<u8>, d2: Seq<u8>)
     if s != d1 && d1 != d2 {
         let k = s.len() - d2.len();
         assert(d2.is_suffix_of(s)) by {
-            assert forall|i: int| 0 <= i < d2.len() implies s.skip(k)[i] == d2[i] by {
+            assert forall|i: int| 0 <= i < d2.len() implies #[trigger] s.skip(k)[i] == d2[i] by {
                 assert(s.skip(s.len() - d1.len())[(d1.len() - d2.len() + i)] == d1[d1.len() - d2.len() + i]);
                 assert(d1.skip(d1.len() - d2.len())[i] == d2[i]);
             }
@@ -190,7 +190,7 @@ pub proof fn lemma_path_match_transitive(r: Seq<u8>, c1: Seq<u8>, c2: Seq<u8>)
     if c1 != r && c2 != c1 {
         // c2 is a prefix of c1, which is a prefix of r.
         assert(c2.is_prefix_of(r)) by {
-            assert forall|i: int| 0 <= i < c2.len() implies r.subrange(0, c2.len() as int)[i] == c2[i] by {
+            assert forall|i: int| 0 <= i < c2.len() implies #[trigger] r.subrange(0, c2.len() as int)[i] == c2[i] by {
                 assert(c1.subrange(0, c2.len() as int)[i] == c2[i]);
                 assert(r.subrange(0, c1.len() as int)[i] == c1[i]);
             }

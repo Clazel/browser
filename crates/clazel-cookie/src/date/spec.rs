@@ -30,8 +30,9 @@
 //! - Numbers are `nat`. The widest field is a year of four digits.
 //! - Step 6's "the date whose ... (in UTC) are ..." is the record
 //!   [`CookieDate`]; "if no such date exists" is the day exceeding the
-//!   month's length in the proleptic Gregorian calendar. [`unix_seconds`]
-//!   converts a date to seconds since the Unix epoch; the standard never
+//!   month's length in the proleptic Gregorian calendar. [`seconds_since_1601`]
+//!   converts a date to seconds since 1601-01-01T00:00:00Z (the earliest
+//!   instant a cookie-date denotes, so every instant is non-negative); the standard never
 //!   needs the conversion itself, the Set-Cookie algorithm (§5.6.1) does
 //!   when it compares an expiry time to "now".
 //! - Read literally, the grammar's `month` has no case rule, but ABNF
@@ -293,12 +294,12 @@ pub open spec fn parse_a_cookie_date(input: Seq<u8>) -> Option<CookieDate> {
 // Instants.
 // ---------------------------------------------------------------------
 
-/// Days from 1970-01-01 to January 1 of year `y` (for `y >= 1`): 365 per
-/// year since 1970, plus the leap days in between. `(y - 1) / 4 - (y - 1)
+/// Days from 1601-01-01 to January 1 of year `y` (for `y >= 1601`): 365 per
+/// year since 1601, plus the leap days in between. `(y - 1) / 4 - (y - 1)
 /// / 100 + (y - 1) / 400` counts the leap years before `y`.
 pub open spec fn days_before_year(y: int) -> int {
-    // 477 is the leap years before 1970: 1969 / 4 - 1969 / 100 + 1969 / 400.
-    365 * (y - 1970) + ((y - 1) / 4 - (y - 1) / 100 + (y - 1) / 400) - 477
+    // 388 is the leap years before 1601: 1600 / 4 - 1600 / 100 + 1600 / 400.
+    365 * (y - 1601) + ((y - 1) / 4 - (y - 1) / 100 + (y - 1) / 400) - 388
 }
 
 /// Days from January 1 to the first of month `m` (1 to 12) of year `y`.
@@ -318,8 +319,9 @@ pub open spec fn days_before_month(y: nat, m: nat) -> int {
     cumulative + if m > 2 && is_leap_year(y) { 1int } else { 0int }
 }
 
-/// Seconds since 1970-01-01T00:00:00Z of a date in UTC.
-pub open spec fn unix_seconds(d: CookieDate) -> int {
+/// Seconds since 1601-01-01T00:00:00Z of a date in UTC (for a year from
+/// 1601).
+pub open spec fn seconds_since_1601(d: CookieDate) -> int {
     (days_before_year(d.year as int) + days_before_month(d.year, d.month) + (d.day_of_month as int - 1)) * 86400
         + d.hour as int * 3600 + d.minute as int * 60 + d.second as int
 }

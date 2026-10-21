@@ -19,18 +19,19 @@ pub open spec fn parse_a_cookie_date_ensures(input: Seq<u8>, output: Option<Cook
     output == parse_a_cookie_date(input)
 }
 
-/// Precondition of `DateRecord::unix_seconds(&self) -> i64`: a year from 1 to
-/// 9999 and the fields of a date (a record `parse_a_cookie_date` returns
-/// meets it, `lemmas::lemma_parsed_date_in_range`).
-pub open spec fn unix_seconds_requires(d: CookieDate) -> bool {
-    1 <= d.year <= 9999 && 1 <= d.month <= 12 && 1 <= d.day_of_month <= 31 && d.hour <= 23 && d.minute <= 59
+/// Precondition of `DateRecord::seconds_since_1601(&self) -> u64`: a year
+/// from 1601 to 9999 and the fields of a date (a record
+/// `parse_a_cookie_date` returns meets it,
+/// `lemmas::lemma_parsed_date_in_range`).
+pub open spec fn seconds_since_1601_requires(d: CookieDate) -> bool {
+    1601 <= d.year <= 9999 && 1 <= d.month <= 12 && 1 <= d.day_of_month <= 31 && d.hour <= 23 && d.minute <= 59
         && d.second <= 59
 }
 
-/// Contract for `DateRecord::unix_seconds(&self) -> i64`: equals
-/// [`unix_seconds`].
-pub open spec fn unix_seconds_ensures(d: CookieDate, output: i64) -> bool {
-    output as int == unix_seconds(d)
+/// Contract for `DateRecord::seconds_since_1601(&self) -> u64`: equals
+/// [`seconds_since_1601`].
+pub open spec fn seconds_since_1601_ensures(d: CookieDate, output: u64) -> bool {
+    output as int == seconds_since_1601(d)
 }
 
 } // verus!
