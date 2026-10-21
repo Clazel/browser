@@ -70,6 +70,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | smallvec | 1.16.3 | test | Small-vector type, required by `idna`. No dependencies. |
 | utf8_iter | 1.0.4 | test | UTF-8 iteration, required by `idna`. No dependencies. |
 | libc | 0.2.190 | shipped | Rust bindings to the C library: struct layouts and constants (`sock_filter`, `sock_fprog`, `CLONE_NEW*`, `SECCOMP_SET_MODE_FILTER`, `SYS_seccomp`, `SYS_landlock_*`, `PR_SET_NO_NEW_PRIVS`) and the declarations of `prctl`, `syscall` and `unshare`, for `clazel-sys` only (CLAUDE.md rules 1 and 8). Reached only on Linux (`[target.'cfg(target_os = "linux")'.dependencies]`), with default features off, so it has no dependencies; macOS needs none. Getting these layouts wrong by hand is undefined behaviour, which is why it is a dependency rather than our own declarations. |
+| minicbor | 2.3.1 | test | A small CBOR codec (no_std): the reference engine in `clazel-ipc`'s differential test (`tests/conformance_cbor.rs`). Chosen over `ciborium` (which pulls `serde`, `half` and two more). Used without default features (only `alloc`), so it has no dependencies. It accepts non-shortest arguments, which the test accounts for. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | tooling | Required by `serde_json`. |
 | itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |

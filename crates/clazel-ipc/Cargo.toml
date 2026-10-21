@@ -1,0 +1,40 @@
+[package]
+name = "clazel-ipc"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "IPC wire format: a deterministic CBOR profile (RFC 8949 §3, §4.2.1), frames and the message schema."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# Text strings must be valid UTF-8 (RFC 8949 §3.1 major type 3); the spec
+# uses clazel-encoding's fatal UTF-8 decoder, and so will the codec, rather
+# than a second copy.
+clazel-encoding = { path = "../clazel-encoding" }
+
+# Test-only reference engine for the differential test in
+# tests/conformance_cbor.rs (class `test` in docs/DEPENDENCIES.md: never
+# shipped). Default features are off, so it has no dependencies; `alloc`
+# gives the owned types.
+[dev-dependencies]
+minicbor = { version = "=2.3.1", default-features = false, features = ["alloc"] }
+
+# Verification tier (docs/VERIFICATION.md). Tier 2 for the CBOR profile:
+# decode and encode are proven to meet their contracts (cbor/contract.rs),
+# including that decode inverts encode, encode inverts decode (so the
+# profile is canonical) and the decoder never produces more tokens than
+# bytes; cbor/independent.rs (RFC 7049, with Unicode for UTF-8) is proven
+# equal to the spec; every mutation is certified killed; and
+# tests/conformance_cbor.rs runs RFC 8949 Appendix A and a differential test
+# against minicbor. Frames and messages (item 2.3) are proven against their
+# contracts too, with the two schema rules as lemmas.
+[package.metadata.clazel]
+tier = 2
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true

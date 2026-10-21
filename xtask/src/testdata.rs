@@ -11,6 +11,7 @@
 //! Every suite directory holds a `SOURCE.md` with `Upstream:`, `Commit:`
 //! (a full 40-hex commit) and `License:` lines.
 
+mod cbor_appendix_a;
 mod js;
 mod wpt_base64;
 mod wpt_encoding;
@@ -32,6 +33,11 @@ type Convert = fn(&Path) -> Result<String, String>;
 /// Every suite the converter knows, by directory name, with the files it
 /// expects to find there.
 const CONVERTERS: &[(&str, Convert, &[&str])] = &[
+    (
+        "cbor-appendix-a",
+        cbor_appendix_a::convert,
+        cbor_appendix_a::FILES,
+    ),
     ("wpt-base64", wpt_base64::convert, wpt_base64::FILES),
     ("wpt-encoding", wpt_encoding::convert, wpt_encoding::FILES),
     ("wpt-url-idna", wpt_idna::convert, wpt_idna::FILES),
