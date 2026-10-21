@@ -1243,4 +1243,190 @@ pub open spec fn file_host_state(ctx: Ctx, m: Machine) -> Step {
     }
 }
 
+// ---------------------------------------------------------------------
+// §4.4 states: path.
+// ---------------------------------------------------------------------
+
+/// "path start state" (<https://url.spec.whatwg.org/#path-start-state>)
+pub open spec fn path_start_state(ctx: Ctx, m: Machine) -> Step {
+    if is_special(m.url) {
+        // 1. "If url is special, then:"
+        // 1.1 "If c is U+005C (\), invalid-reverse-solidus validation
+        //     error." (validation error only)
+        // 1.2 "Set state to path state."
+        if !c_is(ctx, m, 0x2F) && !c_is(ctx, m, 0x5C) {
+            // 1.3 "If c is neither U+002F (/) nor U+005C (\), then decrease
+            //     pointer by 1."
+            Step::Continue(Machine { state: State::Path, pointer: m.pointer - 1, ..m })
+        } else {
+            Step::Continue(Machine { state: State::Path, ..m })
+        }
+    } else if ctx.state_override is None && c_is(ctx, m, 0x3F) {
+        // 2. "Otherwise, if state override is not given and c is U+003F (?),
+        //    set url's query to the empty string and state to query state."
+        Step::Continue(Machine { url: Url { query: Some(seq![]), ..m.url }, state: State::Query, ..m })
+    } else if ctx.state_override is None && c_is(ctx, m, 0x23) {
+        // 3. "Otherwise, if state override is not given and c is U+0023 (#),
+        //    set url's fragment to the empty string and state to fragment
+        //    state."
+        Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..m.url }, state: State::Fragment, ..m })
+    } else if !c_is_eof(ctx, m) {
+        // 4. "Otherwise, if c is not the EOF code point:"
+        // 4.1 "Set state to path state."
+        if !c_is(ctx, m, 0x2F) {
+            // 4.2 "If c is not U+002F (/), then decrease pointer by 1."
+            Step::Continue(Machine { state: State::Path, pointer: m.pointer - 1, ..m })
+        } else {
+            Step::Continue(Machine { state: State::Path, ..m })
+        }
+    } else if ctx.state_override is Some && m.url.host is None {
+        // 5. "Otherwise, if state override is given and url's host is null,
+        //    append the empty string to url's path."
+        Step::Continue(Machine { url: Url { path: path_append(m.url.path, seq![]), ..m.url }, ..m })
+    } else {
+        Step::Continue(m)
+    }
+}
+
+/// Path state step 1's condition: "c is the EOF code point or U+002F (/)";
+/// "url is special and c is U+005C (\)"; "state override is not given and
+/// c is U+003F (?) or U+0023 (#)".
+pub open spec fn ends_path_segment(ctx: Ctx, m: Machine) -> bool {
+    c_is_eof(ctx, m) || c_is(ctx, m, 0x2F) || (is_special(m.url) && c_is(ctx, m, 0x5C)) || (ctx.state_override is None
+        && (c_is(ctx, m, 0x3F) || c_is(ctx, m, 0x23)))
+}
+
+/// "c is U+002F (/)", or "url is special and c is U+005C (\)" (path state
+/// steps 1.2.2 and 1.3).
+pub open spec fn c_is_path_slash(ctx: Ctx, m: Machine) -> bool {
+    c_is(ctx, m, 0x2F) || (is_special(m.url) && c_is(ctx, m, 0x5C))
+}
+
+/// "path state" (<https://url.spec.whatwg.org/#path-state>)
+pub open spec fn path_state(ctx: Ctx, m: Machine) -> Step {
+    if ends_path_segment(ctx, m) {
+        // 1. "If one of the following is true: [...] then:"
+        // 1.1 "If url is special and c is U+005C (\), invalid-reverse-solidus
+        //     validation error." (validation error only)
+        let url = if is_double_dot_segment(m.buffer) {
+            // 1.2 "If buffer is a double-dot URL path segment, then:"
+            // 1.2.1 "Shorten url's path."
+            let url = shorten(m.url);
+            if !c_is_path_slash(ctx, m) {
+                // 1.2.2 "If neither c is U+002F (/), nor url is special and c
+                //       is U+005C (\), append the empty string to url's
+                //       path."
+                Url { path: path_append(url.path, seq![]), ..url }
+            } else {
+                url
+            }
+        } else if is_single_dot_segment(m.buffer) && !c_is_path_slash(ctx, m) {
+            // 1.3 "Otherwise, if buffer is a single-dot URL path segment and
+            //     if neither c is U+002F (/), nor url is special and c is
+            //     U+005C (\), append the empty string to url's path."
+            Url { path: path_append(m.url.path, seq![]), ..m.url }
+        } else if !is_single_dot_segment(m.buffer) {
+            // 1.4 "Otherwise, if buffer is not a single-dot URL path segment,
+            //     then:"
+            // 1.4.1 "If url's scheme is "file", url's path is empty, and
+            //       buffer is a Windows drive letter, then replace the second
+            //       code point in buffer with U+003A (:)."
+            let buffer = if m.url.scheme == file_str() && m.url.path == UrlPath::List(seq![])
+                && is_windows_drive_letter(m.buffer) {
+                m.buffer.update(1, 0x3A)
+            } else {
+                m.buffer
+            };
+            // 1.4.2 "Append buffer to url's path."
+            Url { path: path_append(m.url.path, buffer), ..m.url }
+        } else {
+            m.url
+        };
+        // 1.5 "Set buffer to the empty string."
+        let m = Machine { url: url, buffer: seq![], ..m };
+        if c_is(ctx, m, 0x3F) {
+            // 1.6 "If c is U+003F (?), then set url's query to the empty
+            //     string and state to query state."
+            Step::Continue(Machine { url: Url { query: Some(seq![]), ..url }, state: State::Query, ..m })
+        } else if c_is(ctx, m, 0x23) {
+            // 1.7 "If c is U+0023 (#), then set url's fragment to the empty
+            //     string and state to fragment state."
+            Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..url }, state: State::Fragment, ..m })
+        } else {
+            Step::Continue(m)
+        }
+    } else {
+        // 2. "Otherwise, run these steps:"
+        // 2.1 "If c is not a URL code point and not U+0025 (%),
+        //     invalid-URL-unit validation error." (validation error only)
+        // 2.2 "If c is U+0025 (%) and remaining does not start with two
+        //     ASCII hex digits, invalid-URL-unit validation error."
+        //     (validation error only)
+        // 2.3 "UTF-8 percent-encode c using the path percent-encode set and
+        //     append the result to buffer."
+        Step::Continue(
+            Machine {
+                buffer: m.buffer + clazel_percent::spec::utf8_percent_encode_code_point(
+                    c_of(ctx, m),
+                    clazel_percent::spec::PercentEncodeSet::Path,
+                ),
+                ..m
+            },
+        )
+    }
+}
+
+/// "opaque path state"
+/// (<https://url.spec.whatwg.org/#cannot-be-a-base-url-path-state>)
+pub open spec fn opaque_path_state(ctx: Ctx, m: Machine) -> Step {
+    if c_is(ctx, m, 0x3F) {
+        // 1. "If c is U+003F (?), then set url's query to the empty string
+        //    and state to query state."
+        Step::Continue(Machine { url: Url { query: Some(seq![]), ..m.url }, state: State::Query, ..m })
+    } else if c_is(ctx, m, 0x23) {
+        // 2. "Otherwise, if c is U+0023 (#), then set url's fragment to the
+        //    empty string and state to fragment state."
+        Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..m.url }, state: State::Fragment, ..m })
+    } else if c_is(ctx, m, 0x20) {
+        // 3. "Otherwise, if c is U+0020 SPACE:"
+        // 3.1 "Invalid-URL-unit validation error." (validation error only)
+        if remaining_starts_with(ctx.input, m.pointer, 0x3F) || remaining_starts_with(ctx.input, m.pointer, 0x23) {
+            // 3.2 "If remaining starts with U+003F (?) or U+0023 (#), then
+            //     append "%20" to url's path."
+            Step::Continue(
+                Machine { url: Url { path: opaque_path_append(m.url.path, seq![0x25u32, 0x32, 0x30]), ..m.url }, ..m },
+            )
+        } else {
+            // 3.3 "Otherwise, append U+0020 SPACE to url's path."
+            Step::Continue(Machine { url: Url { path: opaque_path_append(m.url.path, seq![0x20u32]), ..m.url }, ..m })
+        }
+    } else if !c_is_eof(ctx, m) {
+        // 4. "Otherwise, if c is not the EOF code point:"
+        // 4.1 "If c is not a URL code point and not U+0025 (%),
+        //     invalid-URL-unit validation error." (validation error only)
+        // 4.2 "If c is U+0025 (%) and remaining does not start with two
+        //     ASCII hex digits, invalid-URL-unit validation error."
+        //     (validation error only)
+        // 4.3 "UTF-8 percent-encode c using the C0 control percent-encode set
+        //     and append the result to url's path."
+        Step::Continue(
+            Machine {
+                url: Url {
+                    path: opaque_path_append(
+                        m.url.path,
+                        clazel_percent::spec::utf8_percent_encode_code_point(
+                            c_of(ctx, m),
+                            clazel_percent::spec::PercentEncodeSet::C0Control,
+                        ),
+                    ),
+                    ..m.url
+                },
+                ..m
+            },
+        )
+    } else {
+        Step::Continue(m)
+    }
+}
+
 } // verus!
