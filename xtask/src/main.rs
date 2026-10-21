@@ -398,7 +398,7 @@ fn kani(r: &mut Runner, crates: &[Crate], pins: &Pins) {
         }
         any = true;
         let res =
-            run(Command::new("cargo").args(["kani", "--locked", "-p", &c.name])).and_then(|out| {
+            run(Command::new("cargo").args(["kani", "-p", &c.name])).and_then(|out| {
                 let summary = out
                     .lines()
                     .filter(|l| l.starts_with("Complete -"))

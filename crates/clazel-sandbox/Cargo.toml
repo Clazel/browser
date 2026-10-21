@@ -13,7 +13,7 @@ description = "Sandbox policies as data: seccomp-BPF generator, Landlock ruleset
 # the shipped code today; `target-tier` is what the policy requires. Tier 1
 # means Kani harnesses (src/proofs.rs).
 [package.metadata.clazel]
-tier = 0
+tier = 1
 target-tier = 1
 
 [lints]

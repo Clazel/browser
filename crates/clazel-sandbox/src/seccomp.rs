@@ -67,36 +67,60 @@ pub enum GenError {
     TooManySyscalls,
 }
 
-/// Generate the program that allows exactly the syscalls `numbers` when
-/// `seccomp_data.arch` is `audit_arch`, and kills the process otherwise.
-pub fn generate(audit_arch: u32, numbers: &[u32]) -> Result<Vec<SockFilter>, GenError> {
-    let n = numbers.len();
+/// Number of instructions in the program for `n` allowlisted numbers.
+pub fn program_len(n: usize) -> Result<usize, GenError> {
     // The jump from entry `i` to the final `ret ALLOW` is `n - i` <= n.
     if n > usize::from(u8::MAX) {
         return Err(GenError::TooManySyscalls);
     }
+    n.checked_add(6).ok_or(GenError::TooManySyscalls)
+}
+
+/// Instruction `i` of the program for `numbers` (the layout in the module
+/// documentation), or `None` past its end or if `numbers` is too long.
+///
+/// The program is defined pointwise so that the Kani harnesses can build it
+/// in a fixed-size array without going through `Vec`; [`generate`] is this
+/// function collected.
+pub fn insn_at(audit_arch: u32, numbers: &[u32], i: usize) -> Option<SockFilter> {
+    let n = numbers.len();
+    program_len(n).ok()?;
     let ld_w_abs = BPF_LD | BPF_W | BPF_ABS;
     let jeq_k = BPF_JMP | BPF_JEQ | BPF_K;
     let ret_k = BPF_RET | BPF_K;
-    let mut prog = Vec::with_capacity(n.saturating_add(6));
-    // 0-2: the architecture check comes first.
-    prog.push(SockFilter::stmt(ld_w_abs, OFFSET_ARCH));
-    prog.push(SockFilter::jump(jeq_k, audit_arch, 1, 0));
-    prog.push(SockFilter::stmt(ret_k, SECCOMP_RET_KILL_PROCESS));
-    // 3: then the syscall number.
-    prog.push(SockFilter::stmt(ld_w_abs, OFFSET_NR));
-    // 4+i: one comparison per allowed number.
-    for (i, nr) in numbers.iter().enumerate() {
-        let to_allow = n
-            .checked_sub(i)
-            .and_then(|d| u8::try_from(d).ok())
-            .ok_or(GenError::TooManySyscalls)?;
-        prog.push(SockFilter::jump(jeq_k, *nr, to_allow, 0));
+    match i {
+        // 0-2: the architecture check comes first.
+        0 => Some(SockFilter::stmt(ld_w_abs, OFFSET_ARCH)),
+        1 => Some(SockFilter::jump(jeq_k, audit_arch, 1, 0)),
+        2 => Some(SockFilter::stmt(ret_k, SECCOMP_RET_KILL_PROCESS)),
+        // 3: then the syscall number.
+        3 => Some(SockFilter::stmt(ld_w_abs, OFFSET_NR)),
+        _ => {
+            // 4+j: one comparison per allowed number.
+            let j = i.checked_sub(4)?;
+            if let Some(nr) = numbers.get(j) {
+                let to_allow = u8::try_from(n.checked_sub(j)?).ok()?;
+                Some(SockFilter::jump(jeq_k, *nr, to_allow, 0))
+            } else if j == n {
+                Some(SockFilter::stmt(ret_k, SECCOMP_RET_KILL_PROCESS))
+            } else if j == n.checked_add(1)? {
+                Some(SockFilter::stmt(ret_k, SECCOMP_RET_ALLOW))
+            } else {
+                None
+            }
+        }
     }
-    prog.push(SockFilter::stmt(ret_k, SECCOMP_RET_KILL_PROCESS));
-    prog.push(SockFilter::stmt(ret_k, SECCOMP_RET_ALLOW));
-    debug_assert!(prog.len() <= BPF_MAXINSNS);
-    Ok(prog)
+}
+
+/// Generate the program that allows exactly the syscalls `numbers` when
+/// `seccomp_data.arch` is `audit_arch`, and kills the process otherwise.
+pub fn generate(audit_arch: u32, numbers: &[u32]) -> Result<Vec<SockFilter>, GenError> {
+    let len = program_len(numbers.len())?;
+    debug_assert!(len <= BPF_MAXINSNS);
+    (0..len)
+        .map(|i| insn_at(audit_arch, numbers, i))
+        .collect::<Option<Vec<_>>>()
+        .ok_or(GenError::TooManySyscalls)
 }
 
 /// The renderer's seccomp program for `arch`, from [`syscalls::ALLOWLIST`].

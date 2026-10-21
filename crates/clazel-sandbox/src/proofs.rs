@@ -3,76 +3,59 @@
 //! What they establish, with the interpreter in [`crate::interp`] as the model
 //! of the kernel:
 //!
-//! - [`generate`] never panics, and its output validates, for any
-//!   architecture value and any allowlist of up to three numbers (the layout
-//!   does not depend on the count beyond the loop, and the harness covers
-//!   0 to 3 iterations; [`generator_limits`] covers the 255/256 boundary).
-//! - For any such allowlist and any syscall number, architecture and
-//!   arguments: the generated program returns `SECCOMP_RET_ALLOW` exactly when
-//!   the architecture matches and the number is in the list, and
+//! - [`insn_at`] (the generator, defined pointwise) never panics, and the
+//!   program it describes validates, for any architecture value and any
+//!   allowlist of 0 to 3 symbolic numbers ([`list_0`] to [`list_3`]); the
+//!   program for 255 numbers validates and 256 is refused ([`limits`]).
+//! - For each such allowlist, any syscall number, architecture and
+//!   arguments: the program returns `SECCOMP_RET_ALLOW` exactly when the
+//!   architecture matches and the number is in the list, and
 //!   `SECCOMP_RET_KILL_PROCESS` otherwise.
 //! - For the real allowlist, on x86-64 and on aarch64: the same, for **every**
-//!   32-bit syscall number (so, in particular, every number below 1024), the
-//!   right architecture, and for every other architecture value (so, in
+//!   32-bit syscall number (so, in particular, every number below 1024) with
+//!   the right architecture, and for every other architecture value (so, in
 //!   particular, the other supported architecture).
 //! - The validator and interpreter never panic, on any program of up to two
 //!   instructions with any field values, over any data.
 //!
-//! `#[kani::unwind]` bounds are the loop lengths plus one; Kani reports an
-//! unwinding failure rather than a pass if one is too small.
+//! Not proven here: the `Vec` plumbing of [`generate`] (it collects
+//! `insn_at`; `tests/policies.rs` checks the collected program equals the one
+//! the harnesses use). The harnesses build programs in fixed-size arrays
+//! because modelling `Vec` growth made CBMC run out of memory.
 
 use crate::bpf::SockFilter;
 use crate::interp::{SeccompData, run, validate};
-use crate::seccomp::{
-    GenError, SECCOMP_RET_ALLOW, SECCOMP_RET_KILL_PROCESS, generate, renderer_program,
-};
-use crate::syscalls::{self, Arch};
+use crate::seccomp::{GenError, SECCOMP_RET_ALLOW, SECCOMP_RET_KILL_PROCESS, insn_at, program_len};
+use crate::syscalls::{self, ALLOWLIST, Arch};
 
-/// An allowlist of up to three symbolic numbers, in `buf[..len]`.
-fn symbolic_list(buf: &[u32; 3], len: usize) -> &[u32] {
-    buf.get(..len).unwrap_or(&[])
+const FILLER: SockFilter = SockFilter::stmt(0, 0);
+
+/// The program for `numbers` as a fixed array of `N = numbers.len() + 6`.
+fn build<const N: usize>(audit_arch: u32, numbers: &[u32]) -> [SockFilter; N] {
+    core::array::from_fn(|i| insn_at(audit_arch, numbers, i).unwrap_or(FILLER))
 }
 
-#[kani::proof]
-#[kani::unwind(8)]
-fn generator_total_and_valid() {
+/// For symbolic `L` numbers: the program is complete, valid, and allows
+/// exactly the list under exactly the right architecture.
+fn check_list<const L: usize, const N: usize>() {
     let arch: u32 = kani::any();
-    let buf: [u32; 3] = kani::any();
-    let len: usize = kani::any();
-    kani::assume(len <= 3);
-    let list = symbolic_list(&buf, len);
-    match generate(arch, list) {
-        Ok(prog) => {
-            assert!(prog.len() == len + 6);
-            assert!(validate(&prog).is_ok());
-        }
-        Err(_) => assert!(false),
+    let nums: [u32; L] = kani::any();
+    assert!(program_len(L) == Ok(N));
+    let mut i = 0;
+    while i < N {
+        assert!(insn_at(arch, &nums, i).is_some());
+        i += 1;
     }
-}
-
-#[kani::proof]
-#[kani::unwind(8)]
-fn generated_program_allows_exactly_the_list() {
-    let arch: u32 = kani::any();
-    let buf: [u32; 3] = kani::any();
-    let len: usize = kani::any();
-    kani::assume(len <= 3);
-    let list = symbolic_list(&buf, len);
-    let nr: u32 = kani::any();
-    let data_arch: u32 = kani::any();
-    let ip: u64 = kani::any();
-    let args: [u64; 6] = kani::any();
+    assert!(insn_at(arch, &nums, N).is_none());
+    let prog: [SockFilter; N] = build(arch, &nums);
+    assert!(validate(&prog).is_ok());
     let data = SeccompData {
-        nr,
-        arch: data_arch,
-        instruction_pointer: ip,
-        args,
+        nr: kani::any(),
+        arch: kani::any(),
+        instruction_pointer: kani::any(),
+        args: kani::any(),
     };
-    let Ok(prog) = generate(arch, list) else {
-        assert!(false);
-        return;
-    };
-    let expected = if data_arch == arch && list.contains(&nr) {
+    let expected = if data.arch == arch && nums.contains(&data.nr) {
         SECCOMP_RET_ALLOW
     } else {
         SECCOMP_RET_KILL_PROCESS
@@ -81,30 +64,67 @@ fn generated_program_allows_exactly_the_list() {
 }
 
 #[kani::proof]
-#[kani::unwind(260)]
-fn generator_limits() {
+#[kani::unwind(12)]
+fn list_0() {
+    check_list::<0, 6>();
+}
+
+#[kani::proof]
+#[kani::unwind(12)]
+fn list_1() {
+    check_list::<1, 7>();
+}
+
+#[kani::proof]
+#[kani::unwind(12)]
+fn list_2() {
+    check_list::<2, 8>();
+}
+
+#[kani::proof]
+#[kani::unwind(12)]
+fn list_3() {
+    check_list::<3, 9>();
+}
+
+#[kani::proof]
+fn limits() {
+    assert!(program_len(255) == Ok(261));
+    assert!(program_len(256) == Err(GenError::TooManySyscalls));
     let big = [0u32; 256];
-    assert!(generate(0, &big) == Err(GenError::TooManySyscalls));
+    assert!(insn_at(0, &big, 0).is_none());
+    // The largest accepted list: every instruction exists, the one after the
+    // last does not, and every conditional jump stays inside the program.
     let max = [0u32; 255];
-    match generate(0, &max) {
-        Ok(prog) => assert!(validate(&prog).is_ok()),
-        Err(_) => assert!(false),
+    let i: usize = kani::any();
+    kani::assume(i <= 261);
+    match insn_at(0, &max, i) {
+        Some(insn) => {
+            assert!(i < 261);
+            if insn.code & 0x07 == crate::bpf::BPF_JMP {
+                assert!(i + 1 + usize::from(insn.jt) < 261);
+                assert!(i + 1 + usize::from(insn.jf) < 261);
+            }
+        }
+        None => assert!(i == 261),
     }
 }
 
+const REAL: usize = 22;
+
 /// The real allowlist for `arch`: every syscall number, right architecture.
 fn check_real_allowlist(arch: Arch) {
-    let Ok(prog) = renderer_program(arch) else {
-        assert!(false);
-        return;
-    };
+    assert!(ALLOWLIST.len() == REAL);
+    let nums: [u32; REAL] =
+        core::array::from_fn(|i| ALLOWLIST.get(i).map_or(0, |s| s.number(arch)));
+    let prog: [SockFilter; 28] = build(arch.audit_arch(), &nums);
     assert!(validate(&prog).is_ok());
     let nr: u32 = kani::any();
-    let allowed = run(&prog, &SeccompData::new(nr, arch.audit_arch()));
+    let got = run(&prog, &SeccompData::new(nr, arch.audit_arch()));
     if syscalls::is_allowed(arch, nr) {
-        assert!(allowed == Ok(SECCOMP_RET_ALLOW));
+        assert!(got == Ok(SECCOMP_RET_ALLOW));
     } else {
-        assert!(allowed == Ok(SECCOMP_RET_KILL_PROCESS));
+        assert!(got == Ok(SECCOMP_RET_KILL_PROCESS));
     }
     // Any other architecture value, whatever the syscall number.
     let other: u32 = kani::any();

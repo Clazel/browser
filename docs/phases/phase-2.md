@@ -655,7 +655,38 @@ checked only by the integration tests in 2.16.
 Applying these policies is 2.15 and **waits on 2.0**; writing them does
 not.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** `clazel-sandbox` (no dependencies, no `unsafe`, no system
+calls), at **Tier 1**. `syscalls.rs` holds the allowlist (22 syscalls, each
+with the reason the renderer needs it; nothing that opens, connects, forks,
+executes or passes descriptors, so `sendmsg`/`recvmsg`, `clone` and
+`rt_sigaction` are absent) with numbers for x86-64 and aarch64, and the
+`AUDIT_ARCH_*` values. `seccomp.rs` generates the program: load `arch`,
+kill the process unless it matches, load `nr`, one `jeq` per allowed number,
+kill, allow; it is defined pointwise (`insn_at`) and refuses more than 255
+numbers (8-bit jump offsets). `interp.rs` is the cBPF validator and
+interpreter, written from `filter.rst` and `seccomp_filter.rst` (it is in
+the TCB). `landlock.rs` handles every filesystem, TCP and scope right and
+adds no rule, with `for_abi` to drop rights newer than the running kernel;
+`namespaces.rs` lists user, mount, PID, network, IPC with their `CLONE_NEW*`
+flags; `seatbelt.rs` renders `(deny default)` plus a minimal allow set. Kernel
+numbers and constants are not from memory: the Linux v6.12 tables, headers and
+documents are vendored in `vendor/linux/` (commit in `SOURCE.md`), and
+`tests/vendored.rs` re-derives every syscall number and constant from them.
+Kani harnesses (`proofs.rs`): the generator is panic-free, produces a valid
+program and allows exactly the list, for symbolic allowlists of 0 to 3
+numbers; the real allowlist on each architecture allows exactly the list for
+**every** 32-bit syscall number (a superset of "below 1024") and kills every
+other architecture value; the validator and interpreter never panic on any
+program of up to two instructions. `tests/policies.rs` repeats the
+below-1024 sweep for both architectures, wrong architectures and x32 numbers
+as plain tests. Limits: Kani proves the pointwise generator, not the `Vec`
+collection in `generate` (CBMC ran out of memory modelling it); selection is
+by number only, with no argument filters; the interpreter's rejection rules
+are the conservative reading of `filter.rst` because `kernel/seccomp.c`
+is not vendored; the SBPL profile is unchecked until 2.16. The seccomp
+harnesses for the real allowlist take about nine minutes each.
+`xtask`'s Kani step passed `--locked`, which Kani 0.68 rejects; it was never
+exercised before this crate had harnesses, so the flag is dropped.
 
 ### 2.15 Processes: host shell and renderer stub (M) — waits on 2.0
 
@@ -730,7 +761,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.11 Isolation theorems | not started |
 | 2.12 Kernel implementation | not started |
 | 2.13 Navigation with the real URL parser | not started |
-| 2.14 Sandbox policies | not started |
+| 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
 | 2.15 Host shell and renderer stub | not started; waits on 2.0 |
 | 2.16 Exit demo and adversarial tests | not started; waits on 2.13 and 2.15 |
 
