@@ -144,6 +144,14 @@ pub proof fn lemma_days_before_year_step(y: nat)
     ensures
         days_before_year(y as int + 1) == days_before_year(y as int) + (if is_leap_year(y) { 366int } else { 365int }),
 {
+    let n = y as int;
+    // Each count of leap years moves by one exactly at a multiple.
+    assert(n / 4 - (n - 1) / 4 == if n % 4 == 0 { 1int } else { 0int }) by (nonlinear_arith)
+        requires n >= 1601;
+    assert(n / 100 - (n - 1) / 100 == if n % 100 == 0 { 1int } else { 0int }) by (nonlinear_arith)
+        requires n >= 1601;
+    assert(n / 400 - (n - 1) / 400 == if n % 400 == 0 { 1int } else { 0int }) by (nonlinear_arith)
+        requires n >= 1601;
 }
 
 /// No date before 1601-01-01 is counted: the days before a year from 1601
