@@ -3,9 +3,9 @@
 //! It writes §4.2.1 preferred serialization: every argument in the
 //! shortest form that holds it.
 
-use super::token::*;
 #[allow(unused_imports)]
 use super::spec::*;
+use super::token::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 

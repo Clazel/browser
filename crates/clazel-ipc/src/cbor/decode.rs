@@ -4,9 +4,9 @@
 //! live there): the loop of `decode_from` is a `while` loop, and an
 //! array's declared length is never used to reserve memory.
 
-use super::token::*;
 #[allow(unused_imports)]
 use super::spec::*;
+use super::token::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 

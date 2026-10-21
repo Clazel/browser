@@ -1,8 +1,8 @@
 //! The executable message codec, proven to meet [`super::contract`].
 
-use crate::cbor::token::*;
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::cbor::token::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 

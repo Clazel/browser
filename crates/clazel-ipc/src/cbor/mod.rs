@@ -12,5 +12,5 @@ pub mod examples;
 pub mod independent;
 pub mod lemmas;
 pub mod spec;
-pub mod token;
 pub mod termination;
+pub mod token;
