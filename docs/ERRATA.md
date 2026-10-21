@@ -107,3 +107,23 @@ it evidently means. Each entry records what we specified instead.
   `crates/clazel-mime/src/sniff/spec.rs`.
 - **Reported upstream:** not by us. Already open: whatwg/mimesniff#70,
   #168. (The table and scale swap is not in either; not yet reported.)
+
+## RFC 6265bis §5.6.1 steps 3 and 4 and §5.6.2 step 5: the cookie-age-limit has two meanings
+
+- **Spec:** draft-ietf-httpbis-rfc6265bis-22 (1 December 2025),
+  <https://www.ietf.org/archive/id/draft-ietf-httpbis-rfc6265bis-22.txt>
+- **Text and problem:** §5.6.1 step 3 says "Let cookie-age-limit be the
+  maximum age of the cookie (which SHOULD be 400 days in the future or
+  sooner, see Section 5.5)", and step 4 "If the expiry-time is more than
+  cookie-age-limit, the user agent MUST set the expiry time to
+  cookie-age-limit in seconds." The expiry-time is an instant, and an age
+  is a duration, so the comparison and the assignment mix units ("400 days
+  in the future" is an instant; "in seconds" is a duration). §5.6.2 steps
+  5 and 6 use the same name for the duration (the smaller of delta-seconds
+  and cookie-age-limit), which is the reading §5.5 gives ("34560000
+  seconds").
+- **We specify:** for Expires, the limit is the instant now plus 34 560 000
+  seconds; for Max-Age it is the duration 34 560 000 seconds. See
+  `process_expires` and `process_max_age` in
+  `crates/clazel-cookie/src/set_cookie/spec.rs`.
+- **Reported upstream:** not yet.

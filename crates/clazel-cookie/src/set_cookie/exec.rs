@@ -8,8 +8,8 @@
 
 use super::spec::*;
 use crate::strings::{
-    ascii_lowercase_exec, at, begins_with_case_insensitive_match_exec, case_insensitive_match_exec, find_octet_exec,
-    remove_leading_and_trailing_wsp_exec, sub,
+    ascii_lowercase_exec, at, begins_with_case_insensitive_match_exec, case_insensitive_match_exec,
+    find_octet_exec, remove_leading_and_trailing_wsp_exec, sub,
 };
 #[allow(unused_imports)]
 use vstd::prelude::*;

@@ -392,7 +392,29 @@ RFC 850 and asctime forms), proven to parse to the same instant on every
 HTTP-date string. Lemmas: domain-match is reflexive and transitive on host
 names; path-match is a prefix order.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial):** `crates/clazel-cookie`, pinned to
+draft-ietf-httpbis-rfc6265bis-22 (1 December 2025, the latest revision on
+21 October 2026, not yet an RFC). `date/` is §5.1.1 (tokenizer, the four
+token productions, steps 3 to 7) and `matching/` is §5.1.2 to §5.1.4. Every
+exec function is proven equal to its spec (contracts first, commits
+`365d7e7` and the item-2.8 one for the Set-Cookie contracts). Modelling
+choices, listed in the spec headers: canonicalization is the URL host
+parser's output (a host record in, domain or serialized IP out; opaque and
+empty hosts fail); strings are octets; **instants are seconds since
+1601-01-01T00:00:00Z** (so none is negative, and the "earliest representable
+instant" is 0), because Verus's `i64` saturating operations are not
+specified and the lints forbid plain signed arithmetic. Lemmas: domain-match
+and path-match are preorders, path-match is also antisymmetric (a prefix
+order), the default-path path-matches its URL, parsed dates are in range,
+consecutive days are 86400 seconds apart. Independent: `matching/independent.rs`
+(RFC 6265 §5.1.3 and §5.1.4, index-based) is proven equal on **every input**.
+Conformance: `tests/conformance_dates.rs` runs all 70 rows of `http-state`
+`tests/data/dates/` (70/70). **Not done:** the RFC 9110 HTTP-date
+transcription in `date/independent.rs` has its tokenization lemmas and
+builders but not the agreement proof, so the date parser has no proven
+independent transcription yet; no WPT `cookies/` data is vendored (every test
+there sets and reads back a cookie, so it is 2.9); no differential engine for
+dates. Nine certified mutations.
 
 ### 2.8 Set-Cookie parsing (M)
 
@@ -406,7 +428,23 @@ attributes on every string in that grammar with no attribute repeated (the
 user-agent algorithm accepts far more; the lemma states the class exactly,
 as 1.7 did for RFC 9110 media types).
 
-**As built:** *(to be filled in when the item is done)*
+**As built (partial):** `set_cookie/`: §5.6 steps 1 to 6 and the attribute
+loop, §5.6.1 to §5.6.7, §5.5 (limit fixed at 400 days) and the §5.4
+prefix check as `name_prefix_requirements_met` over the secure-only and
+host-only flags, which 2.9 computes (steps 20 to 22 of §5.7). Output is the
+standard's cookie-attribute-list, in order. All exec functions are proven
+equal to the spec; the Max-Age number is capped (at 10^9, far above the
+limit) with a proof that capping changes nothing. One erratum in
+`docs/ERRATA.md` (the cookie-age-limit is an instant for Expires and a
+duration for Max-Age). Lemmas: no instant exceeds now plus the limit; Max-Age
+is the earliest instant or within the limit; Domain is lower case and loses
+its leading dot; Path is absolute; the list never loses an attribute; a
+name and value total at most 4096; the prefix requirements. Ten certified
+mutations. **Not done:** the independent transcription of the §4.1.1
+`set-cookie-string` grammar (and its equality proof on the stated class);
+no Set-Cookie conformance data (the `http-state` parser corpus and WPT
+`cookies/` need the storage model of 2.9); the `Cookie`-side and storage
+steps of §5.7 are 2.9.
 
 ### 2.9 Cookie storage and retrieval (L)
 
@@ -723,8 +761,8 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.4 Public Suffix List | not started |
 | 2.5 Origins and sites | not started |
 | 2.6 Origin of a URL | not started |
-| 2.7 Cookie primitives | not started |
-| 2.8 Set-Cookie parsing | not started |
+| 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching independent proven, http-state dates 70/70; the RFC 9110 date independent transcription is not proven |
+| 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed; the §4.1.1 independent transcription is not written |
 | 2.9 Cookie storage and retrieval | not started |
 | 2.10 Kernel spec | not started |
 | 2.11 Isolation theorems | not started |
