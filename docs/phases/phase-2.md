@@ -934,7 +934,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.12 Kernel implementation | not started |
 | 2.13 Navigation with the real URL parser | not started |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
-| 2.15 Host shell and renderer stub | not started; waits on 2.0 |
+| 2.15 Host shell and renderer stub | not started; 2.0 is done, so it waits only on 2.12 |
 | 2.16 Exit demo and adversarial tests | not started; waits on 2.13 and 2.15 |
 
 ## Risks
