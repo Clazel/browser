@@ -3,6 +3,10 @@
 //! - `cargo xtask verify`: everything, with fresh proof runs. Exit 0 only if
 //!   every check ran and passed; 1 if any failed; 2 if none failed but some
 //!   were skipped because a tool is missing (never report that as verified).
+//! - `cargo xtask verify --changed [base]`: the same checks, but tests, Miri,
+//!   Kani, Verus, mutations and conformance only for the crates that changed
+//!   since `base` (default `origin/main`) and their dependents (`changed.rs`).
+//!   Ends in `CHANGED CRATES PASSED`; CI's full run is the gate.
 //! - `cargo xtask check`: only the fast static checks (no build, no proofs).
 //! - `cargo xtask mutate`: only the proof mutation tests (also part of
 //!   `verify`).
@@ -13,7 +17,7 @@
 //!   vendored Unicode data (`crates/clazel-idna/src/uts46/data.rs`).
 //!   `check` and `verify` fail if they are stale or a data file's hash
 //!   differs from its `SOURCE.md`.
-//! - `cargo xtask report [--write]`: run the checks that produce the README
+//! - `cargo xtask report [--write] [--changed [base]]`: run the checks that produce the README
 //!   status table (including each crate's conformance suites, see
 //!   `conformance.rs`), print it, and with `--write` update README.md. `verify`
 //!   fails if README.md's table differs from what it measured.
@@ -512,7 +516,7 @@ fn kani(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     if !any {
         r.step(
             "kani",
-            Outcome::Pass(vec!["no crate has Kani harnesses yet".into()]),
+            Outcome::Pass(vec!["no checked crate has Kani harnesses".into()]),
         );
     }
 }

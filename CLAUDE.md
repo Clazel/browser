@@ -52,7 +52,9 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
    say so in the PR and leave the crate at its real tier. Raising `tier` in a
    crate's `Cargo.toml` requires all of the following, and `cargo xtask check`
    rejects the claim otherwise:
-   - every proof and harness passing in `cargo xtask verify`;
+   - every proof and harness passing in a full `cargo xtask verify`, which
+     for a tier change means CI's green run on the pull request (a local
+     `--changed` run does not count);
    - Tier 1: Kani harnesses;
    - Tier 2: Verus enabled; every mutation in `mutations.json` a `killed` with
      a certificate that Verus checks; conformance tests
@@ -76,16 +78,29 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
    "Reported upstream: not yet" for a human to act on.
 
 ## Workflow
-- Run `scripts/verify.sh` (same as `cargo xtask verify`) before calling any
-  work done, and report its output honestly. `cargo xtask check` runs only the
-  fast static checks (unsafe, the `clazel-sys` audit, lint overrides, escape hatches, tier
-  declarations, pins); use it while iterating, never as the final check.
+- Before handing work over, run `cargo xtask verify --changed` and report its
+  output honestly. It runs every check, but repeats proofs, harnesses,
+  mutations, conformance and tests only for the crates that differ from
+  `origin/main` (the commit CI last verified) and the crates that depend on
+  them; a change to anything shared (`Cargo.lock`, the workspace manifest,
+  toolchain pins, `scripts/`, `xtask/`) makes it check every crate. It ends
+  in `CHANGED CRATES PASSED`, which is not `ALL CHECKS PASSED` and must not
+  be reported as such. Work is **done** only when CI's full verification
+  (`scripts/verify.sh`) is green on its pull request; say so if it has not
+  run yet. To repeat CI's run locally, use `scripts/verify.sh` or the
+  Docker command in README.md. `cargo xtask check` runs only the fast static
+  checks (unsafe, the `clazel-sys` audit, lint overrides, escape hatches,
+  tier declarations, pins); use it while iterating, never as the final
+  check.
 - The only accepted lint overrides are `#[allow(unused_imports)]` directly on
   `use vstd::prelude::*;` or `use super::spec::*;` (ghost imports look unused
   to normal builds), and `unsafe_code = "allow"` in `clazel-sys`'s manifest.
   The checker rejects everything else.
 - Never edit README.md's status table by hand. After changing proofs,
-  harnesses, axioms or mutations, run `cargo xtask report --write` and commit
-  the regenerated table together with the change that moved the numbers.
+  harnesses, axioms or mutations, run `cargo xtask report --write --changed`
+  and commit the regenerated table together with the change that moved the
+  numbers. It re-measures the changed crates and keeps the other rows' proof
+  and test cells; CI's full run re-measures every row and fails if any
+  differs.
 - Keep changes small: one spec section or one proof per commit where practical.
 - Test against official suites (WPT, html5lib-tests), vendored under `tests/`.
