@@ -33,6 +33,6 @@ control or space, and, for a special scheme, a non-empty authority; and a
 port. The generated file's header gives the counts. The rest arrive with
 item 1.10.
 
-**Expected failures:** rows whose domain (host parser step 5) is not ASCII
-need the domain parser's UTS #46 ToASCII (URL §3.3), which is item 1.8.
-`tests/conformance_hosts.rs` lists them by name.
+**Expected failures:** none. Rows whose domain (host parser step 5) is not
+ASCII go through `clazel-idna`'s domain parser (UTS #46 ToASCII, URL §3.3)
+via `host_parser_full`.

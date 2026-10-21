@@ -13,23 +13,17 @@
 //!    `std::net::Ipv6Addr` parsers and `Display`, on the strings where the
 //!    standards agree.
 //!
-//! **The domain parser (URL §3.3) is item 1.8.** The host parser is shipped
-//! as `host_parser_start` and `host_parser_finish` around it. For an ASCII
-//! "domain" (host parser step 5's result), the domain parser with beStrict
-//! false does not depend on UTS #46: step 2's ToASCII result is only a
-//! validation error, step 5 sets result to the domain lowercased, and
-//! steps 7 and 8 fail on the empty string and on forbidden domain code
-//! points. [`ascii_domain_parser`] is exactly those steps, for this test
-//! only. Rows whose domain is not ASCII need ToASCII itself: they are the
-//! expected failures listed in [`EXPECTED_FAILURES`].
+//! The host parser under test is `host_parser_full`: URL §3.5 steps 1 to 9,
+//! with step 6 running `clazel-idna`'s URL §3.3 domain parser (UTS #46
+//! ToASCII), so the rows whose domain is not ASCII pass through the real
+//! thing. No row is an expected failure.
 
 use clazel_url::host::ipv4::ipv4_parser;
 use clazel_url::host::ipv6::ipv6_parser;
-use clazel_url::host::parse::{HostParserStart, host_parser_finish, host_parser_start};
+use clazel_url::host::parse::host_parser_full;
 use clazel_url::host::record::ParsedHost;
 use clazel_url::host::serialize::{ipv4_serializer, ipv6_serializer};
 use std::net::{Ipv4Addr, Ipv6Addr};
-use vstd::prelude::Ghost;
 
 /// One converted WPT case.
 struct Case {
@@ -46,175 +40,9 @@ struct Case {
 // from the vendored WPT files.
 include!("generated/wpt_url_hosts.rs");
 
-/// Cases whose domain (host parser step 5) is not ASCII, so the domain
-/// parser needs UTS #46 ToASCII: they wait on item 1.8 (`clazel-idna`).
-const EXPECTED_FAILURES: &[&str] = &[
-    "a†-- (using URL)",
-    "-† (using URL)",
-    "-x.ß (using URL)",
-    "x-.ß (using URL)",
-    "x..ß (using URL)",
-    "xn--a.ß (using URL)",
-    "xn--tešla (using URL)",
-    "xn--zca.ß (using URL)",
-    "ab--c.ß (using URL)",
-    "\u{200d}.example (using URL)",
-    "يa (using URL)",
-    "ශ\u{dca}\u{200d}ර\u{dd3} (using URL)",
-    "نامه\u{200c}ای (using URL)",
-    "�.com (using URL)",
-    "x01234567890123456789012345678901234567890123456789012345678901† (using URL)",
-    "x01234567890123456789012345678901234567890123456789012345678901x.ß (using URL)",
-    "01234567890123456789012345678901234567890123456789.01234567890123456789012345678901234567890123456789.01234567890123456789012345678901234567890123456789.01234567890123456789012345678901234567890123456789.0123456789012345678901234567890123456789012345678.ß (using URL)",
-    "a\u{ad}b (using URL)",
-    "≠ (using URL)",
-    "≮ (using URL)",
-    "≯ (using URL)",
-    "=\u{338} (using URL)",
-    "<\u{338} (using URL)",
-    ">\u{338} (using URL)",
-    "=\u{ad}\u{338} (using URL)",
-    "<\u{ad}\u{338} (using URL)",
-    ">\u{ad}\u{338} (using URL)",
-    "faß.de (using URL)",
-    "βόλος.com (using URL)",
-    "ශ\u{dca}\u{200d}ර\u{dd3}.com (using URL)",
-    "نامه\u{200c}ای.com (using URL)",
-    "www.looĸout.net (using URL)",
-    "ᗯᗯᗯ.lookout.net (using URL)",
-    "www.lookout.сом (using URL)",
-    "www‥lookout.net (using URL)",
-    "www.lookout‧net (using URL)",
-    "www.lookout.net⩴80 (using URL)",
-    "www\u{a0}.lookout.net (using URL)",
-    "\u{1680}lookout.net (using URL)",
-    "look\u{6dd}out.net (using URL)",
-    "look\u{180e}out.net (using URL)",
-    "look\u{2060}out.net (using URL)",
-    "look\u{feff}out.net (using URL)",
-    "look\u{1fffe}out.net (using URL)",
-    "look\u{fffa}out.net (using URL)",
-    "look⿰out.net (using URL)",
-    "look\u{341}out.net (using URL)",
-    "look\u{202e}out.net (using URL)",
-    "look\u{206b}out.net (using URL)",
-    "look\u{e0001}out.net (using URL)",
-    "look\u{e0020}out.net (using URL)",
-    "look־out.net (using URL)",
-    "Bücher.de (using URL)",
-    "♥.net (using URL)",
-    "\u{378}.net (using URL)",
-    "Ӏ.com (using URL)",
-    "㛼.com (using URL)",
-    "Ↄ.com (using URL)",
-    "look\u{34f}out.net (using URL)",
-    "ড়.com (using URL)",
-    "ẞ.com (using URL)",
-    "ẞ.foo.com (using URL)",
-    "foo\u{300}.bar.com (using URL)",
-    "Parsing: <http://GOO\u{a0}\u{3000}goo.com> against <http://other.com/>",
-    "Parsing: <http://GOO\u{200b}\u{2060}\u{feff}goo.com> against <http://other.com/>",
-    "Parsing: <http://www.foo。bar.com> against <http://other.com/>",
-    "Parsing: <http://\u{fdd0}zyx.com> against <http://other.com/>",
-    "Parsing: <http://%ef%b7%90zyx.com> against <http://other.com/>",
-    "Parsing: <https://�> without base",
-    "Parsing: <https://%EF%BF%BD> without base",
-    "Parsing: <http://Ｇｏ.com> against <http://other.com/>",
-    "Parsing: <http://％４１.com> against <http://other.com/>",
-    "Parsing: <http://%ef%bc%85%ef%bc%94%ef%bc%91.com> against <http://other.com/>",
-    "Parsing: <http://％００.com> against <http://other.com/>",
-    "Parsing: <http://%ef%bc%85%ef%bc%90%ef%bc%90.com> against <http://other.com/>",
-    "Parsing: <http://你好你好> against <http://other.com/>",
-    "Parsing: <https://faß.ExAmPlE/> without base",
-    "Parsing: <http://０Ｘｃ０．０２５０．０１> against <http://other.com/>",
-    "Parsing: <ftp://example.com%80/> without base",
-    "Parsing: <ftp://example.com%A0/> without base",
-    "Parsing: <https://example.com%80/> without base",
-    "Parsing: <https://example.com%A0/> without base",
-    "Parsing: <ftp://%e2%98%83> without base",
-    "Parsing: <https://%e2%98%83> without base",
-    "Parsing: <http://💩.123/> without base",
-    "Parsing: <https://\u{ffff}y> without base",
-    "Parsing: <https://a%C2%ADb/> without base",
-    "Parsing: <https://\u{ad}/> without base",
-    "Parsing: <https://%C2%AD/> without base",
-];
-
-/// A forbidden domain code point (URL §3.2): a forbidden host code point,
-/// a C0 control, U+0025 (%), or U+007F DELETE.
-fn is_forbidden_domain_code_point(c: u32) -> bool {
-    matches!(
-        c,
-        0x00 | 0x09
-            | 0x0A
-            | 0x0D
-            | 0x20
-            | 0x23
-            | 0x2F
-            | 0x3A
-            | 0x3C
-            | 0x3E
-            | 0x3F
-            | 0x40
-            | 0x5B
-            | 0x5C
-            | 0x5D
-            | 0x5E
-            | 0x7C
-    ) || c <= 0x1F
-        || c == 0x25
-        || c == 0x7F
-}
-
-/// URL §3.3 "domain parser" with beStrict false, for an ASCII `domain`
-/// only (see the module comment): steps 5, 7, 8 and 9.
-fn ascii_domain_parser(domain: &[u32]) -> Option<Vec<u32>> {
-    // 5. "If domain is an ASCII string, then set result to domain,
-    //    lowercased."
-    let result: Vec<u32> = domain
-        .iter()
-        .map(|&c| {
-            if (0x41..=0x5A).contains(&c) {
-                c | 0x20
-            } else {
-                c
-            }
-        })
-        .collect();
-    // 7. "If result is the empty string, then return failure."
-    // 8. "If result contains a forbidden domain code point, then return
-    //    failure."
-    if result.is_empty() || result.iter().any(|&c| is_forbidden_domain_code_point(c)) {
-        return None;
-    }
-    // 9. "Return result."
-    Some(result)
-}
-
-enum Outcome {
-    /// The serialized host, or `None` for failure.
-    Host(Option<Vec<u32>>),
-    /// The domain is not ASCII: the domain parser needs ToASCII (item 1.8).
-    NeedsIdna,
-}
-
-fn host_parse_serialize(input: &[u32], opaque: bool) -> Outcome {
-    let host = match host_parser_start(input, opaque) {
-        HostParserStart::Done(h) => h,
-        HostParserStart::Domain(domain) => {
-            if domain.iter().any(|&c| c > 0x7F) {
-                return Outcome::NeedsIdna;
-            }
-            let ascii = ascii_domain_parser(&domain);
-            host_parser_finish(
-                Ghost::assume_new(),
-                Ghost::assume_new(),
-                Ghost::assume_new(),
-                ascii,
-            )
-        }
-    };
-    Outcome::Host(host.map(|h: ParsedHost| h.serialize()))
+/// Host parse then serialize: the serialized host, or `None` for failure.
+fn host_parse_serialize(input: &[u32], opaque: bool) -> Option<Vec<u32>> {
+    host_parser_full(input, opaque).map(|h: ParsedHost| h.serialize())
 }
 
 fn string(v: &[u32]) -> String {
@@ -227,51 +55,28 @@ fn scalars(s: &str) -> Vec<u32> {
     s.chars().map(u32::from).collect()
 }
 
-/// What one suite gives: the number of passes, the names of the cases
-/// that need IDNA, and the failures.
-fn evaluate(cases: &[Case]) -> (usize, Vec<&'static str>, Vec<String>) {
-    let mut failures = Vec::new();
-    let mut needs_idna = Vec::new();
-    let mut passed = 0usize;
-    for case in cases {
-        match host_parse_serialize(case.input, case.opaque) {
-            Outcome::NeedsIdna => needs_idna.push(case.name),
-            Outcome::Host(got) => {
-                if got.as_deref() == case.expected {
-                    passed = passed.saturating_add(1);
-                } else {
-                    failures.push(format!(
-                        "{}: got {:?}, expected {:?}",
-                        case.name,
-                        got.as_deref().map(string),
-                        case.expected.map(string)
-                    ));
-                }
-            }
-        }
-    }
-    (passed, needs_idna, failures)
-}
-
 /// Runs one suite and prints its summary line.
 fn run_suite(suite: &str, cases: &[Case]) {
-    let (passed, needs_idna, mut failures) = evaluate(cases);
-    let unlisted: Vec<&str> = needs_idna
-        .iter()
-        .filter(|n| !EXPECTED_FAILURES.contains(n))
-        .copied()
-        .collect();
-    let xfail = needs_idna.len().saturating_sub(unlisted.len());
-    for n in &unlisted {
-        failures.push(format!(
-            "{n:?}: needs IDNA, but is not listed in EXPECTED_FAILURES"
-        ));
+    let mut failures = Vec::new();
+    let mut passed = 0usize;
+    for case in cases {
+        let got = host_parse_serialize(case.input, case.opaque);
+        if got.as_deref() == case.expected {
+            passed = passed.saturating_add(1);
+        } else {
+            failures.push(format!(
+                "{}: got {:?}, expected {:?}",
+                case.name,
+                got.as_deref().map(string),
+                case.expected.map(string)
+            ));
+        }
     }
     // Summary line for the README table (unit: a case); format in
     // xtask/src/conformance.rs.
     println!(
-        "clazel-conformance: suite=\"{suite}\" pass={passed} xfail={xfail} fail={} total={}",
-        cases.len().saturating_sub(passed).saturating_sub(xfail),
+        "clazel-conformance: suite=\"{suite}\" pass={passed} xfail=0 fail={} total={}",
+        cases.len().saturating_sub(passed),
         cases.len()
     );
     assert!(failures.is_empty(), "{}", failures.join("\n"));
@@ -285,19 +90,6 @@ fn wpt_urltestdata_hosts() {
 #[test]
 fn wpt_toascii() {
     run_suite("WPT url/ toascii.json", TOASCII);
-}
-
-/// Every name in `EXPECTED_FAILURES` is a case that needs IDNA.
-#[test]
-fn expected_failures_are_current() {
-    let mut all = evaluate(URLTESTDATA).1;
-    all.extend(evaluate(TOASCII).1);
-    for name in EXPECTED_FAILURES {
-        assert!(
-            all.contains(name),
-            "{name}: listed in EXPECTED_FAILURES but does not need IDNA"
-        );
-    }
 }
 
 // ---------------------------------------------------------------------

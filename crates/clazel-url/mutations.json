@@ -740,6 +740,33 @@
         "lemma": "lemma_ipv4_serialize_parse(0x1020304nat)",
         "witness": "!(ipv4_parser(ipv4_serializer(0x1020304nat)) == Some(0x1020304nat))"
       }
+    },
+    {
+      "id": "url-domain-parser-identity",
+      "file": "src/host/contract.rs",
+      "find": "clazel_idna::uts46::spec::domain_parser(domain, be_strict)",
+      "replace": "Some(domain)",
+      "expect": "killed",
+      "reason": "Makes the domain parser the identity: \"A_B\" stays uppercase, where URL §3.3 step 5 lowercases an ASCII domain, so lemma_domain_examples is false.",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::domain_examples::lemma_domain_examples()",
+        "witness": "!(host_parser(seq![0x41u32, 0x5F, 0x42], false, super::contract::url_domain_parser()) == Some(Host::Domain(seq![0x61u32, 0x5F, 0x62])))"
+      }
+    },
+    {
+      "id": "host-step6-be-strict",
+      "file": "src/host/spec.rs",
+      "find": "let ascii_domain = domain_parser(domain, false);",
+      "replace": "let ascii_domain = domain_parser(domain, true);",
+      "expect": "killed",
+      "reason": "Host parser step 6 passes beStrict true: a domain parser that fails on true makes \"A_B\" fail, where the step passes false, so lemma_step6_be_strict_example is false (no Unicode table is evaluated).",
+      "certificate": {
+        "file": "src/host/lemmas.rs",
+        "lemma": "super::examples::lemma_step6_be_strict_example()",
+        "witness": "!(host_parser(seq![0x41u32, 0x5F, 0x42], false, |d: Seq<u32>, b: bool| if b { None::<Seq<u32>> } else { Some(d) }) == Some(Host::Domain(seq![0x41u32, 0x5F, 0x42])))"
+      },
+      "module": "host::examples"
     }
   ]
 }

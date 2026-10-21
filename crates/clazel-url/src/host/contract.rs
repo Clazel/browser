@@ -8,14 +8,15 @@
 //! an IPv6 address `[u16; 8]`; [`pieces_view`] maps the latter to the
 //! spec's `Seq<nat>`.
 //!
-//! **The host parser is two functions until item 1.8 lands.** Host parser
-//! step 6 runs the domain parser (URL §3.3), which `clazel-idna` will
-//! provide. `host_parser_start` runs steps 1 to 5: it either returns the
+//! **The host parser is two functions around the domain parser, and a third
+//! that joins them.** Host parser step 6 runs the domain parser (URL §3.3),
+//! which `clazel-idna` provides. `host_parser_start` runs steps 1 to 5: it either returns the
 //! host parser's result (the input is bracketed or opaque), or the string
 //! step 6 passes to the domain parser. `host_parser_finish` takes the
 //! domain parser's result and runs steps 7 to 9. Both contracts quantify
 //! over every possible domain parser, so they assume nothing about it; the
-//! full host parser is `start`, then the domain parser, then `finish`.
+//! full host parser is `start`, then the domain parser, then `finish`, which
+//! `host_parser_full` does with `clazel-idna`'s domain parser ([`url_domain_parser`]).
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -141,6 +142,25 @@ pub open spec fn host_parser_finish_requires(input: Seq<u32>, is_opaque: bool, d
 /// `ascii_domain` on `domain`, the host parser's result.
 pub open spec fn host_parser_finish_ensures(input: Seq<u32>, is_opaque: bool, domain: Seq<u32>, ascii_domain: Option<Seq<u32>>, output: Option<Host>) -> bool {
     forall|dp: DomainParser| dp(domain, false) == ascii_domain ==> #[trigger] host_parser(input, is_opaque, dp) == output
+}
+
+/// The URL §3.3 domain parser, `clazel-idna`'s `domain_parser`, as the
+/// [`DomainParser`] that host parser step 6 runs.
+pub open spec fn url_domain_parser() -> DomainParser {
+    |domain: Seq<u32>, be_strict: bool| clazel_idna::uts46::spec::domain_parser(domain, be_strict)
+}
+
+/// Precondition of `host_parser_full(&[u32], bool)`: the same as
+/// `host_parser_start`'s.
+pub open spec fn host_parser_full_requires(input: Seq<u32>, is_opaque: bool) -> bool {
+    host_parser_start_requires(input, is_opaque)
+}
+
+/// Contract for `host_parser_full(&[u32], bool) -> Option<ParsedHost>`: the
+/// whole host parser (steps 1 to 9), with step 6 running the real domain
+/// parser.
+pub open spec fn host_parser_full_ensures(input: Seq<u32>, is_opaque: bool, output: Option<Host>) -> bool {
+    output == host_parser(input, is_opaque, url_domain_parser())
 }
 
 /// Contract for `ipv4_serializer(u32) -> Vec<u32>`: the IPv4 serializer.

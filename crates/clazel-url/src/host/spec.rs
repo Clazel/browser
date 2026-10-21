@@ -20,14 +20,15 @@
 //!   `clazel-percent`'s spec, and "UTF-8 decode without BOM" (Encoding §6)
 //!   from `clazel-encoding`'s.
 //!
-//! **Waiting on item 1.8 (`clazel-idna`):** host parser step 6 runs the
-//! "domain parser" (URL §3.3), which runs UTS #46 "Unicode ToASCII".
-//! That algorithm is not transcribed here. [`host_parser`] takes it as a
-//! parameter, `domain_parser`, and every theorem and contract about the
-//! host parser holds *for every* `domain_parser` (it is universally
-//! quantified, never assumed to behave in any way). So nothing here
-//! depends on what the domain parser does; what is missing is only the
-//! domain parser itself. Not transcribed for the same reason: §3.3, §3.4
+//! **The domain parser is `clazel-idna`'s (item 1.8):** host parser step 6
+//! runs the "domain parser" (URL §3.3), which runs UTS #46 "Unicode
+//! ToASCII". That algorithm is not transcribed here. [`host_parser`] takes
+//! it as a parameter, `domain_parser`, and every theorem and contract about
+//! the host parser holds *for every* `domain_parser` (it is universally
+//! quantified, never assumed to behave in any way). The real one is
+//! `clazel_idna::uts46::spec::domain_parser`, which
+//! `contract::url_domain_parser` instantiates; the exec `host_parser_full`
+//! is proven to compute `host_parser` with it. Not transcribed here: §3.3, §3.4
 //! (valid host strings, which are defined through the domain parser), and
 //! §3.2's public suffix and registrable domain (the Public Suffix List).
 //!
@@ -289,7 +290,7 @@ pub open spec fn contains_forbidden_host_code_point_from(s: Seq<u32>, i: nat) ->
     i < s.len() && (is_forbidden_host_code_point(s[i as int]) || contains_forbidden_host_code_point_from(s, i + 1))
 }
 
-/// The domain parser (§3.3), which item 1.8 provides: given a scalar value
+/// The domain parser (§3.3), which `clazel-idna` (item 1.8) provides: given a scalar value
 /// string and beStrict, failure (`None`) or a domain. See the header.
 pub type DomainParser = spec_fn(Seq<u32>, bool) -> Option<Seq<u32>>;
 

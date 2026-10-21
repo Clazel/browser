@@ -617,8 +617,8 @@ pub proof fn lemma_ipv6_serialize_parse(a: Seq<nat>)
 
 /// URL §3's round trip for IP address hosts. An IPv6 host comes back for
 /// every domain parser and either isOpaque. An IPv4 host's serialization
-/// goes through the domain parser (host parser step 6), which item 1.8
-/// provides; for every domain parser that returns that serialization
+/// goes through the domain parser (host parser step 6), which
+/// `clazel-idna` provides; for every domain parser that returns that serialization
 /// unchanged (as URL §3.3 step 5 does for an ASCII string with no upper
 /// case), the host comes back.
 pub proof fn lemma_host_serialize_parse(host: Host, is_opaque: bool, domain_parser: DomainParser)
