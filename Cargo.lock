@@ -49,6 +49,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-origin"
+version = "0.0.0"
+dependencies = [
+ "clazel-encoding",
+ "clazel-psl",
+ "clazel-url",
+ "url",
+ "vstd",
+]
+
+[[package]]
 name = "clazel-percent"
 version = "0.0.0"
 dependencies = [
