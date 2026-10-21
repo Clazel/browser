@@ -33,6 +33,91 @@ fn encode_6_bit_group(group: u32) -> (c: u32)
     }
 }
 
+/// One full 24-bit group: appends its four characters to `out`.
+fn push_group_24(out: &mut Vec<u32>, a: u8, b: u8, c: u8)
+    ensures
+        ({
+            let group: nat = a as nat * 65536 + b as nat * 256 + c as nat;
+            final(out)@ == old(out)@ + seq![
+                super::spec::encode_6_bit_group(group / 262144),
+                super::spec::encode_6_bit_group(group / 4096),
+                super::spec::encode_6_bit_group(group / 64),
+                super::spec::encode_6_bit_group(group),
+            ]
+        }),
+{
+    let group = (a as u32).saturating_mul(65536)
+        .saturating_add((b as u32).saturating_mul(256))
+        .saturating_add(c as u32);
+    let ghost before = out@;
+    out.push(encode_6_bit_group(group / 262144));
+    out.push(encode_6_bit_group(group / 4096));
+    out.push(encode_6_bit_group(group / 64));
+    out.push(encode_6_bit_group(group));
+    assert(out@ =~= before + seq![
+        super::spec::encode_6_bit_group(group as nat / 262144),
+        super::spec::encode_6_bit_group(group as nat / 4096),
+        super::spec::encode_6_bit_group(group as nat / 64),
+        super::spec::encode_6_bit_group(group as nat),
+    ]);
+}
+
+/// Case (2), exactly 8 bits left: appends the final two characters and
+/// two pads to `out`.
+fn push_final_8(out: &mut Vec<u32>, a: u8)
+    ensures
+        ({
+            let group: nat = a as nat * 16;
+            final(out)@ == old(out)@ + seq![
+                super::spec::encode_6_bit_group(group / 64),
+                super::spec::encode_6_bit_group(group),
+                pad(),
+                pad(),
+            ]
+        }),
+{
+    let group = (a as u32).saturating_mul(16);
+    let ghost before = out@;
+    out.push(encode_6_bit_group(group / 64));
+    out.push(encode_6_bit_group(group));
+    out.push(0x3D);
+    out.push(0x3D);
+    assert(out@ =~= before + seq![
+        super::spec::encode_6_bit_group(group as nat / 64),
+        super::spec::encode_6_bit_group(group as nat),
+        pad(),
+        pad(),
+    ]);
+}
+
+/// Case (3), exactly 16 bits left: appends the final three characters and
+/// one pad to `out`.
+fn push_final_16(out: &mut Vec<u32>, a: u8, b: u8)
+    ensures
+        ({
+            let group: nat = (a as nat * 256 + b as nat) * 4;
+            final(out)@ == old(out)@ + seq![
+                super::spec::encode_6_bit_group(group / 4096),
+                super::spec::encode_6_bit_group(group / 64),
+                super::spec::encode_6_bit_group(group),
+                pad(),
+            ]
+        }),
+{
+    let group = (a as u32).saturating_mul(256).saturating_add(b as u32).saturating_mul(4);
+    let ghost before = out@;
+    out.push(encode_6_bit_group(group / 4096));
+    out.push(encode_6_bit_group(group / 64));
+    out.push(encode_6_bit_group(group));
+    out.push(0x3D);
+    assert(out@ =~= before + seq![
+        super::spec::encode_6_bit_group(group as nat / 4096),
+        super::spec::encode_6_bit_group(group as nat / 64),
+        super::spec::encode_6_bit_group(group as nat),
+        pad(),
+    ]);
+}
+
 /// "forgiving-base64 encode" (Infra §7), which is RFC 4648 §4.
 pub fn encode(input: &[u8]) -> (output: Vec<u32>)
     ensures
@@ -42,6 +127,9 @@ pub fn encode(input: &[u8]) -> (output: Vec<u32>)
     let mut out: Vec<u32> = Vec::new();
     let mut i: usize = 0;
     assert(out@ + expected =~= expected);
+    // Each branch's arithmetic is proven in its own helper above, so the
+    // loop body only joins sequences (it exceeded the default rlimit on
+    // Linux x86-64 when the arithmetic was inline).
     loop
         invariant
             i <= input.len(),
@@ -60,40 +148,23 @@ pub fn encode(input: &[u8]) -> (output: Vec<u32>)
             },
             Some(&a) => match input.get(i1) {
                 None => {
-                    // (2): exactly 8 bits left.
-                    let group = (a as u32).saturating_mul(16);
                     let ghost before = out@;
-                    out.push(encode_6_bit_group(group / 64));
-                    out.push(encode_6_bit_group(group));
-                    out.push(0x3D);
-                    out.push(0x3D);
+                    push_final_8(&mut out, a);
                     assert(out@ =~= before + encode_from(input@, i as nat));
                     assert(out@ + seq![] =~= out@);
                     return out;
                 },
                 Some(&b) => match input.get(i2) {
                     None => {
-                        // (3): exactly 16 bits left.
-                        let group = (a as u32).saturating_mul(256).saturating_add(b as u32).saturating_mul(4);
                         let ghost before = out@;
-                        out.push(encode_6_bit_group(group / 4096));
-                        out.push(encode_6_bit_group(group / 64));
-                        out.push(encode_6_bit_group(group));
-                        out.push(0x3D);
+                        push_final_16(&mut out, a, b);
                         assert(out@ =~= before + encode_from(input@, i as nat));
                         assert(out@ + seq![] =~= out@);
                         return out;
                     },
                     Some(&c) => {
-                        // A full 24-bit group.
-                        let group = (a as u32).saturating_mul(65536)
-                            .saturating_add((b as u32).saturating_mul(256))
-                            .saturating_add(c as u32);
                         let ghost before = out@;
-                        out.push(encode_6_bit_group(group / 262144));
-                        out.push(encode_6_bit_group(group / 4096));
-                        out.push(encode_6_bit_group(group / 64));
-                        out.push(encode_6_bit_group(group));
+                        push_group_24(&mut out, a, b, c);
                         // Never saturates: i + 2 < input.len().
                         i = i.saturating_add(3);
                         assert(before + encode_from(input@, (i - 3) as nat)
