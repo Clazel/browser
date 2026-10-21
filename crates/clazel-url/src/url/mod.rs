@@ -5,3 +5,4 @@
 //!   function per parser state.
 
 pub mod spec;
+pub mod termination;

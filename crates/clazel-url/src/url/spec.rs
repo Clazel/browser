@@ -1429,4 +1429,308 @@ pub open spec fn opaque_path_state(ctx: Ctx, m: Machine) -> Step {
     }
 }
 
+// ---------------------------------------------------------------------
+// §4.4 states: query and fragment.
+// ---------------------------------------------------------------------
+
+/// "query state" (<https://url.spec.whatwg.org/#query-state>)
+pub open spec fn query_state(ctx: Ctx, m: Machine) -> Step {
+    // 1. "If encoding is not UTF-8 and one of the following is true: url is
+    //    not special; url's scheme is "ws" or "wss", then set encoding to
+    //    UTF-8." (encoding is always UTF-8; see the header)
+    if (ctx.state_override is None && c_is(ctx, m, 0x23)) || c_is_eof(ctx, m) {
+        // 2. "If one of the following is true: state override is not given
+        //    and c is U+0023 (#); c is the EOF code point, then:"
+        // 2.1 "Let queryPercentEncodeSet be the special-query percent-encode
+        //     set if url is special; otherwise the query percent-encode
+        //     set."
+        let query_percent_encode_set = if is_special(m.url) {
+            clazel_percent::spec::PercentEncodeSet::SpecialQuery
+        } else {
+            clazel_percent::spec::PercentEncodeSet::Query
+        };
+        // 2.2 "Percent-encode after encoding, with encoding, buffer, and
+        //     queryPercentEncodeSet, and append the result to url's query."
+        let url = Url {
+            query: query_append(
+                m.url.query,
+                clazel_percent::spec::percent_encode_after_encoding_utf8(m.buffer, query_percent_encode_set),
+            ),
+            ..m.url
+        };
+        // 2.3 "Set buffer to the empty string."
+        let m = Machine { url: url, buffer: seq![], ..m };
+        if c_is(ctx, m, 0x23) {
+            // 2.4 "If c is U+0023 (#), then set url's fragment to the empty
+            //     string and state to fragment state."
+            Step::Continue(Machine { url: Url { fragment: Some(seq![]), ..url }, state: State::Fragment, ..m })
+        } else {
+            Step::Continue(m)
+        }
+    } else if !c_is_eof(ctx, m) {
+        // 3. "Otherwise, if c is not the EOF code point:"
+        // 3.1 "If c is not a URL code point and not U+0025 (%),
+        //     invalid-URL-unit validation error." (validation error only)
+        // 3.2 "If c is U+0025 (%) and remaining does not start with two ASCII
+        //     hex digits, invalid-URL-unit validation error." (validation
+        //     error only)
+        // 3.3 "Append c to buffer."
+        Step::Continue(Machine { buffer: m.buffer.push(c_of(ctx, m)), ..m })
+    } else {
+        Step::Continue(m)
+    }
+}
+
+/// "fragment state" (<https://url.spec.whatwg.org/#fragment-state>)
+pub open spec fn fragment_state(ctx: Ctx, m: Machine) -> Step {
+    if !c_is_eof(ctx, m) {
+        // 1. "If c is not the EOF code point, then:"
+        // 1.1 "If c is not a URL code point and not U+0025 (%),
+        //     invalid-URL-unit validation error." (validation error only)
+        // 1.2 "If c is U+0025 (%) and remaining does not start with two ASCII
+        //     hex digits, invalid-URL-unit validation error." (validation
+        //     error only)
+        // 1.3 "UTF-8 percent-encode c using the fragment percent-encode set
+        //     and append the result to url's fragment."
+        Step::Continue(
+            Machine {
+                url: Url {
+                    fragment: fragment_append(
+                        m.url.fragment,
+                        clazel_percent::spec::utf8_percent_encode_code_point(
+                            c_of(ctx, m),
+                            clazel_percent::spec::PercentEncodeSet::Fragment,
+                        ),
+                    ),
+                    ..m.url
+                },
+                ..m
+            },
+        )
+    } else {
+        Step::Continue(m)
+    }
+}
+
+// ---------------------------------------------------------------------
+// §4.4 The basic URL parser.
+// ---------------------------------------------------------------------
+
+/// Step 9, "switching on state": one run of the state machine.
+pub open spec fn state_step(ctx: Ctx, m: Machine) -> Step {
+    match m.state {
+        State::SchemeStart => scheme_start_state(ctx, m),
+        State::Scheme => scheme_state(ctx, m),
+        State::NoScheme => no_scheme_state(ctx, m),
+        State::SpecialRelativeOrAuthority => special_relative_or_authority_state(ctx, m),
+        State::PathOrAuthority => path_or_authority_state(ctx, m),
+        State::Relative => relative_state(ctx, m),
+        State::RelativeSlash => relative_slash_state(ctx, m),
+        State::SpecialAuthoritySlashes => special_authority_slashes_state(ctx, m),
+        State::SpecialAuthorityIgnoreSlashes => special_authority_ignore_slashes_state(ctx, m),
+        State::Authority => authority_state(ctx, m),
+        State::Host => host_state(ctx, m),
+        State::Hostname => host_state(ctx, m),
+        State::Port => port_state(ctx, m),
+        State::File => file_state(ctx, m),
+        State::FileSlash => file_slash_state(ctx, m),
+        State::FileHost => file_host_state(ctx, m),
+        State::PathStart => path_start_state(ctx, m),
+        State::Path => path_state(ctx, m),
+        State::OpaquePath => opaque_path_state(ctx, m),
+        State::Query => query_state(ctx, m),
+        State::Fragment => fragment_state(ctx, m),
+    }
+}
+
+/// Step 9: "Keep running the following state machine by switching on
+/// state. If after a run pointer points to the EOF code point, go to the
+/// next step. Otherwise, increase pointer by 1 and continue with the state
+/// machine." Then step 10, "Return url." `None` is failure.
+pub open spec fn run(ctx: Ctx, m: Machine) -> Option<Url>
+    decreases super::termination::phase(m.state), super::termination::pointer_measure(
+        ctx.input.len(),
+        m.pointer,
+    ), super::termination::rank(m.state) via run_decreases
+{
+    match state_step(ctx, m) {
+        Step::Failure => None,
+        Step::Return(url) => Some(url),
+        Step::Continue(next) => if next.pointer >= ctx.input.len() {
+            // 10. "Return url."
+            Some(next.url)
+        } else {
+            run(ctx, Machine { pointer: next.pointer + 1, ..next })
+        },
+    }
+}
+
+/// Termination of [`run`]: every run lowers the measure in
+/// `termination.rs`.
+#[via_fn]
+pub proof fn run_decreases(ctx: Ctx, m: Machine) {
+    super::termination::lemma_state_step_measure(ctx, m);
+}
+
+/// "The basic URL parser takes a scalar value string input, with an
+/// optional null or base URL base (default null), an optional encoding
+/// encoding (default UTF-8), an optional URL url, and an optional state
+/// override state override" (<https://url.spec.whatwg.org/#concept-basic-url-parser>);
+/// encoding is UTF-8 (see the header). `None` is failure; with a state
+/// override, the result is the modified url (see the header).
+pub open spec fn basic_url_parser_with(input: Seq<u32>, base: Option<Url>, url: Option<Url>, state_override: Option<State>, domain_parser: crate::host::spec::DomainParser) -> Option<Url> {
+    // 1. "If url is not given:"
+    let (url, input) = match url {
+        None => {
+            // 1.1 "Set url to a new URL."
+            // 1.2 "If input contains any leading or trailing C0 control or
+            //     space, invalid-URL-unit validation error." (validation
+            //     error only)
+            // 1.3 "Remove any leading and trailing C0 control or space from
+            //     input."
+            (new_url(), strip_trailing_c0_control_or_space(strip_leading_c0_control_or_space(input)))
+        },
+        Some(url) => (url, input),
+    };
+    // 2. "If input contains any ASCII tab or newline, invalid-URL-unit
+    //    validation error." (validation error only)
+    // 3. "Remove all ASCII tab or newline from input."
+    let input = remove_ascii_tab_or_newline(input);
+    // 4. "Let state be state override if given, or scheme start state
+    //    otherwise."
+    let state = match state_override {
+        Some(s) => s,
+        None => State::SchemeStart,
+    };
+    // 5. "Set encoding to the result of getting an output encoding from
+    //    encoding." (UTF-8)
+    // 6. "Let buffer be the empty string."
+    // 7. "Let atSignSeen, insideBrackets, and passwordTokenSeen be false."
+    // 8. "Let pointer be a pointer for input."
+    let ctx = Ctx { input: input, base: base, state_override: state_override, domain_parser: domain_parser };
+    // 9. "Keep running the following state machine [...]"
+    // 10. "Return url."
+    run(
+        ctx,
+        Machine {
+            url: url,
+            state: state,
+            buffer: seq![],
+            at_sign_seen: false,
+            inside_brackets: false,
+            password_token_seen: false,
+            pointer: 0,
+        },
+    )
+}
+
+/// The basic URL parser on `input` with `base`, with no url and no state
+/// override: what parsing a string means (item 1.10's entry point).
+pub open spec fn basic_url_parser(input: Seq<u32>, base: Option<Url>, domain_parser: crate::host::spec::DomainParser) -> Option<Url> {
+    basic_url_parser_with(input, base, None, None, domain_parser)
+}
+
+// ---------------------------------------------------------------------
+// §4.5 URL serializing.
+// ---------------------------------------------------------------------
+
+/// URL path serializer step 4, "For each segment of path: append U+002F
+/// (/) followed by segment to output": the output for `path`, built from
+/// its first segment to its last.
+pub open spec fn serialize_segments(path: Seq<Seq<u32>>) -> Seq<u32>
+    decreases path.len()
+{
+    if path.len() == 0 {
+        seq![]
+    } else {
+        serialize_segments(path.drop_last()) + seq![0x2Fu32] + path.last()
+    }
+}
+
+/// "The URL path serializer takes a URL or URL path urlOrPath and then
+/// runs these steps. They return an ASCII string."
+/// (<https://url.spec.whatwg.org/#url-path-serializer>)
+pub open spec fn url_path_serializer(path: UrlPath) -> Seq<u32> {
+    // 1. "Let path be urlOrPath's path if urlOrPath is a URL; otherwise
+    //    urlOrPath." (callers pass the path)
+    match path {
+        // 2. "If path is a URL path segment, then return path."
+        UrlPath::Opaque(s) => s,
+        // 3. "Let output be the empty string."
+        // 4. "For each segment of path: append U+002F (/) followed by
+        //    segment to output."
+        // 5. "Return output."
+        UrlPath::List(l) => serialize_segments(l),
+    }
+}
+
+/// "The URL serializer takes a URL url, with an optional boolean exclude
+/// fragment (default false), and then runs these steps. They return an
+/// ASCII string." (<https://url.spec.whatwg.org/#concept-url-serializer>)
+pub open spec fn url_serializer(url: Url, exclude_fragment: bool) -> Seq<u32> {
+    // 1. "Let output be url's scheme and U+003A (:) concatenated."
+    let output = url.scheme + seq![0x3Au32];
+    // 2. "If url's host is non-null:"
+    let output = match url.host {
+        Some(host) => {
+            // 2.1 "Append "//" to output."
+            let output = output + seq![0x2Fu32, 0x2F];
+            // 2.2 "If url includes credentials, then:"
+            let output = if includes_credentials(url) {
+                // 2.2.1 "Append url's username to output."
+                let output = output + url.username;
+                // 2.2.2 "If url's password is not the empty string, then
+                //       append U+003A (:), followed by url's password, to
+                //       output."
+                let output = if url.password.len() > 0 {
+                    output + seq![0x3Au32] + url.password
+                } else {
+                    output
+                };
+                // 2.2.3 "Append U+0040 (@) to output."
+                output + seq![0x40u32]
+            } else {
+                output
+            };
+            // 2.3 "Append url's host, serialized, to output."
+            let output = output + crate::host::spec::host_serializer(host);
+            // 2.4 "If url's port is non-null, append U+003A (:) followed by
+            //     url's port, serialized, to output."
+            match url.port {
+                Some(port) => output + seq![0x3Au32] + crate::host::spec::serialize_integer(port),
+                None => output,
+            }
+        },
+        None => output,
+    };
+    // 3. "If url's host is null, url does not have an opaque path, url's
+    //    path's size is greater than 1, and url's path[0] is the empty
+    //    string, then append U+002F (/) followed by U+002E (.) to output."
+    let output = if url.host is None && (url.path matches UrlPath::List(p) && p.len() > 1 && p[0].len() == 0) {
+        output + seq![0x2Fu32, 0x2E]
+    } else {
+        output
+    };
+    // 4. "Append the result of URL path serializing url to output."
+    let output = output + url_path_serializer(url.path);
+    // 5. "If url's query is non-null, append U+003F (?), followed by url's
+    //    query, to output."
+    let output = match url.query {
+        Some(query) => output + seq![0x3Fu32] + query,
+        None => output,
+    };
+    // 6. "If exclude fragment is false and url's fragment is non-null, then
+    //    append U+0023 (#), followed by url's fragment, to output."
+    let output = match url.fragment {
+        Some(fragment) => if !exclude_fragment {
+            output + seq![0x23u32] + fragment
+        } else {
+            output
+        },
+        None => output,
+    };
+    // 7. "Return output."
+    output
+}
+
 } // verus!
