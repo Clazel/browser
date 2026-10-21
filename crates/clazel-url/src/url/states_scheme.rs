@@ -7,9 +7,9 @@ use super::record::{
     ParsedPath, ParsedUrl, clone_opt_str, clone_path, default_port_exec, eq_str, is_file,
     is_special_scheme_exec,
 };
-use crate::host::record::ParsedHost;
 #[allow(unused_imports)]
 use super::spec::*;
+use crate::host::record::ParsedHost;
 use crate::host::record::copy;
 #[allow(unused_imports)]
 use vstd::prelude::*;
