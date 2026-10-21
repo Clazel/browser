@@ -40,6 +40,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-ipc"
+version = "0.0.0"
+dependencies = [
+ "clazel-encoding",
+ "vstd",
+]
+
+[[package]]
 name = "clazel-mime"
 version = "0.0.0"
 dependencies = [

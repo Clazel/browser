@@ -1,0 +1,27 @@
+[package]
+name = "clazel-ipc"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "IPC wire format: a deterministic CBOR profile (RFC 8949 §3, §4.2.1), frames and the message schema."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# Text strings must be valid UTF-8 (RFC 8949 §3.1 major type 3); the spec
+# uses clazel-encoding's fatal UTF-8 decoder, and so will the codec, rather
+# than a second copy.
+clazel-encoding = { path = "../clazel-encoding" }
+
+# Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
+# the shipped code today; `target-tier` is what the policy requires. Tier 0
+# until the codec is proven against its contracts (phase-2.md item 2.2).
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
