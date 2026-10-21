@@ -5,8 +5,6 @@
 #[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
-use crate::cbor::spec::*;
-#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
@@ -124,6 +122,14 @@ pub proof fn lemma_reject_wrong_direction()
 {
     assert(decode_renderer_message(seq![0x82u8, 0x18, 0x69, 0x05]) is None) by (compute_only);
     assert(decode_renderer_message(seq![0x81u8, 0x01]) == Some(Message::CookieGet)) by (compute_only);
+}
+
+/// The kernel's decoder accepts a renderer-to-kernel message: `Navigate`.
+pub proof fn lemma_example_renderer_navigate()
+    ensures
+        decode_renderer_message(seq![0x82u8, 0x09, 0x61, 0x78]) == Some(Message::Navigate { url: seq![0x78u8] }),
+{
+    assert(decode_renderer_message(seq![0x82u8, 0x09, 0x61, 0x78]) == Some(Message::Navigate { url: seq![0x78u8] })) by (compute_only);
 }
 
 /// A frame: length 2, then `CookieGet`.

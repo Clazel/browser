@@ -44,11 +44,27 @@
 //! - "Failure" is `None`.
 
 #[allow(unused_imports)]
-use crate::cbor::spec::*;
-#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
+
+/// The CBOR profile's token, as this schema uses it.
+pub type Token = crate::cbor::spec::Token;
+
+/// [`crate::cbor::spec::decode`].
+pub open spec fn decode(b: Seq<u8>) -> Option<Seq<Token>> {
+    crate::cbor::spec::decode(b)
+}
+
+/// [`crate::cbor::spec::encode`].
+pub open spec fn encode(t: Seq<Token>) -> Seq<u8> {
+    crate::cbor::spec::encode(t)
+}
+
+/// [`crate::cbor::spec::is_item`].
+pub open spec fn is_item(t: Seq<Token>) -> bool {
+    crate::cbor::spec::is_item(t)
+}
 
 /// A message, in either direction.
 pub enum Message {

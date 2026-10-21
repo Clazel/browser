@@ -15,11 +15,19 @@
 //! - "Failure" is `None`.
 
 #[allow(unused_imports)]
-use crate::cbor::spec::*;
-#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
+
+/// [`crate::cbor::spec::be_value`].
+pub open spec fn be_value(s: Seq<u8>) -> nat {
+    crate::cbor::spec::be_value(s)
+}
+
+/// [`crate::cbor::spec::be_bytes`].
+pub open spec fn be_bytes(value: nat, width: nat) -> Seq<u8> {
+    crate::cbor::spec::be_bytes(value, width)
+}
 
 /// The largest payload a frame may carry: 1 MiB.
 pub const MAX_FRAME: usize = 1_048_576;

@@ -636,6 +636,266 @@
         "lemma": "lemma_decode_encode(seq![Token::Uint(65536)])",
         "witness": "is_item(seq![Token::Uint(65536)]) && decode(encode(seq![Token::Uint(65536)])) != Some(seq![Token::Uint(65536)])"
       }
+    },
+    {
+      "id": "msg-cookie-set-tag",
+      "file": "src/message/spec.rs",
+      "find": "seq![Token::Array(2), Token::Uint(2), Token::Text(cookie_string)]",
+      "replace": "seq![Token::Array(2), Token::Uint(3), Token::Text(cookie_string)]",
+      "expect": "killed",
+      "reason": "CookieSet is written with StorageGetItem's tag: it decodes as another message, so lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::CookieSet { cookie_string: seq![0x61u8] })",
+        "witness": "message_ok(Message::CookieSet { cookie_string: seq![0x61u8] }) && decode_message(encode_message(Message::CookieSet { cookie_string: seq![0x61u8] })) != Some(Message::CookieSet { cookie_string: seq![0x61u8] })"
+      }
+    },
+    {
+      "id": "msg-parse-tag",
+      "file": "src/message/spec.rs",
+      "find": "} else if tag == 3 {",
+      "replace": "} else if tag == 33 {",
+      "expect": "killed",
+      "reason": "The parser reads StorageGetItem under tag 33: lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::StorageGetItem { key: seq![0x61u8] })",
+        "witness": "message_ok(Message::StorageGetItem { key: seq![0x61u8] }) && decode_message(encode_message(Message::StorageGetItem { key: seq![0x61u8] })) != Some(Message::StorageGetItem { key: seq![0x61u8] })"
+      }
+    },
+    {
+      "id": "msg-parse-first-tag",
+      "file": "src/message/spec.rs",
+      "find": "if tag == 1 {",
+      "replace": "if tag == 6 {",
+      "expect": "killed",
+      "reason": "The parser reads CookieGet under tag 6: lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::CookieGet)",
+        "witness": "message_ok(Message::CookieGet) && decode_message(encode_message(Message::CookieGet)) != Some(Message::CookieGet)"
+      }
+    },
+    {
+      "id": "msg-array-count",
+      "file": "src/message/spec.rs",
+      "find": "Message::StorageSetItem { key, value } => seq![Token::Array(3),",
+      "replace": "Message::StorageSetItem { key, value } => seq![Token::Array(2),",
+      "expect": "killed",
+      "reason": "StorageSetItem's array announces two elements, not three: its bytes are 82 04 61 6B 61 76, which is not even one item, so lemma_example_storage_set_item is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "super::examples::lemma_example_storage_set_item()",
+        "witness": "encode_message(Message::StorageSetItem { key: seq![0x6Bu8], value: seq![0x76u8] }) != seq![0x83u8, 0x04, 0x61, 0x6B, 0x61, 0x76]"
+      }
+    },
+    {
+      "id": "msg-present-flag",
+      "file": "src/message/spec.rs",
+      "find": "Some(v) => seq![Token::Array(3), Token::Uint(103), Token::Bool(true), Token::Text(v)],",
+      "replace": "Some(v) => seq![Token::Array(3), Token::Uint(103), Token::Bool(false), Token::Text(v)],",
+      "expect": "killed",
+      "reason": "A present storage value is written with present = false: lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::StorageValue { value: Some(seq![0x61u8]) })",
+        "witness": "message_ok(Message::StorageValue { value: Some(seq![0x61u8]) }) && decode_message(encode_message(Message::StorageValue { value: Some(seq![0x61u8]) })) != Some(Message::StorageValue { value: Some(seq![0x61u8]) })"
+      }
+    },
+    {
+      "id": "msg-key-index",
+      "file": "src/message/spec.rs",
+      "find": "Token::Uint(7), Token::Uint(index)]",
+      "replace": "Token::Uint(7), Token::Uint(0)]",
+      "expect": "killed",
+      "reason": "The index is dropped: lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::StorageKey { index: 5 })",
+        "witness": "message_ok(Message::StorageKey { index: 5 }) && decode_message(encode_message(Message::StorageKey { index: 5 })) != Some(Message::StorageKey { index: 5 })"
+      }
+    },
+    {
+      "id": "msg-error-tag",
+      "file": "src/message/spec.rs",
+      "find": "Token::Uint(105), Token::Uint(code)]",
+      "replace": "Token::Uint(104), Token::Uint(code)]",
+      "expect": "killed",
+      "reason": "Error is written with StorageLengthValue's tag: lemma_decode_encode_message is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_decode_encode_message(Message::Error { code: 5 })",
+        "witness": "message_ok(Message::Error { code: 5 }) && decode_message(encode_message(Message::Error { code: 5 })) != Some(Message::Error { code: 5 })"
+      }
+    },
+    {
+      "id": "dir-navigate-not-renderer",
+      "file": "src/message/spec.rs",
+      "find": "| Message::StorageLength\n        | Message::Navigate { .. } => true,",
+      "replace": "| Message::StorageLength => true,",
+      "expect": "killed",
+      "reason": "Navigate is not counted as a renderer message: the kernel rejects it, so lemma_example_renderer_navigate is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "super::examples::lemma_example_renderer_navigate()",
+        "witness": "decode_renderer_message(seq![0x82u8, 0x09, 0x61, 0x78]) != Some(Message::Navigate { url: seq![0x78u8] })"
+      }
+    },
+    {
+      "id": "dir-error-from-renderer",
+      "file": "src/message/spec.rs",
+      "find": "        _ => false,\n    }\n}\n\n/// The kind of each field",
+      "replace": "        _ => true,\n    }\n}\n\n/// The kind of each field",
+      "expect": "killed",
+      "reason": "Every message counts as renderer-to-kernel: the kernel accepts Error from a renderer, so lemma_reject_wrong_direction is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_wrong_direction()",
+        "witness": "decode_renderer_message(seq![0x82u8, 0x18, 0x69, 0x05]) is Some"
+      }
+    },
+    {
+      "id": "dir-filter-removed",
+      "file": "src/message/spec.rs",
+      "find": "if is_from_renderer(m) { Some(m) } else { None }",
+      "replace": "Some(m)",
+      "expect": "killed",
+      "reason": "The kernel's decoder does not check the direction: lemma_reject_wrong_direction is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_wrong_direction()",
+        "witness": "decode_renderer_message(seq![0x82u8, 0x18, 0x69, 0x05]) is Some"
+      }
+    },
+    {
+      "id": "identity-cookie-get",
+      "file": "src/message/spec.rs",
+      "find": "Message::CookieGet => seq![],\n",
+      "replace": "Message::CookieGet => seq![Field::RendererId],\n",
+      "expect": "killed",
+      "reason": "CookieGet carries a renderer id: lemma_no_identity_fields (schema rules 1 and 2) is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_no_identity_fields(Message::CookieGet)",
+        "witness": "message_fields(Message::CookieGet).len() == 1 && is_identity(message_fields(Message::CookieGet)[0])"
+      }
+    },
+    {
+      "id": "identity-navigate-sender",
+      "file": "src/message/spec.rs",
+      "find": "Message::Navigate { .. } => seq![Field::Url],",
+      "replace": "Message::Navigate { .. } => seq![Field::Url, Field::SenderUrl],",
+      "expect": "killed",
+      "reason": "Navigate carries the sender's URL: lemma_no_identity_fields is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_no_identity_fields(Message::Navigate { url: seq![0x61u8] })",
+        "witness": "message_fields(Message::Navigate { url: seq![0x61u8] }).len() == 2 && is_identity(message_fields(Message::Navigate { url: seq![0x61u8] })[1])"
+      }
+    },
+    {
+      "id": "identity-commit-origin",
+      "file": "src/message/spec.rs",
+      "find": "Message::Commit { .. } => seq![Field::Url, Field::Script],",
+      "replace": "Message::Commit { .. } => seq![Field::Url, Field::Script, Field::Origin],",
+      "expect": "killed",
+      "reason": "Commit carries an origin: lemma_no_identity_fields is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_no_identity_fields(Message::Commit { url: seq![0x61u8], script: seq![0x62u8] })",
+        "witness": "message_fields(Message::Commit { url: seq![0x61u8], script: seq![0x62u8] }).len() == 3 && is_identity(message_fields(Message::Commit { url: seq![0x61u8], script: seq![0x62u8] })[2])"
+      }
+    },
+    {
+      "id": "identity-cookie-value-renderer-id",
+      "file": "src/message/spec.rs",
+      "find": "Message::CookieValue { .. } => seq![Field::CookieString],",
+      "replace": "Message::CookieValue { .. } => seq![Field::CookieString, Field::RendererId],",
+      "expect": "killed",
+      "reason": "A kernel-to-renderer message shows a renderer id: lemma_no_identity_fields (rule 2) is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_no_identity_fields(Message::CookieValue { cookie_string: seq![0x61u8] })",
+        "witness": "message_fields(Message::CookieValue { cookie_string: seq![0x61u8] }).len() == 2 && is_identity(message_fields(Message::CookieValue { cookie_string: seq![0x61u8] })[1])"
+      }
+    },
+    {
+      "id": "fields-arity",
+      "file": "src/message/spec.rs",
+      "find": "Message::StorageSetItem { .. } => seq![Field::Key, Field::Value],",
+      "replace": "Message::StorageSetItem { .. } => seq![Field::Key],",
+      "expect": "killed",
+      "reason": "The field table lists one field for a message with two on the wire: lemma_fields_match_tokens is false.",
+      "certificate": {
+        "file": "src/message/lemmas.rs",
+        "lemma": "lemma_fields_match_tokens(Message::StorageSetItem { key: seq![0x61u8], value: seq![0x62u8] })",
+        "witness": "message_tokens(Message::StorageSetItem { key: seq![0x61u8], value: seq![0x62u8] }).len() != 2 + message_fields(Message::StorageSetItem { key: seq![0x61u8], value: seq![0x62u8] }).len()"
+      }
+    },
+    {
+      "id": "frame-limit-strict",
+      "file": "src/frame/spec.rs",
+      "find": "be_value(header) <= MAX_FRAME as nat",
+      "replace": "be_value(header) < MAX_FRAME as nat",
+      "expect": "killed",
+      "reason": "A header announcing exactly 1 MiB is refused: lemma_example_limit is false.",
+      "certificate": {
+        "file": "src/frame/lemmas.rs",
+        "lemma": "super::examples::lemma_example_limit()",
+        "witness": "payload_length(seq![0x00u8, 0x10, 0x00, 0x00]) != Some(1048576nat)"
+      }
+    },
+    {
+      "id": "frame-limit-value",
+      "file": "src/frame/spec.rs",
+      "find": "pub const MAX_FRAME: usize = 1_048_576;",
+      "replace": "pub const MAX_FRAME: usize = 2_097_152;",
+      "expect": "killed",
+      "reason": "The limit is 2 MiB: a header announcing 1 MiB + 1 is accepted, so lemma_example_limit is false.",
+      "certificate": {
+        "file": "src/frame/lemmas.rs",
+        "lemma": "super::examples::lemma_example_limit()",
+        "witness": "payload_length(seq![0x00u8, 0x10, 0x00, 0x01]) is Some"
+      }
+    },
+    {
+      "id": "frame-trailing-bytes",
+      "file": "src/frame/spec.rs",
+      "find": "if frame.len() == 4 + len {",
+      "replace": "if frame.len() >= 4 + len {",
+      "expect": "killed",
+      "reason": "Bytes after the payload are ignored: lemma_reject_frame_length is false.",
+      "certificate": {
+        "file": "src/frame/lemmas.rs",
+        "lemma": "super::examples::lemma_reject_frame_length()",
+        "witness": "decode_frame(seq![0x00u8, 0x00, 0x00, 0x00, 0x01]) is Some"
+      }
+    },
+    {
+      "id": "frame-header-width",
+      "file": "src/frame/spec.rs",
+      "find": "be_bytes(payload.len(), 4) + payload",
+      "replace": "be_bytes(payload.len(), 2) + payload",
+      "expect": "killed",
+      "reason": "The length is written in 2 bytes: the frame is not read back, so lemma_decode_encode_frame is false.",
+      "certificate": {
+        "file": "src/frame/lemmas.rs",
+        "lemma": "lemma_decode_encode_frame(seq![0x01u8, 0x02, 0x03])",
+        "witness": "payload_ok(seq![0x01u8, 0x02, 0x03]) && decode_frame(encode_frame(seq![0x01u8, 0x02, 0x03])) != Some(seq![0x01u8, 0x02, 0x03])"
+      }
+    },
+    {
+      "id": "frame-payload-offset",
+      "file": "src/frame/spec.rs",
+      "find": "Some(frame.subrange(4, frame.len() as int))",
+      "replace": "Some(frame.subrange(3, frame.len() as int))",
+      "expect": "killed",
+      "reason": "The payload starts one byte early: lemma_decode_encode_frame is false.",
+      "certificate": {
+        "file": "src/frame/lemmas.rs",
+        "lemma": "lemma_decode_encode_frame(seq![0x01u8, 0x02, 0x03])",
+        "witness": "payload_ok(seq![0x01u8, 0x02, 0x03]) && decode_frame(encode_frame(seq![0x01u8, 0x02, 0x03])) != Some(seq![0x01u8, 0x02, 0x03])"
+      }
     }
   ]
 }
