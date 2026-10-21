@@ -86,49 +86,50 @@ fn prepare(input: &[u32]) -> (out: Vec<u32>)
 }
 
 /// One run of the state machine: "switching on state".
-fn state_step_exec(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+fn state_step_exec(input: &[u32], base: Option<&ParsedUrl>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@),
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), state_step(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), state_step(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), *so), old(m)@), old(m)@, final(m)@, flow),
 {
     proof {
         reveal(state_step);
     }
     match m.state {
-        State::SchemeStart => super::states_scheme::scheme_start_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Scheme => super::states_scheme::scheme_state(input, base, m),
-        State::NoScheme => super::states_scheme::no_scheme_state(input, base, m),
-        State::SpecialRelativeOrAuthority => super::states_authority::special_relative_or_authority_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::PathOrAuthority => super::states_authority::path_or_authority_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Relative => super::states_authority::relative_state(input, base, m),
-        State::RelativeSlash => super::states_authority::relative_slash_state(input, base, m),
-        State::SpecialAuthoritySlashes => super::states_authority::special_authority_slashes_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::SpecialAuthorityIgnoreSlashes => super::states_authority::special_authority_ignore_slashes_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Authority => super::states_authority::authority_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Host => super::states_authority::host_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Hostname => super::states_authority::host_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Port => super::states_authority::port_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::File => super::states_authority::file_state(input, base, m),
-        State::FileSlash => super::states_authority::file_slash_state(input, base, m),
-        State::FileHost => super::states_authority::file_host_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::PathStart => super::states_path::path_start_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Path => super::states_path::path_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::OpaquePath => super::states_path::opaque_path_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Query => super::states_query::query_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
-        State::Fragment => super::states_query::fragment_state(input, Ghost(super::record::opt_ref_url_view(base)), m),
+        State::SchemeStart => super::states_scheme::scheme_start_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::Scheme => super::states_scheme::scheme_state(input, base, so, m),
+        State::NoScheme => super::states_scheme::no_scheme_state(input, base, Ghost(*so), m),
+        State::SpecialRelativeOrAuthority => super::states_authority::special_relative_or_authority_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::PathOrAuthority => super::states_authority::path_or_authority_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::Relative => super::states_authority::relative_state(input, base, Ghost(*so), m),
+        State::RelativeSlash => super::states_authority::relative_slash_state(input, base, Ghost(*so), m),
+        State::SpecialAuthoritySlashes => super::states_authority::special_authority_slashes_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::SpecialAuthorityIgnoreSlashes => super::states_authority::special_authority_ignore_slashes_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::Authority => super::states_authority::authority_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::Host => super::states_authority::host_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::Hostname => super::states_authority::host_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::Port => super::states_authority::port_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::File => super::states_authority::file_state(input, base, Ghost(*so), m),
+        State::FileSlash => super::states_authority::file_slash_state(input, base, Ghost(*so), m),
+        State::FileHost => super::states_authority::file_host_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::PathStart => super::states_path::path_start_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::Path => super::states_path::path_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::OpaquePath => super::states_path::opaque_path_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
+        State::Query => super::states_query::query_state(input, Ghost(super::record::opt_ref_url_view(base)), so, m),
+        State::Fragment => super::states_query::fragment_state(input, Ghost(super::record::opt_ref_url_view(base)), Ghost(*so), m),
     }
 }
 
 /// What a run that [`flow_ok`] relates to `flow` and `after` means for the
-/// result of the state machine.
+/// result of the state machine, and for the url it leaves in place.
 proof fn lemma_run_flow(ctx: Ctx, m: Machine, after: Machine, flow: Flow)
     requires
-        super::machine::flow_ok(ctx, state_step(ctx, m), after, flow),
+        super::machine::flow_ok(ctx, state_step(ctx, m), m, after, flow),
     ensures
-        flow is Failure ==> run(ctx, m) is None,
-        flow is Stop ==> run(ctx, m) == Some(after.url),
-        flow is Next ==> run(ctx, m) == run(ctx, after),
+        flow is Failure ==> run(ctx, m) is None && run_in_place(ctx, m) == after.url,
+        flow is Return ==> run(ctx, m) == Some(after.url) && run_in_place(ctx, m) == after.url,
+        flow is Stop ==> run(ctx, m) == Some(after.url) && run_in_place(ctx, m) == after.url,
+        flow is Next ==> run(ctx, m) == run(ctx, after) && run_in_place(ctx, m) == run_in_place(ctx, after),
 {
 }
 
@@ -142,7 +143,8 @@ pub fn basic_url_parser(input: &[u32], base: Option<&ParsedUrl>) -> (output: Opt
 {
     // 1. to 3.
     let prepared = prepare(input);
-    let ghost ctx = super::machine::ctx_of(prepared@, super::record::opt_ref_url_view(base));
+    let so: Option<State> = None;
+    let ghost ctx = super::machine::ctx_of(prepared@, super::record::opt_ref_url_view(base), so);
     let ghost target = super::spec::basic_url_parser(input@, super::record::opt_ref_url_view(base), super::contract::url_domain_parser());
     // 4. to 8.
     let mut m = ExecMachine {
@@ -160,7 +162,8 @@ pub fn basic_url_parser(input: &[u32], base: Option<&ParsedUrl>) -> (output: Opt
     loop
         invariant
             super::machine::wf(ctx, m@),
-            ctx == super::machine::ctx_of(prepared@, super::record::opt_ref_url_view(base)),
+            ctx == super::machine::ctx_of(prepared@, super::record::opt_ref_url_view(base), so),
+            so is None,
             run(ctx, m@) == target,
             target == super::spec::basic_url_parser(input@, super::record::opt_ref_url_view(base), super::contract::url_domain_parser()),
         decreases super::termination::phase(m@.state), super::termination::pointer_measure(prepared@.len(), m@.pointer), super::termination::rank(m@.state),
@@ -169,15 +172,107 @@ pub fn basic_url_parser(input: &[u32], base: Option<&ParsedUrl>) -> (output: Opt
         proof {
             super::termination::lemma_state_step_measure(ctx, before);
         }
-        let flow = state_step_exec(prepared.as_slice(), base, &mut m);
+        let flow = state_step_exec(prepared.as_slice(), base, &so, &mut m);
         proof {
             lemma_run_flow(ctx, before, m@, flow);
         }
         match flow {
             Flow::Failure => return None,
             // 10.
-            Flow::Stop => return Some(m.url),
+            Flow::Stop | Flow::Return => return Some(m.url),
             Flow::Next => {},
+        }
+    }
+}
+
+/// Basic URL parser step 3: remove all ASCII tab or newline (step 1 is
+/// skipped when url is given).
+fn remove_tab_or_newline(input: &[u32]) -> (out: Vec<u32>)
+    requires
+        clazel_encoding::utf8::spec::all_scalar_values(input@),
+    ensures
+        out@ == remove_ascii_tab_or_newline(input@),
+        clazel_encoding::utf8::spec::all_scalar_values(out@),
+{
+    let n = input.len();
+    let mut out: Vec<u32> = Vec::new();
+    let mut k: usize = 0;
+    assert(input@.subrange(0, 0) =~= seq![]);
+    while k < n
+        invariant
+            k <= n,
+            n == input.len(),
+            clazel_encoding::utf8::spec::all_scalar_values(input@),
+            clazel_encoding::utf8::spec::all_scalar_values(out@),
+            out@ == remove_ascii_tab_or_newline(input@.subrange(0, k as int)),
+        decreases n - k,
+    {
+        let c = at32(input, k);
+        assert(input@.subrange(0, k + 1).drop_last() =~= input@.subrange(0, k as int));
+        assert(input@.subrange(0, k + 1).last() == c);
+        if !(c == 0x09 || c == 0x0A || c == 0x0D) {
+            out.push(c);
+            assert(clazel_encoding::utf8::spec::is_scalar_value(input@[k as int]));
+        }
+        // Never saturates: k is below a length.
+        k = k.saturating_add(1);
+    }
+    assert(input@.subrange(0, n as int) =~= input@);
+    out
+}
+
+/// The basic URL parser (URL §4.4) on `input` with no base, `url` as url
+/// and `state_override` as state override, leaving url as the parser
+/// leaves it (it is modified in place), as the URL API setters use it.
+pub fn basic_url_parse_in_place(input: &[u32], url: &mut ParsedUrl, state_override: State)
+    requires
+        super::contract::basic_url_parse_in_place_requires(input@),
+    ensures
+        super::contract::basic_url_parse_in_place_ensures(input@, old(url)@, state_override, final(url)@),
+{
+    // 1. (url is given) to 3.
+    let prepared = remove_tab_or_newline(input);
+    let state = super::machine::clone_state(&state_override);
+    let so = Some(state_override);
+    let ghost ctx = super::machine::ctx_of(prepared@, None, so);
+    let ghost target = super::spec::basic_url_parse_in_place(input@, old(url)@, state_override, super::contract::url_domain_parser());
+    // 4. to 8.
+    let mut m = ExecMachine {
+        url: new_url_exec(),
+        state,
+        buffer: Vec::new(),
+        at_sign_seen: false,
+        inside_brackets: false,
+        password_token_seen: false,
+        pointer: 0,
+    };
+    core::mem::swap(url, &mut m.url);
+    assert(m.buffer@ =~= seq![]);
+    assert(run_in_place(ctx, m@) == target);
+    // 9.
+    loop
+        invariant
+            super::machine::wf(ctx, m@),
+            ctx == super::machine::ctx_of(prepared@, None, so),
+            run_in_place(ctx, m@) == target,
+            target == super::spec::basic_url_parse_in_place(input@, old(url)@, state_override, super::contract::url_domain_parser()),
+        decreases super::termination::phase(m@.state), super::termination::pointer_measure(prepared@.len(), m@.pointer), super::termination::rank(m@.state),
+    {
+        let ghost before = m@;
+        proof {
+            super::termination::lemma_state_step_measure(ctx, before);
+        }
+        let flow = state_step_exec(prepared.as_slice(), None, &so, &mut m);
+        proof {
+            lemma_run_flow(ctx, before, m@, flow);
+        }
+        match flow {
+            Flow::Next => {},
+            // "return failure", "return", or 10.
+            _ => {
+                core::mem::swap(url, &mut m.url);
+                return;
+            },
         }
     }
 }

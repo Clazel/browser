@@ -30,7 +30,8 @@
 //!
 //! Not transcribed here: the "URL parser" (§4.4, which adds blob URL
 //! entries on top of the basic URL parser), §4.3 URL writing (valid URL
-//! strings), §4.6 equivalence, §4.7 origin, §4.8 rendering, and the API.
+//! strings), §4.6 equivalence, §4.7 origin, §4.8 rendering. The API's
+//! setters (§6.1) are in [`crate::api::spec`].
 //!
 //! Modelling choices (each one is a deliberate, reviewable deviation in form,
 //! never in meaning):
@@ -81,14 +82,26 @@
 //!   [`opaque_path_append`], [`query_append`], [`fragment_append`]): the
 //!   other case leaves the value as it is, or appends to the empty string,
 //!   and is unreachable.
-//! - **State override** (the setters, item 1.11) is transcribed: every
+//! - **State override** (the URL API setters, §6.1) is transcribed: every
 //!   "if state override is given" step is here, with `ctx.state_override`.
-//!   The basic URL parser entry point used today, [`basic_url_parser`],
-//!   passes none, and so does every contract and theorem in item 1.10; the
-//!   state override branches are not yet tested or proven against
-//!   anything (item 1.11 does that through `setters_tests.json`). Of
-//!   "return" with no value, the setters only need the modified url, so a
-//!   "return" is [`Step::Return`] with the url.
+//!   [`basic_url_parser`] passes none. Of "return" with no value, the
+//!   setters only need the modified url, so a "return" is
+//!   [`Step::Return`] with the url.
+//! - **With url given, url is modified in place.** The setters "basic URL
+//!   parse" a value "with this's URL as url" and then read this's URL,
+//!   whatever the parser returned, so a change the parser made before it
+//!   returned failure stays (the host setter given "h:65536" sets the host,
+//!   then the port state returns failure). [`run_in_place`] is [`run`]
+//!   giving the url as the state machine leaves it, and
+//!   [`basic_url_parse_in_place`] is the basic URL parser with url and
+//!   state override given, read that way. On "return failure" the url left
+//!   is the url the failing run started with: in every state, each
+//!   "return failure" step comes before any step of the same run that sets
+//!   a component of url (scheme start state step 3; scheme state step 4;
+//!   no scheme state step 1; authority state step 2.1; host state steps
+//!   2.1, 2.2, 2.4, 3.1, 3.2, 3.4; port state steps 2.1.2, 2.2, 3; file
+//!   host state step 1.3.2), which the spec functions below show: a
+//!   [`Step::Failure`] is never built after a changed url.
 //! - [`state_step`], the switch on state, is `#[verifier::opaque]`: a
 //!   proof aid only (proofs that need its body `reveal` it), so that
 //!   reasoning about [`run`] does not unfold all twenty states at once.
@@ -349,6 +362,12 @@ pub open spec fn includes_credentials(url: Url) -> bool {
 /// §4.2: "A URL has an opaque path if its path is a URL path segment."
 pub open spec fn has_opaque_path(url: Url) -> bool {
     url.path is Opaque
+}
+
+/// §4.2: "A URL cannot have a username/password/port if its host is null
+/// or the empty string, or its scheme is "file"."
+pub open spec fn cannot_have_username_password_port(url: Url) -> bool {
+    url.host is None || url.host == Some(crate::host::spec::Host::Empty) || url.scheme == file_str()
 }
 
 /// §4.2: "A Windows drive letter is two code points, of which the first is
@@ -1634,6 +1653,92 @@ pub open spec fn basic_url_parser_with(input: Seq<u32>, base: Option<Url>, url: 
 /// override: what parsing a string means (item 1.10's entry point).
 pub open spec fn basic_url_parser(input: Seq<u32>, base: Option<Url>, domain_parser: crate::host::spec::DomainParser) -> Option<Url> {
     basic_url_parser_with(input, base, None, None, domain_parser)
+}
+
+/// [`run`], giving the url as the state machine leaves it: with url given,
+/// url is modified in place (see the header). On "return failure" that is
+/// the url the failing run started with; on "return", the url it
+/// returns; after step 9, step 10's url.
+pub open spec fn run_in_place(ctx: Ctx, m: Machine) -> Url
+    decreases super::termination::phase(m.state), super::termination::pointer_measure(
+        ctx.input.len(),
+        m.pointer,
+    ), super::termination::rank(m.state) via run_in_place_decreases
+{
+    match state_step(ctx, m) {
+        Step::Failure => m.url,
+        Step::Return(url) => url,
+        Step::Continue(next) => if next.pointer >= ctx.input.len() {
+            next.url
+        } else {
+            run_in_place(ctx, Machine { pointer: next.pointer + 1, ..next })
+        },
+    }
+}
+
+/// Termination of [`run_in_place`]: the same measure as [`run`].
+#[via_fn]
+pub proof fn run_in_place_decreases(ctx: Ctx, m: Machine) {
+    super::termination::lemma_state_step_measure(ctx, m);
+}
+
+/// "Basic URL parse input with url as url and state override as state
+/// override", as the URL API setters (§6.1) do: the basic URL parser
+/// (<https://url.spec.whatwg.org/#concept-basic-url-parser>) with no base,
+/// url given and a state override, and the url as it leaves it, whether
+/// it returns failure or not (see the header). The steps are those of
+/// [`basic_url_parser_with`] with url and state override given.
+pub open spec fn basic_url_parse_in_place(input: Seq<u32>, url: Url, state_override: State, domain_parser: crate::host::spec::DomainParser) -> Url {
+    // 1. "If url is not given: [...]" (url is given: input keeps its
+    //    leading and trailing C0 control or space)
+    // 2. "If input contains any ASCII tab or newline, invalid-URL-unit
+    //    validation error." (validation error only)
+    // 3. "Remove all ASCII tab or newline from input."
+    let input = remove_ascii_tab_or_newline(input);
+    // 4. "Let state be state override if given, or scheme start state
+    //    otherwise."
+    // 5. "Set encoding to the result of getting an output encoding from
+    //    encoding." (UTF-8)
+    // 6. "Let buffer be the empty string."
+    // 7. "Let atSignSeen, insideBrackets, and passwordTokenSeen be false."
+    // 8. "Let pointer be a pointer for input."
+    let ctx = Ctx { input: input, base: None, state_override: Some(state_override), domain_parser: domain_parser };
+    // 9. "Keep running the following state machine [...]"
+    // 10. "Return url."
+    run_in_place(
+        ctx,
+        Machine {
+            url: url,
+            state: state_override,
+            buffer: seq![],
+            at_sign_seen: false,
+            inside_brackets: false,
+            password_token_seen: false,
+            pointer: 0,
+        },
+    )
+}
+
+/// §4.4: "To set the username given a url and username, set url's username
+/// to the result of running UTF-8 percent-encode on username using the
+/// userinfo percent-encode set."
+/// (<https://url.spec.whatwg.org/#set-the-username>)
+pub open spec fn set_the_username(url: Url, username: Seq<u32>) -> Url {
+    Url {
+        username: clazel_percent::spec::utf8_percent_encode(username, clazel_percent::spec::PercentEncodeSet::Userinfo),
+        ..url
+    }
+}
+
+/// §4.4: "To set the password given a url and password, set url's password
+/// to the result of running UTF-8 percent-encode on password using the
+/// userinfo percent-encode set."
+/// (<https://url.spec.whatwg.org/#set-the-password>)
+pub open spec fn set_the_password(url: Url, password: Seq<u32>) -> Url {
+    Url {
+        password: clazel_percent::spec::utf8_percent_encode(password, clazel_percent::spec::PercentEncodeSet::Userinfo),
+        ..url
+    }
 }
 
 // ---------------------------------------------------------------------

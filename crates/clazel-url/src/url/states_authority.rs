@@ -23,7 +23,7 @@ verus! {
 /// base, or a new URL if base is null ([`base_of`]).
 fn base_url(base: Option<&ParsedUrl>) -> (b: ParsedUrl)
     ensures
-        b@ == base_of(super::machine::ctx_of(Seq::empty(), super::record::opt_ref_url_view(base))),
+        b@ == base_of(super::machine::ctx_of(Seq::empty(), super::record::opt_ref_url_view(base), None)),
 {
     match base {
         Some(b) => clone_url(b),
@@ -77,12 +77,12 @@ fn ends_authority_exec(c: Option<u32>, special: bool) -> (r: bool)
 }
 
 /// "special relative or authority state"
-pub fn special_relative_or_authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn special_relative_or_authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is SpecialRelativeOrAuthority,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::special_relative_or_authority_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::special_relative_or_authority_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     if c_at_exec(input, m.pointer) == Some(0x2Fu32) && super::machine::remaining_starts_with_exec(input, m.pointer, 0x2F) {
         m.state = State::SpecialAuthorityIgnoreSlashes;
@@ -94,12 +94,12 @@ pub fn special_relative_or_authority_state(input: &[u32], Ghost(base): Ghost<Opt
 }
 
 /// "path or authority state"
-pub fn path_or_authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn path_or_authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is PathOrAuthority,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::path_or_authority_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::path_or_authority_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     if c_at_exec(input, m.pointer) == Some(0x2Fu32) {
         m.state = State::Authority;
@@ -111,12 +111,12 @@ pub fn path_or_authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m
 }
 
 /// "relative state"
-pub fn relative_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn relative_state(input: &[u32], base: Option<&ParsedUrl>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@),
         old(m).state is Relative,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::relative_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), super::spec::relative_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@), old(m)@, final(m)@, flow),
 {
     let b = base_url(base);
     // 2.
@@ -163,12 +163,12 @@ pub fn relative_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachi
 }
 
 /// "relative slash state"
-pub fn relative_slash_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn relative_slash_state(input: &[u32], base: Option<&ParsedUrl>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@),
         old(m).state is RelativeSlash,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::relative_slash_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), super::spec::relative_slash_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
@@ -193,12 +193,12 @@ pub fn relative_slash_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut Exe
 }
 
 /// "special authority slashes state"
-pub fn special_authority_slashes_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn special_authority_slashes_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is SpecialAuthoritySlashes,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::special_authority_slashes_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::special_authority_slashes_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     m.state = State::SpecialAuthorityIgnoreSlashes;
     if c_at_exec(input, m.pointer) == Some(0x2Fu32) && super::machine::remaining_starts_with_exec(input, m.pointer, 0x2F) {
@@ -209,12 +209,12 @@ pub fn special_authority_slashes_state(input: &[u32], Ghost(base): Ghost<Option<
 }
 
 /// "special authority ignore slashes state"
-pub fn special_authority_ignore_slashes_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn special_authority_ignore_slashes_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is SpecialAuthorityIgnoreSlashes,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::special_authority_ignore_slashes_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::special_authority_ignore_slashes_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if c != Some(0x2Fu32) && c != Some(0x5Cu32) {
@@ -268,12 +268,12 @@ fn authority_code_points_exec(buffer: &[u32], url: &mut ParsedUrl, password_toke
 }
 
 /// "authority state"
-pub fn authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, so), old(m)@),
         old(m).state is Authority,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::authority_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, so), super::spec::authority_state(super::machine::ctx_of(input@, base, so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
@@ -331,18 +331,26 @@ pub fn authority_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut E
 }
 
 /// "host state" (no state override, so not the hostname state)
-pub fn host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is Host || old(m).state is Hostname,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::host_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::host_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
-    if c == Some(0x3Au32) && !m.inside_brackets {
+    if so.is_some() && is_file(m.url.scheme.as_slice()) {
+        // 1.
+        m.state = State::FileHost;
+        back()
+    } else if c == Some(0x3Au32) && !m.inside_brackets {
         if m.buffer.is_empty() {
             // 2.1
+            return Flow::Failure;
+        }
+        if super::machine::is_hostname_override(so) {
+            // 2.2
             return Flow::Failure;
         }
         // 2.3
@@ -363,6 +371,11 @@ pub fn host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
             // 3.1
             return Flow::Failure;
         }
+        if so.is_some() && m.buffer.is_empty() && (!m.url.username.is_empty() || !m.url.password.is_empty()
+            || m.url.port.is_some()) {
+            // 3.2
+            return Flow::Failure;
+        }
         // 3.3
         match crate::host::parse::host_parser_full(m.buffer.as_slice(), !special) {
             // 3.4
@@ -370,6 +383,10 @@ pub fn host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
             Some(h) => {
                 // 3.5
                 m.url.host = Some(h);
+                if so.is_some() {
+                    // 3.6
+                    return Flow::Return;
+                }
                 m.buffer = Vec::new();
                 assert(m.buffer@ =~= seq![]);
                 m.state = State::PathStart;
@@ -458,12 +475,12 @@ fn port_value(buffer: &[u32]) -> (r: Option<u16>)
 }
 
 /// "port state" (no state override)
-pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is Port,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::port_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::port_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     let special = is_special_scheme_exec(m.url.scheme.as_slice());
@@ -475,7 +492,7 @@ pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
         },
         _ => {},
     }
-    if ends_authority_exec(c, special) {
+    if ends_authority_exec(c, special) || so.is_some() {
         if !m.buffer.is_empty() {
             // 2.1.1, 2.1.2
             match port_value(m.buffer.as_slice()) {
@@ -492,6 +509,10 @@ pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
                     } else {
                         m.url.port = Some(port);
                     }
+                    if so.is_some() {
+                        // 2.1.5
+                        return Flow::Return;
+                    }
                     // 2.1.4
                     m.buffer = Vec::new();
                     assert(m.buffer@ =~= seq![]);
@@ -500,6 +521,9 @@ pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
                     back()
                 },
             }
+        } else if so.is_some() {
+            // 2.2
+            Flow::Failure
         } else {
             // 2.3
             m.state = State::PathStart;
@@ -512,12 +536,12 @@ pub fn port_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMa
 }
 
 /// "file state"
-pub fn file_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn file_state(input: &[u32], base: Option<&ParsedUrl>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@),
         old(m).state is File,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::file_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), super::spec::file_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@), old(m)@, final(m)@, flow),
 {
     // 1., 2.
     m.url.scheme = file_vec();
@@ -596,12 +620,12 @@ fn first_normalized_windows_drive_letter(path: &ParsedPath) -> (r: Option<Vec<u3
 }
 
 /// "file slash state"
-pub fn file_slash_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn file_slash_state(input: &[u32], base: Option<&ParsedUrl>, Ghost(so): Ghost<Option<State>>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@),
         old(m).state is FileSlash,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), super::spec::file_slash_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base)), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), super::spec::file_slash_state(super::machine::ctx_of(input@, super::record::opt_ref_url_view(base), so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if c == Some(0x2Fu32) || c == Some(0x5Cu32) {
@@ -632,22 +656,26 @@ pub fn file_slash_state(input: &[u32], base: Option<&ParsedUrl>, m: &mut ExecMac
 }
 
 /// "file host state" (no state override)
-pub fn file_host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut ExecMachine) -> (flow: Flow)
+pub fn file_host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, so: &Option<State>, m: &mut ExecMachine) -> (flow: Flow)
     requires
-        super::machine::wf(super::machine::ctx_of(input@, base), old(m)@),
+        super::machine::wf(super::machine::ctx_of(input@, base, *so), old(m)@),
         old(m).state is FileHost,
     ensures
-        super::machine::flow_ok(super::machine::ctx_of(input@, base), super::spec::file_host_state(super::machine::ctx_of(input@, base), old(m)@), final(m)@, flow),
+        super::machine::flow_ok(super::machine::ctx_of(input@, base, *so), super::spec::file_host_state(super::machine::ctx_of(input@, base, *so), old(m)@), old(m)@, final(m)@, flow),
 {
     let c = c_at_exec(input, m.pointer);
     if c.is_none() || c == Some(0x2Fu32) || c == Some(0x5Cu32) || c == Some(0x3Fu32) || c == Some(0x23u32) {
-        if is_windows_drive_letter_exec(m.buffer.as_slice()) {
+        if so.is_none() && is_windows_drive_letter_exec(m.buffer.as_slice()) {
             // 1.1
             m.state = State::Path;
             back()
         } else if m.buffer.is_empty() {
             // 1.2.1
             m.url.host = Some(ParsedHost::Empty);
+            if so.is_some() {
+                // 1.2.2
+                return Flow::Return;
+            }
             // 1.2.3
             m.state = State::PathStart;
             back()
@@ -669,6 +697,10 @@ pub fn file_host_state(input: &[u32], Ghost(base): Ghost<Option<Url>>, m: &mut E
                     };
                     // 1.3.4
                     m.url.host = Some(h);
+                    if so.is_some() {
+                        // 1.3.5
+                        return Flow::Return;
+                    }
                     // 1.3.6
                     m.buffer = Vec::new();
                     assert(m.buffer@ =~= seq![]);

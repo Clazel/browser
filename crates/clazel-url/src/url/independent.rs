@@ -1989,6 +1989,10 @@ proof fn lemma_rfc_reference(base: Url, absolute: bool, segs: Seq<Seq<u32>>, que
     let t = transform(rfc_parse(ref_string(absolute, segs, query, fragment)), rfc_parse(url_serializer(base, false)));
     let u = resolved_url(base, absolute, segs, query, fragment);
     assert(crate::host::spec::host_serializer(crate::host::spec::Host::Opaque(h)) == h);
+    // Component by component (keeps the final step small).
+    assert(t.scheme == Some(u.scheme) && t.authority == Some(h) && t.query == u.query && t.fragment == u.fragment);
+    assert(u.host == Some(crate::host::spec::Host::Opaque(h)) && u.port is None && !includes_credentials(u));
+    assert(t.path == url_path_serializer(u.path));
     assert(url_serializer(u, false) =~= recompose(t));
 }
 

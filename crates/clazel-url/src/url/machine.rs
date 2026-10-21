@@ -54,8 +54,10 @@ impl View for ExecMachine {
 
 /// What an exec run tells the loop.
 pub enum Flow {
-    /// "return failure"
+    /// "return failure" (url is as the run found it)
     Failure,
+    /// "return" (with a state override; url is the url returned)
+    Return,
     /// The run ended with pointer at the EOF code point: step 10 returns
     /// url.
     Stop,
@@ -63,13 +65,13 @@ pub enum Flow {
     Next,
 }
 
-/// The parser's inputs as the exec parser runs it: no state override, and
-/// `clazel-idna`'s domain parser.
-pub open spec fn ctx_of(input: Seq<u32>, base: Option<Url>) -> Ctx {
+/// The parser's inputs as the exec parser runs it, with `clazel-idna`'s
+/// domain parser.
+pub open spec fn ctx_of(input: Seq<u32>, base: Option<Url>, state_override: Option<State>) -> Ctx {
     Ctx {
         input: input,
         base: base,
-        state_override: None,
+        state_override: state_override,
         domain_parser: super::contract::url_domain_parser(),
     }
 }
@@ -83,7 +85,7 @@ pub open spec fn ctx_of(input: Seq<u32>, base: Option<Url>) -> Ctx {
 /// point length + 1" from going below −1. In the port state, buffer holds
 /// ASCII digits.
 pub open spec fn wf(ctx: Ctx, m: Machine) -> bool {
-    clazel_encoding::utf8::spec::all_scalar_values(ctx.input) && ctx.state_override is None && ctx.domain_parser
+    clazel_encoding::utf8::spec::all_scalar_values(ctx.input) && ctx.domain_parser
         == super::contract::url_domain_parser() && 0 <= m.pointer <= ctx.input.len() && (!(m.state is Path)
         ==> clazel_encoding::utf8::spec::all_scalar_values(m.buffer)) && (super::termination::phase(m.state) >= 1
         ==> m.buffer.len() <= m.pointer) && (m.state is Port ==> all_ascii_digits(m.buffer))
@@ -94,18 +96,59 @@ pub open spec fn all_ascii_digits(s: Seq<u32>) -> bool {
     forall|k: int| 0 <= k < s.len() ==> crate::host::spec::is_ascii_digit(#[trigger] s[k])
 }
 
-/// The exec run that returned `flow` and left the machine as `after` did
-/// what the spec run's `step` says, and the next run starts well formed.
-pub open spec fn flow_ok(ctx: Ctx, step: Step, after: Machine, flow: Flow) -> bool {
+/// The exec run that started from `before`, returned `flow` and left the
+/// machine as `after` did what the spec run's `step` says, and the next
+/// run starts well formed. On failure the url is as the run found it (the
+/// url left in place, [`run_in_place`]).
+pub open spec fn flow_ok(ctx: Ctx, step: Step, before: Machine, after: Machine, flow: Flow) -> bool {
     match step {
-        Step::Failure => flow is Failure,
-        Step::Return(_) => false,
+        Step::Failure => flow is Failure && after.url == before.url,
+        Step::Return(u) => flow is Return && after.url == u,
         Step::Continue(n) => if n.pointer >= ctx.input.len() {
             flow is Stop && after.url == n.url
         } else {
             flow is Next && after == (Machine { pointer: n.pointer + 1, ..n }) && wf(ctx, after)
         },
     }
+}
+
+/// A copy of a state.
+pub fn clone_state(s: &State) -> (r: State)
+    ensures
+        r == *s,
+{
+    match s {
+        State::SchemeStart => State::SchemeStart,
+        State::Scheme => State::Scheme,
+        State::NoScheme => State::NoScheme,
+        State::SpecialRelativeOrAuthority => State::SpecialRelativeOrAuthority,
+        State::PathOrAuthority => State::PathOrAuthority,
+        State::Relative => State::Relative,
+        State::RelativeSlash => State::RelativeSlash,
+        State::SpecialAuthoritySlashes => State::SpecialAuthoritySlashes,
+        State::SpecialAuthorityIgnoreSlashes => State::SpecialAuthorityIgnoreSlashes,
+        State::Authority => State::Authority,
+        State::Host => State::Host,
+        State::Hostname => State::Hostname,
+        State::Port => State::Port,
+        State::File => State::File,
+        State::FileSlash => State::FileSlash,
+        State::FileHost => State::FileHost,
+        State::PathStart => State::PathStart,
+        State::Path => State::Path,
+        State::OpaquePath => State::OpaquePath,
+        State::Query => State::Query,
+        State::Fragment => State::Fragment,
+    }
+}
+
+/// Whether the state override is the hostname state (host state step
+/// 2.2).
+pub fn is_hostname_override(so: &Option<State>) -> (r: bool)
+    ensures
+        r == (*so == Some(State::Hostname)),
+{
+    matches!(so, Some(State::Hostname))
 }
 
 /// c (URL §1.2): the code point at `p`, or `None` for the EOF code point.

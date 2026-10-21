@@ -4,7 +4,7 @@ version = "0.0.0"
 edition.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "WHATWG URL Standard: hosts (§3) and URLs (§4): the basic URL parser and serializer."
+description = "WHATWG URL Standard: hosts (§3), URLs (§4: the basic URL parser and serializer) and the URL API setters (§6.1)."
 
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
@@ -26,17 +26,20 @@ url = { version = "=2.5.8", default-features = false }
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. Tier 2
-# for what ships, which is URL §3.5 and §3.6 (hosts) and §4.4 and §4.5 (the
-# basic URL parser, with no state override, and the serializers): every
-# exec function is proven to meet its contract; host/independent.rs (RFC
-# 3986, RFC 4291, RFC 5952) and url/independent.rs (RFC 3986 reference
-# resolution) are proven to agree where the standards do; every mutation
-# is certified killed; tests/conformance_hosts.rs and
-# tests/conformance_url.rs run WPT url/ (host rows, toascii.json, every
-# urltestdata.json row) and differential tests against std::net and
-# rust-url. The host parser's step 6 runs clazel-idna's domain parser:
-# host_parser_full and basic_url_parser are proven equal to the spec
-# instantiated with it. The setters (state override) are item 1.11.
+# for what ships, which is URL §3.5 and §3.6 (hosts), §4.4 and §4.5 (the
+# basic URL parser, with and without a state override, and the
+# serializers) and §6.1 (the URL API setters): every exec function is
+# proven to meet its contract; host/independent.rs (RFC 3986, RFC 4291,
+# RFC 5952), url/independent.rs (RFC 3986 reference resolution) and
+# api/independent.rs (RFC 3986 component grammar) are proven to agree
+# where the standards do; every mutation is certified killed;
+# tests/conformance_hosts.rs, tests/conformance_url.rs and
+# tests/conformance_setters.rs run WPT url/ (host rows, toascii.json,
+# every urltestdata.json row, every setters_tests.json case) and
+# differential tests against std::net and rust-url. The host parser's step
+# 6 runs clazel-idna's domain parser: host_parser_full, basic_url_parser,
+# basic_url_parse_in_place and the setters are proven equal to the spec
+# instantiated with it.
 [package.metadata.clazel]
 tier = 2
 target-tier = 2
