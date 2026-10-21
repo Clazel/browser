@@ -17,11 +17,11 @@
 //!   changes the scheme.
 //! - **Idempotence.** Setting the same value twice gives the URL setting
 //!   it once gives, for `username`, `password`, `port`, `pathname`,
-//!   `search`, `hash` and `protocol`, for every URL, value and domain
-//!   parser ([`lemma_idempotent`]). Not proven for `host` and `hostname`, whose
-//!   runs go through the host, port and file host states; nor for `href`,
-//!   which is item 1.10's parse-then-serialize question (proven there for
-//!   a class of URLs).
+//!   `search`, `hash`, `protocol` and `hostname`, for every URL, value and
+//!   domain parser ([`lemma_idempotent`]). Not proven for `host`, whose
+//!   run can go on from the host state to the port state and fail there
+//!   after setting the host; nor for `href`, which is item 1.10's
+//!   parse-then-serialize question (proven there for a class of URLs).
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -409,6 +409,36 @@ proof fn lemma_port_pair(ctx: crate::url::spec::Ctx, m1: crate::url::spec::Machi
     }
 }
 
+/// The host state with the hostname state override, and the file host
+/// state it hands "file" URLs to, do not read url's host, and change
+/// nothing else: from two machines that differ only there, both runs
+/// return failure, or both set the same host.
+proof fn lemma_hostname_pair(ctx: crate::url::spec::Ctx, m1: crate::url::spec::Machine, m2: crate::url::spec::Machine)
+    requires
+        ctx.state_override == Some(crate::url::spec::State::Hostname),
+        m1.state is Hostname || m1.state is FileHost,
+        m2 == (crate::url::spec::Machine { url: crate::url::spec::Url { host: m2.url.host, ..m1.url }, ..m1 }),
+    ensures
+        (crate::url::spec::run_in_place(ctx, m1) == m1.url && crate::url::spec::run_in_place(ctx, m2) == m2.url) || (
+        crate::url::spec::run_in_place(ctx, m1) == (crate::url::spec::Url { host: crate::url::spec::run_in_place(ctx, m1).host, ..m1.url })
+            && crate::url::spec::run_in_place(ctx, m2) == (crate::url::spec::Url { host: crate::url::spec::run_in_place(ctx, m1).host, ..m2.url })),
+    decreases crate::url::termination::phase(m1.state), crate::url::termination::pointer_measure(ctx.input.len(), m1.pointer), crate::url::termination::rank(m1.state),
+{
+    reveal(crate::url::spec::state_step);
+    crate::url::termination::lemma_state_step_measure(ctx, m1);
+    if let crate::url::spec::Step::Continue(n1) = crate::url::spec::state_step(ctx, m1) {
+        if let crate::url::spec::Step::Continue(n2) = crate::url::spec::state_step(ctx, m2) {
+            if n1.pointer < ctx.input.len() {
+                lemma_hostname_pair(
+                    ctx,
+                    crate::url::spec::Machine { pointer: n1.pointer + 1, ..n1 },
+                    crate::url::spec::Machine { pointer: n2.pointer + 1, ..n2 },
+                );
+            }
+        }
+    }
+}
+
 /// The buffer the scheme state with a state override holds when it
 /// reaches a U+003A (:) from `pointer` with `buffer`, or `None` if it
 /// returns failure first (steps 1, 2 and 4).
@@ -477,8 +507,9 @@ proof fn lemma_colon_url_idempotent(url: crate::url::spec::Url, b: Seq<u32>)
 }
 
 /// Setting the same value twice gives what setting it once gives, for
-/// the `username`, `password`, `port`, `pathname`, `search`, `hash` and
-/// `protocol` setters, for every URL, value and domain parser.
+/// the `username`, `password`, `port`, `pathname`, `search`, `hash`,
+/// `protocol` and `hostname` setters, for every URL, value and domain
+/// parser.
 pub proof fn lemma_idempotent(url: crate::url::spec::Url, value: Seq<u32>, dp: crate::host::spec::DomainParser)
     ensures
         username_setter(username_setter(url, value), value) == username_setter(url, value),
@@ -488,6 +519,7 @@ pub proof fn lemma_idempotent(url: crate::url::spec::Url, value: Seq<u32>, dp: c
         search_setter(search_setter(url, value, dp), value, dp) == search_setter(url, value, dp),
         hash_setter(hash_setter(url, value, dp), value, dp) == hash_setter(url, value, dp),
         protocol_setter(protocol_setter(url, value, dp), value, dp) == protocol_setter(url, value, dp),
+        hostname_setter(hostname_setter(url, value, dp), value, dp) == hostname_setter(url, value, dp),
 {
     // port
     if !crate::url::spec::cannot_have_username_password_port(url) && value.len() > 0 {
@@ -495,6 +527,14 @@ pub proof fn lemma_idempotent(url: crate::url::spec::Url, value: Seq<u32>, dp: c
         let u1 = port_setter(url, value, dp);
         lemma_port_frame(ctx, in_place_machine(url, crate::url::spec::State::Port));
         lemma_port_pair(ctx, in_place_machine(u1, crate::url::spec::State::Port), in_place_machine(url, crate::url::spec::State::Port));
+    }
+    // hostname
+    if !crate::url::spec::has_opaque_path(url) {
+        let ctx = in_place_ctx(value, crate::url::spec::State::Hostname, dp);
+        let u1 = hostname_setter(url, value, dp);
+        let m = in_place_machine(url, crate::url::spec::State::Hostname);
+        lemma_hostname_pair(ctx, m, m);
+        lemma_hostname_pair(ctx, in_place_machine(u1, crate::url::spec::State::Hostname), m);
     }
     // pathname
     if !crate::url::spec::has_opaque_path(url) {
