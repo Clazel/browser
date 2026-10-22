@@ -14,13 +14,12 @@
 //! string, including a trailing dot.
 
 #[allow(unused_imports)]
-use super::independent::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
+
 
 /// A rule of [`super::spec`] as the independent transcription writes it.
 pub open spec fn ind_rule(rule: Rule) -> (Seq<Seq<u32>>, bool) {
@@ -34,12 +33,12 @@ pub open spec fn ind_rules(rules: Seq<Rule>) -> Seq<(Seq<Seq<u32>>, bool)> {
 
 /// The two public suffixes agree.
 pub open spec fn public_suffix_equivalence(rules: Seq<Rule>, domain: Seq<u32>) -> bool {
-    ind_public_suffix(ind_rules(rules), domain) == public_suffix_of_domain(rules, domain)
+    super::independent::ind_public_suffix(ind_rules(rules), domain) == public_suffix_of_domain(rules, domain)
 }
 
 /// The two registrable domains agree.
 pub open spec fn registrable_domain_equivalence(rules: Seq<Rule>, domain: Seq<u32>) -> bool {
-    ind_registrable_domain(ind_rules(rules), domain) == registrable_domain_of_domain(rules, domain)
+    super::independent::ind_registrable_domain(ind_rules(rules), domain) == registrable_domain_of_domain(rules, domain)
 }
 
 } // verus!
