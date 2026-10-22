@@ -418,13 +418,16 @@ and exception domains, and non-domain hosts. `rule_matches` and
 `has_empty_label_from`), because Verus cannot evaluate a quantifier on a
 concrete input; `lemma_rule_matches_forall` and `lemma_has_empty_label_exists`
 prove them equal to the standard's "for every pair" and "empty label"
-statements, so the meaning is unchanged. `mutations.json` has 23 mutations:
-22 `killed` with a certificate (label matching and wildcards, A3 to A5 and the
-prevailing-rule choice, the default rule, trailing dot and empty labels, the
-registrable domain, five cookie-root mutations, the root of an IP address, and
-`label_suffix`) and one `killed-incidentally` (the cookie-root search
-running past the whole domain fails only the `decreases` check, and its
-mutant has no evaluable value to certify). **Added after the first pass:** `lemma_root_of_suffix` (`lemmas.rs`), stated by
+statements, so the meaning is unchanged. `mutations.json` has 23 mutations,
+all `killed` with a certificate (label matching and wildcards, A3 to A5 and
+the prevailing-rule choice, the default rule, trailing dot and empty labels,
+the registrable domain, six cookie-root mutations including the search
+stopping a label early, the root of an IP address, and `label_suffix`). The
+search's other boundary, `k > d.len()` for `k >= d.len()`, was listed at
+first as `killed-incidentally` and is left out: it is equivalent by the
+definition (the last suffix it would try is the domain itself, which is also
+the fallback), and fails only Verus's termination check. The "stops a label
+early" mutation tests that boundary instead. **Added after the first pass:** `lemma_root_of_suffix` (`lemmas.rs`), stated by
 `root_of_suffix_statement`: for a domain `d` and `s` with
 `is_label_suffix(d, s)` (the last `k >= 1` labels of `d`, with its trailing
 dot) that is not a public suffix, `cookie_root_of_domain(s) ==
@@ -453,12 +456,7 @@ and their pairwise condition is evaluated. Nothing about the tables is
 assumed; no proof depended on the generator's check before either, since
 the executable lookups are proven equal to the spec for any rules. The whole
 crate verifies in about two minutes (201 obligations, 0 errors).
-**Not done: tier.** `clazel-psl` stays at tier 0 because `cargo xtask check`
-rejects tier 2 while `cookie-root-search-runs-past-the-domain` is
-`killed-incidentally`. It is an equivalent mutant (its value is the same as
-the original's wherever it terminates; only the `decreases` check fails), so
-no certificate exists for it. Dropping it from `mutations.json` is a decision
-for a person, and the tier follows.
+**Tier 2:** with every mutation certified, `clazel-psl` is at tier 2.
 
 ### 2.5 Origins and sites (M)
 
@@ -1042,7 +1040,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.1 IPC wire format: spec | done |
 | 2.2 IPC wire format: implementation | done |
 | 2.3 IPC frames and messages | done |
-| 2.4 Public Suffix List | partial: everything done, including `lemma_root_of_suffix`, proven table well-formedness and the independent transcription proven equal; tier 0 only because one equivalent mutation is `killed-incidentally` (see the as-built note) |
+| 2.4 Public Suffix List | done at tier 2: `lemma_root_of_suffix`, proven table well-formedness, the independent transcription proven equal, 23 mutations all certified |
 | 2.5 Origins and sites | done at tier 2 (RFC 6454 transcription proven equal on the stated class), 31 mutations killed (with 2.6) |
 | 2.6 Origin of a URL | done at tier 2 with 2.5: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential, mutations killed (counted with 2.5; none for blob steps 1 and 2) |
 | 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |

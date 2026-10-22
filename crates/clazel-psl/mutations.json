@@ -287,12 +287,17 @@
       }
     },
     {
-      "id": "cookie-root-search-runs-past-the-domain",
+      "id": "cookie-root-search-stops-a-label-early",
       "file": "src/spec.rs",
       "find": "if k >= d.len() {",
-      "replace": "if k > d.len() {",
-      "expect": "killed-incidentally",
-      "reason": "The search for a root past the whole domain does not terminate when every suffix is a public suffix (the `decreases` check fails); no theorem is false, so this is not coverage."
+      "replace": "if k + 1 >= d.len() {",
+      "expect": "killed",
+      "reason": "The search stops before trying the suffix one label shorter than the domain, and returns the whole domain: `www.a.com` has root `www.a.com` instead of `a.com`, so example_cookie_root_registrable is false. (The opposite boundary, `k > d.len()`, is equivalent to the spec by its definition: the last suffix tried is the domain itself, which is also the fallback, so it is not listed.)",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_registrable()",
+        "witness": "cookie_root_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])) == crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])"
+      }
     }
   ]
 }
