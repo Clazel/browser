@@ -53,8 +53,8 @@
 //!   the production allows build it ([`crate::date::independent`]). Such a
 //!   date may be one no calendar has (month 12 is "Dec", but day 99 is
 //!   allowed by `2DIGIT`).
-//! - `Max-Age` is `non-zero-digit *DIGIT`: its value is the number the
-//!   digits denote.
+//! - `Max-Age` is `non-zero-digit *DIGIT`: the result keeps the digits, and
+//!   [`number_of`] is the number they denote.
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -191,8 +191,8 @@ pub enum ServerSameSite {
 pub enum ServerAv {
     /// `expires-av`: the `sane-cookie-date`, as written.
     Expires(Seq<u8>),
-    /// `max-age-av`: the number.
-    MaxAge(nat),
+    /// `max-age-av`: the digits, as written.
+    MaxAge(Seq<u8>),
     /// `domain-av`: the `domain-value`, as written.
     Domain(Seq<u8>),
     /// `path-av`: the `path-value`, as written.
@@ -300,7 +300,7 @@ pub open spec fn cookie_av(piece: Seq<u8>) -> Option<ServerAv> {
     } else if av_value(piece, name_expires()) matches Some(v) && is_sane_cookie_date(v) {
         Some(ServerAv::Expires(av_value(piece, name_expires()).unwrap()))
     } else if av_value(piece, name_max_age()) matches Some(v) && is_max_age_value(v) {
-        Some(ServerAv::MaxAge(number_of(av_value(piece, name_max_age()).unwrap())))
+        Some(ServerAv::MaxAge(av_value(piece, name_max_age()).unwrap()))
     } else if av_value(piece, name_domain()) matches Some(v) && is_subdomain(v) {
         Some(ServerAv::Domain(av_value(piece, name_domain()).unwrap()))
     } else if av_value(piece, name_path()) matches Some(v) && all_of(v, |c: u8| g_av_octet(c)) {
@@ -382,6 +382,133 @@ pub open spec fn set_cookie_string(s: Seq<u8>) -> Option<ServerCookie> {
             Some(avs) => Some(ServerCookie { name, value, avs }),
         },
     }
+}
+
+// ---------------------------------------------------------------------
+// The statement (proof section: from here on `spec.rs` is used).
+// ---------------------------------------------------------------------
+
+/// The fields a `sane-cookie-date` string is built from.
+pub open spec fn date_fields_of(v: Seq<u8>) -> crate::date::independent::HttpDateFields {
+    choose|f: crate::date::independent::HttpDateFields|
+        crate::date::independent::fields_allowed(f) && #[trigger] crate::date::independent::imf_fixdate(f) == v
+}
+
+/// What the user agent's algorithm makes of a `cookie-av` the grammar
+/// produced (§5.6.1 to §5.6.7), written for the values the grammar allows:
+/// `None` is "ignore the cookie-av". An `Expires` whose fields denote no
+/// date is ignored (§5.6.1 step 2); one that does is limited to `now` plus
+/// the cookie-age-limit (steps 3 and 4). A `Max-Age` starts with a non-zero
+/// digit, so its delta-seconds is positive (§5.6.2 step 7). A `Domain` has
+/// no leading "." and is lower-cased (§5.6.3). A `Path` that does not start
+/// with "/" is replaced by the default-path (§5.6.4). An `extension-av` is
+/// an unrecognized attribute (§5.6 step 7).
+pub open spec fn denote_av(av: ServerAv, uri_path: Seq<u8>, now: int) -> Option<Attribute> {
+    match av {
+        ServerAv::Expires(v) => {
+            let f = date_fields_of(v);
+            if crate::date::independent::denotes_cookie_date(f.year, f.month, f.day, f.hour, f.minute, f.second) {
+                let instant = crate::date::spec::seconds_since_1601(crate::date::independent::date_of(f.year, f));
+                let limit = now + cookie_age_limit();
+                Some(Attribute::Expires(if instant > limit { limit } else { instant }))
+            } else {
+                None
+            }
+        },
+        ServerAv::MaxAge(v) => {
+            let delta = number_of(v) as int;
+            Some(Attribute::MaxAge(now + (if delta < cookie_age_limit() { delta } else { cookie_age_limit() })))
+        },
+        ServerAv::Domain(v) => Some(Attribute::Domain(crate::ascii::ascii_lowercase(v))),
+        ServerAv::Path(v) => Some(
+            Attribute::Path(if v.len() > 0 && v[0] == 0x2F { v } else { crate::matching::spec::default_path(uri_path) }),
+        ),
+        ServerAv::Secure => Some(Attribute::Secure),
+        ServerAv::HttpOnly => Some(Attribute::HttpOnly),
+        ServerAv::SameSite(x) => Some(
+            Attribute::SameSite(match x {
+                ServerSameSite::Strict => SameSite::Strict,
+                ServerSameSite::Lax => SameSite::Lax,
+                ServerSameSite::None => SameSite::None,
+            }),
+        ),
+        ServerAv::Extension(_) => None,
+    }
+}
+
+/// The attributes the user agent keeps from the `cookie-av`s `avs`, in
+/// order.
+pub open spec fn denote_avs(avs: Seq<ServerAv>, uri_path: Seq<u8>, now: int) -> Seq<Attribute>
+    decreases avs.len()
+{
+    if avs.len() == 0 {
+        seq![]
+    } else {
+        let rest = denote_avs(avs.drop_last(), uri_path, now);
+        match denote_av(avs[avs.len() - 1], uri_path, now) {
+            Some(a) => rest.push(a),
+            None => rest,
+        }
+    }
+}
+
+/// The name of an `extension-av` as §5.6 step 4 and 5 find it: the octets
+/// before the first "=" (all of them if there is none) without leading or
+/// trailing white space.
+pub open spec fn extension_name(b: Seq<u8>) -> Seq<u8> {
+    crate::ascii::remove_leading_and_trailing_wsp(b.take(crate::ascii::find_octet(b, 0x3D, 0) as int))
+}
+
+/// `n` is the name of one of the seven attributes the algorithm
+/// recognizes, in any case.
+pub open spec fn is_recognized_name(n: Seq<u8>) -> bool {
+    is_ci(n, name_expires()) || is_ci(n, name_max_age()) || is_ci(n, name_domain()) || is_ci(n, name_path())
+        || is_ci(n, name_secure()) || is_ci(n, name_httponly()) || is_ci(n, name_samesite())
+}
+
+/// The class of `cookie-av` the equivalence covers (see
+/// [`set_cookie_agrees`]).
+pub open spec fn av_in_class(av: ServerAv) -> bool {
+    match av {
+        // The year is four digits from 100 on (a smaller one is a two-digit
+        // year to the user agent, §5.1.1 steps 3 and 4).
+        ServerAv::Expires(v) => forall|f: crate::date::independent::HttpDateFields|
+            crate::date::independent::fields_allowed(f) && #[trigger] crate::date::independent::imf_fixdate(f) == v
+                ==> f.year >= 100,
+        // §5.6 step 6: an attribute-value over 1024 octets is ignored.
+        ServerAv::MaxAge(v) => v.len() <= 1024,
+        ServerAv::Domain(v) => v.len() <= 1024,
+        // Also: no white space at the end, which the user agent removes
+        // (the grammar leaves it in the last `path-value`).
+        ServerAv::Path(v) => v.len() <= 1024 && (v.len() == 0 || !g_ows(v[v.len() - 1])),
+        ServerAv::Secure | ServerAv::HttpOnly | ServerAv::SameSite(_) => true,
+        // The grammar also allows an `extension-av` the user agent reads as
+        // one of the seven (`Max-Age=0`, `Secure=x`, `Expires=garbage`,
+        // `Domain=.a.b`): those are outside the class.
+        ServerAv::Extension(b) => !is_recognized_name(extension_name(b)),
+    }
+}
+
+/// The class of `set-cookie-string` the equivalence covers: the name and
+/// value total at most 4096 octets (§5.6 step 5) and every `cookie-av` is
+/// in [`av_in_class`].
+pub open spec fn in_class(c: ServerCookie) -> bool {
+    c.name.len() + c.value.len() <= 4096 && forall|i: int| 0 <= i < c.avs.len() ==> av_in_class(#[trigger] c.avs[i])
+}
+
+/// Statement of `lemma_set_cookie_agrees`: on every string the grammar
+/// matches whose parse is in the class, the user agent's parse (§5.6, for a
+/// request to a URL with path `uri_path` at time `now`) has the same name
+/// and value, and the attributes the grammar's `cookie-av`s denote.
+pub open spec fn set_cookie_agrees(s: Seq<u8>, uri_path: Seq<u8>, now: int) -> bool {
+    (set_cookie_string(s) matches Some(c) && in_class(c)) ==> parse_a_set_cookie_string(s, uri_path, now)
+        == Some(
+        SetCookie {
+            name: set_cookie_string(s).unwrap().name,
+            value: set_cookie_string(s).unwrap().value,
+            attributes: denote_avs(set_cookie_string(s).unwrap().avs, uri_path, now),
+        },
+    )
 }
 
 } // verus!
