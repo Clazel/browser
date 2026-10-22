@@ -410,9 +410,24 @@ sorted and the spec is "match against all rules"; a rule that cannot beat the
 best so far is skipped before matching. Evidence: `tests.txt` 78/78 (inputs
 canonicalized by the proven host parser) and a differential against
 `publicsuffix` 2.3.0 on every ASCII rule plus labels above it, 49685/49685.
-**Not done:** `independent.rs` (the formal-algorithm transcription proven
-equal), `mutations.json` and its certificates, `examples.rs`, and the lemma
-2.9 needs that a non-public-suffix suffix of a domain has the same cookie root
+`examples.rs` evaluates the spec on concrete domains and a five-rule list
+(`com`, `uk`, `co.uk`, `*.ck`, `!www.ck`): plain, longest, wildcard,
+exception and default rules, the trailing dot, empty labels, the registrable
+domain and the cookie root of registrable domains, public suffixes, wildcard
+and exception domains, and non-domain hosts. `rule_matches` and
+`has_empty_label` were rewritten as recursions (`rule_matches_from`,
+`has_empty_label_from`), because Verus cannot evaluate a quantifier on a
+concrete input; `lemma_rule_matches_forall` and `lemma_has_empty_label_exists`
+prove them equal to the standard's "for every pair" and "empty label"
+statements, so the meaning is unchanged. `mutations.json` has 23 mutations:
+22 `killed` with a certificate (label matching and wildcards, A3 to A5 and the
+prevailing-rule choice, the default rule, trailing dot and empty labels, the
+registrable domain, five cookie-root mutations, the root of an IP address, and
+`label_suffix`) and one `killed-incidentally` (the cookie-root search
+running past the whole domain fails only the `decreases` check, and its
+mutant has no evaluable value to certify). **Not done:** `independent.rs`
+(the formal-algorithm transcription proven equal), and the lemma 2.9 needs
+that a non-public-suffix suffix of a domain has the same cookie root
 (`lemma_root_of_suffix`). So the crate is at tier 0 and `cargo xtask check`
 would reject a higher claim.
 
@@ -445,8 +460,14 @@ site equal to the spec on the generated list. `lemmas.rs`: same origin is an
 equivalence on tuple origins and implies same site and schemelessly same site.
 Evidence: the HTML example tables for same origin and same site, 11/11, through
 the proven code (the `wildlife.museum` rows are not run: that suffix is not a
-rule of the real list). **Not done:** `independent.rs` (RFC 6454 §5, §6.2),
-`mutations.json`, `examples.rs`, so tier 0.
+rule of the real list). `examples.rs` evaluates the spec on concrete origins,
+sites and URL records (it uses `clazel_psl::examples`' five-rule list), and
+`mutations.json` has 31 mutations, all `killed` with a certificate, 22 of 2.5
+and 9 of 2.6 (below): same origin (scheme, port, host, opaque identity), same
+origin-domain (null domains, scheme, one-sided domains), effective domain,
+serialization (port, opaque "null", separator), obtain a site (registrable
+domain, scheme), same site, and schemelessly same site (null registrable
+domains). **Not done:** `independent.rs` (RFC 6454 §5, §6.2), so tier 0.
 
 ### 2.6 Origin of a URL (S)
 
@@ -474,6 +495,14 @@ Conformance: all 414 rows of WPT `urltestdata.json` that have an `origin`,
 on the same inputs, 403 agree and 11 are expected failures (7 where rust-url's
 IDNA rejects the URL, 4 `blob:` URLs whose inner scheme is not http, https or
 file, where rust-url differs from step 4 and WPT agrees with us).
+Steps 3 to 5 are `url_origin_of_blob_path_url` (the same meaning, moved out of
+`url_origin` so Verus can evaluate them without the parser). Mutations of the
+URL origin: nine in `mutations.json` are `killed` with certificates (`file:`
+or other schemes getting a tuple origin, `wss:` losing one, the port, the
+domain, a host-less URL, and three of the blob steps). Verus cannot evaluate
+steps 1 and 2 (`all_scalar_values` is a quantifier in `clazel-encoding`), so no
+mutation of the blob test or of the path parse is certified; the conformance
+rows cover them.
 
 ### 2.7 Cookie primitives (M)
 
@@ -923,9 +952,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.1 IPC wire format: spec | done |
 | 2.2 IPC wire format: implementation | done |
 | 2.3 IPC frames and messages | done |
-| 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance and differential done; independent transcription, mutations and the root lemma not done (tier 0) |
-| 2.5 Origins and sites | partial: spec, contracts, proven implementation, lemmas, example tables done; independent transcription and mutations not done (tier 0) |
-| 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done; mutations not done (tier 0) |
+| 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance, differential and examples done, 22 mutations killed (1 incidental); independent transcription and the root lemma not done (tier 0) |
+| 2.5 Origins and sites | partial: spec, contracts, proven implementation, lemmas, example tables done, 31 mutations killed (with 2.6); independent transcription not done (tier 0) |
+| 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done, mutations killed (counted with 2.5; none for blob steps 1 and 2) (tier 0) |
 | 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching independent proven, http-state dates 70/70; the RFC 9110 date independent transcription is not proven |
 | 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed; the §4.1.1 independent transcription is not written |
 | 2.9 Cookie storage and retrieval | not started |

@@ -349,6 +349,28 @@ pub open spec fn url_origin_not_blob(url: clazel_url::url::spec::Url, fresh: nat
     }
 }
 
+/// URL §4.7 "origin" of a blob URL, from `path_url`, "the result of parsing
+/// the result of URL path serializing url" (`None` for failure), with
+/// `fresh` the id of "a new opaque origin". A function of its own so that
+/// Verus can evaluate steps 3 to 5 without parsing.
+pub open spec fn url_origin_of_blob_path_url(path_url: Option<clazel_url::url::spec::Url>, fresh: nat) -> Origin {
+    match path_url {
+        // 3. "If pathURL is failure, then return a new opaque origin."
+        None => Origin::Opaque(fresh),
+        Some(path_url) => {
+            // 4. "If pathURL's scheme is "http", "https", or "file", then
+            //    return pathURL's origin."
+            if path_url.scheme == clazel_url::url::spec::http_str() || path_url.scheme == clazel_url::url::spec::https_str()
+                || path_url.scheme == clazel_url::url::spec::file_str() {
+                url_origin_not_blob(path_url, fresh)
+            } else {
+                // 5. "Return a new opaque origin."
+                Origin::Opaque(fresh)
+            }
+        },
+    }
+}
+
 /// URL §4.7 "origin" of a URL, with `domain_parser` the URL §3.3 domain
 /// parser the basic URL parser runs and `fresh` the id of "a new opaque
 /// origin".
@@ -362,22 +384,8 @@ pub open spec fn url_origin(url: clazel_url::url::spec::Url, domain_parser: claz
         if !clazel_encoding::utf8::spec::all_scalar_values(path) {
             Origin::Opaque(fresh)
         } else {
-            match clazel_url::url::spec::basic_url_parser(path, None, domain_parser) {
-                // 3. "If pathURL is failure, then return a new opaque
-                //    origin."
-                None => Origin::Opaque(fresh),
-                Some(path_url) => {
-                    // 4. "If pathURL's scheme is "http", "https", or "file",
-                    //    then return pathURL's origin."
-                    if path_url.scheme == clazel_url::url::spec::http_str() || path_url.scheme == clazel_url::url::spec::https_str()
-                        || path_url.scheme == clazel_url::url::spec::file_str() {
-                        url_origin_not_blob(path_url, fresh)
-                    } else {
-                        // 5. "Return a new opaque origin."
-                        Origin::Opaque(fresh)
-                    }
-                },
-            }
+            // 3. to 5.
+            url_origin_of_blob_path_url(clazel_url::url::spec::basic_url_parser(path, None, domain_parser), fresh)
         }
     } else {
         url_origin_not_blob(url, fresh)

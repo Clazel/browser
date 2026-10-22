@@ -7,10 +7,12 @@
 //! - [`spec`]: the Public Suffix List algorithm and URL §3.2 over any list
 //!   of rules, and the cookie root.
 //! - [`table`]: the spec view of the generated tables ([`data`]).
+//! - [`examples`]: the spec evaluated on concrete domains and a small list.
 //! - [`contract`]: what the executable functions are proven to satisfy.
 
 pub mod contract;
 pub mod data;
+pub mod examples;
 pub mod exec;
 pub mod join;
 pub mod lemmas;

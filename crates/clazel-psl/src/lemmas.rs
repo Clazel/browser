@@ -10,6 +10,64 @@ use vstd::prelude::*;
 
 verus! {
 
+/// [`rule_matches_from`] is "for every pair" of the rule's labels from the
+/// `k`-th from the right.
+pub proof fn lemma_rule_matches_from_forall(rule: Rule, d: Seq<Seq<u32>>, k: nat)
+    requires
+        rule.labels.len() <= d.len(),
+    ensures
+        rule_matches_from(rule, d, k) <==> forall|j: int|
+            k <= j < rule.labels.len() ==> label_matches(#[trigger] rule.labels[rule.labels.len() - 1 - j], d[d.len() - 1 - j]),
+    decreases rule.labels.len() - k,
+{
+    if k < rule.labels.len() {
+        lemma_rule_matches_from_forall(rule, d, k + 1);
+        if rule_matches_from(rule, d, k) {
+            assert forall|j: int| k <= j < rule.labels.len() implies label_matches(#[trigger] rule.labels[rule.labels.len() - 1 - j], d[d.len() - 1 - j]) by {
+                if j > k {
+                    assert(k + 1 <= j);
+                }
+            }
+        }
+    }
+}
+
+/// "A domain is said to match a rule" exactly as the standard words it: the
+/// domain has as many or more labels, and for every pair, counting from the
+/// right, the labels are identical or the rule's is "*".
+pub proof fn lemma_rule_matches_forall(rule: Rule, d: Seq<Seq<u32>>)
+    ensures
+        rule_matches(rule, d) <==> (rule.labels.len() <= d.len() && forall|k: int|
+            0 <= k < rule.labels.len() ==> label_matches(#[trigger] rule.labels[rule.labels.len() - 1 - k], d[d.len() - 1 - k])),
+{
+    if rule.labels.len() <= d.len() {
+        lemma_rule_matches_from_forall(rule, d, 0);
+    }
+}
+
+/// [`has_empty_label_from`] is "some label from the `k`-th on is empty".
+pub proof fn lemma_has_empty_label_from_exists(labels: Seq<Seq<u32>>, k: nat)
+    ensures
+        has_empty_label_from(labels, k) <==> exists|j: int| k <= j < labels.len() && (#[trigger] labels[j]).len() == 0,
+    decreases labels.len() - k,
+{
+    if k < labels.len() {
+        lemma_has_empty_label_from_exists(labels, k + 1);
+        if labels[k as int].len() != 0 && has_empty_label_from(labels, k) {
+            let j = choose|j: int| k + 1 <= j < labels.len() && (#[trigger] labels[j]).len() == 0;
+            assert(k <= j);
+        }
+    }
+}
+
+/// An empty label somewhere in `labels`.
+pub proof fn lemma_has_empty_label_exists(labels: Seq<Seq<u32>>)
+    ensures
+        has_empty_label(labels) <==> exists|k: int| 0 <= k < labels.len() && (#[trigger] labels[k]).len() == 0,
+{
+    lemma_has_empty_label_from_exists(labels, 0);
+}
+
 /// The rule that prevails among the first `n` matches the domain.
 pub proof fn lemma_prevailing_matches(rules: Seq<Rule>, d: Seq<Seq<u32>>, n: nat)
     requires
