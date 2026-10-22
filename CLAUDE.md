@@ -86,8 +86,8 @@ to trust the agents. Read `docs/VERIFICATION.md` and `docs/ROADMAP.md` first.
   toolchain pins, `scripts/`, `xtask/`) makes it check every crate. It ends
   in `CHANGED CRATES PASSED`, which is not `ALL CHECKS PASSED` and must not
   be reported as such. Work is **done** only when CI's full verification
-  (`scripts/verify.sh`) is green on its pull request; say so if it has not
-  run yet. To repeat CI's run locally, use `scripts/verify.sh` or the
+  (every job of `.github/workflows/ci.yml`, ending in `Full verification`)
+  is green on its pull request; say so if it has not run yet. To repeat CI's run locally, use `scripts/verify.sh` or the
   Docker command in README.md. `cargo xtask check` runs only the fast static
   checks (unsafe, the `clazel-sys` audit, lint overrides, escape hatches,
   tier declarations, pins); use it while iterating, never as the final

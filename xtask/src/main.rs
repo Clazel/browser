@@ -7,6 +7,9 @@
 //!   Kani, Verus, mutations and conformance only for the crates that changed
 //!   since `base` (default `origin/main`) and their dependents (`changed.rs`).
 //!   Ends in `CHANGED CRATES PASSED`; CI's full run is the gate.
+//! - `cargo xtask verify --part (base|crate <name> --metrics <dir>|assemble
+//!   --metrics <dir>)`: the same checks split into parts for separate CI
+//!   jobs (`parts.rs`); `cargo xtask crates` lists the crates for them.
 //! - `cargo xtask check`: only the fast static checks (no build, no proofs).
 //! - `cargo xtask mutate`: only the proof mutation tests (also part of
 //!   `verify`).
@@ -26,6 +29,7 @@ mod changed;
 mod conformance;
 mod deps;
 mod mutate;
+mod parts;
 mod pins;
 mod psl;
 mod report;
@@ -37,7 +41,7 @@ mod unicode;
 mod verus;
 mod workspace;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
 use pins::Pins;
@@ -802,6 +806,19 @@ fn generate_tables() -> ExitCode {
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    // `verify --part ...` (parts.rs) and `crates` are handled apart.
+    let part = match args.as_slice() {
+        ["verify", "--part", "base"] => Some(Part::Base),
+        ["verify", "--part", "crate", name, "--metrics", dir] => {
+            Some(Part::Crate((*name).to_owned(), PathBuf::from(dir)))
+        }
+        ["verify", "--part", "assemble", "--metrics", dir] => {
+            Some(Part::Assemble(PathBuf::from(dir)))
+        }
+        ["crates"] => Some(Part::ListCrates),
+        _ => None,
+    };
+    let args = if part.is_some() { vec!["check"] } else { args };
     // `mutate <crate>` runs one crate's mutations, for iterating on them.
     let mut only_crate: Option<&str> = None;
     // `verify` and `report` take `--changed [<base>]` (changed.rs).
@@ -830,7 +847,7 @@ fn main() -> ExitCode {
         (["report", "--write"], _) => (false, false, true, true),
         _ => {
             eprintln!(
-                "usage: cargo xtask <verify [--changed [base]]|check|mutate [crate]|testdata|tables|report [--write] [--changed [base]]>"
+                "usage: cargo xtask <verify [--changed [base]]|verify --part (base|crate <name> --metrics <dir>|assemble --metrics <dir>)|crates|check|mutate [crate]|testdata|tables|report [--write] [--changed [base]]>"
             );
             return ExitCode::from(64);
         }
@@ -857,6 +874,9 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
+    if let Some(part) = part {
+        return run_part(&mut r, part, &crates, &pins, &root);
+    }
     if only_mutate {
         if only_crate.is_some_and(|n| !crates.iter().any(|c| c.name == n)) {
             r.step(
@@ -943,6 +963,96 @@ fn main() -> ExitCode {
         println!(
             "RESULT: STATIC CHECKS PASSED (no build, tests or proofs run; use `cargo xtask verify`)"
         );
+        ExitCode::SUCCESS
+    }
+}
+
+/// One part of a split verification (parts.rs).
+enum Part {
+    Base,
+    Crate(String, PathBuf),
+    Assemble(PathBuf),
+    /// `cargo xtask crates`: the workspace crates as a JSON array, for CI's
+    /// matrix of `crate` parts.
+    ListCrates,
+}
+
+fn run_part(r: &mut Runner, part: Part, crates: &[Crate], pins: &Pins, root: &Path) -> ExitCode {
+    if let Part::ListCrates = part {
+        let names: Vec<&str> = crates.iter().map(|c| c.name.as_str()).collect();
+        println!("{}", serde_json::Value::from(names));
+        return ExitCode::SUCCESS;
+    }
+    static_checks(r, crates, pins);
+    let done = match part {
+        Part::Base => {
+            build_checks(r, None);
+            miri(r, pins, None);
+            "BASE PART PASSED (static checks, rustfmt, clippy, tests and Miri; proofs run in the crate parts)".to_owned()
+        }
+        Part::Crate(name, dir) => {
+            let Some(c) = crates.iter().find(|c| c.name == name) else {
+                r.step(
+                    "select crate",
+                    Outcome::Fail(vec![format!("no workspace crate named {name:?}")]),
+                );
+                println!("RESULT: FAILED");
+                return ExitCode::from(1);
+            };
+            let one = std::slice::from_ref(c);
+            kani(r, one, pins);
+            verus(r, one, pins);
+            mutations(r, one, root, None);
+            conformance_suites(r, one);
+            // Never record measurements from a run where something failed.
+            if !r.failed && !r.skipped {
+                let m = r.metrics.get(&name).cloned().unwrap_or_default();
+                let res = parts::head().and_then(|commit| parts::write(&dir, &name, &commit, &m));
+                r.step(
+                    "write crate measurements",
+                    from_result(res.map(|path| vec![format!("wrote {path}")])),
+                );
+            }
+            format!("CRATE PART PASSED ({name}: Kani, Verus, mutations and conformance)")
+        }
+        Part::Assemble(dir) => {
+            let res = parts::head().and_then(|commit| {
+                let mut problems = Vec::new();
+                for c in crates {
+                    let path = dir.join(format!("{}.json", c.name));
+                    let entry = r.metrics.entry(c.name.clone()).or_default();
+                    let read = std::fs::read_to_string(&path)
+                        .map_err(|e| e.to_string())
+                        .and_then(|text| parts::read_into(&text, &c.name, &commit, entry));
+                    if let Err(e) = read {
+                        problems.push(format!("{}: {e}", path.display()));
+                    }
+                }
+                if problems.is_empty() {
+                    Ok(vec![format!(
+                        "{} crate parts, all from {commit}",
+                        crates.len()
+                    )])
+                } else {
+                    Err(problems.join("\n"))
+                }
+            });
+            r.step("read crate parts", from_result(res));
+            if !r.failed {
+                readme_table(r, false, None);
+            }
+            "PARTS ASSEMBLED (README table matches every crate part; the gate is this and every part passing on the same commit)".to_owned()
+        }
+        Part::ListCrates => String::new(),
+    };
+    if r.failed {
+        println!("RESULT: FAILED");
+        ExitCode::from(1)
+    } else if r.skipped {
+        println!("RESULT: INCOMPLETE (checks skipped; not verified)");
+        ExitCode::from(2)
+    } else {
+        println!("RESULT: {done}");
         ExitCode::SUCCESS
     }
 }
