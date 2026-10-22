@@ -111,6 +111,9 @@ fn row_matches(row: RuleRow, d: &[Vec<u32>]) -> (r: bool)
     if n > d.len() {
         return false;
     }
+    proof {
+        super::lemmas::lemma_rule_matches_forall(super::table::rule_of_row(row), clazel_url::host::record::parts_view(d@));
+    }
     let ghost dv = clazel_url::host::record::parts_view(d@);
     let ghost rule = super::table::rule_of_row(row);
     let mut k: usize = 0;
@@ -139,6 +142,11 @@ fn row_matches(row: RuleRow, d: &[Vec<u32>]) -> (r: bool)
                 if !(row_equals(label_row, l.as_slice()) || row_is_star(label_row)) {
                     proof {
                         assert(!label_matches(rule.labels[n - 1 - k as int], dv[d.len() - 1 - k as int]));
+                        super::lemmas::lemma_rule_matches_forall(rule, dv);
+                        let kk = k as int;
+                        assert(rule.labels.len() - 1 - kk == n - 1 - kk);
+                        assert(!label_matches(rule.labels[rule.labels.len() - 1 - kk], dv[d.len() - 1 - kk]));
+                        assert(!rule_matches(rule, dv));
                     }
                     return false;
                 }
@@ -223,6 +231,9 @@ fn has_empty_label_exec(labels: &[Vec<u32>]) -> (r: bool)
     ensures
         r == has_empty_label(clazel_url::host::record::parts_view(labels@)),
 {
+    proof {
+        super::lemmas::lemma_has_empty_label_exists(clazel_url::host::record::parts_view(labels@));
+    }
     let mut i: usize = 0;
     while i < labels.len()
         invariant
@@ -234,6 +245,8 @@ fn has_empty_label_exec(labels: &[Vec<u32>]) -> (r: bool)
             Some(l) if l.is_empty() => {
                 proof {
                     assert(clazel_url::host::record::parts_view(labels@)[i as int].len() == 0);
+                    super::lemmas::lemma_has_empty_label_exists(clazel_url::host::record::parts_view(labels@));
+                    assert(has_empty_label(clazel_url::host::record::parts_view(labels@)));
                 }
                 return true;
             },

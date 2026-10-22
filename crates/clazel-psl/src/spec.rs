@@ -124,6 +124,23 @@ pub open spec fn label_matches(rule_label: Seq<u32>, domain_label: Seq<u32>) -> 
     rule_label == domain_label || rule_label == star_label()
 }
 
+/// The labels of `rule` from the `k`-th from the right, up to the leftmost,
+/// match the corresponding labels of the domain: "Beginning with the
+/// right-most labels of both the domain and the rule, and continuing for all
+/// labels in the rule, one finds that for every pair, either they are
+/// identical, or that the label from the rule is "*"." (Recursive, so that
+/// Verus can evaluate it on a concrete rule; `lemma_rule_matches_forall`
+/// proves it is that "for every pair" statement.)
+pub open spec fn rule_matches_from(rule: Rule, d: Seq<Seq<u32>>, k: nat) -> bool
+    decreases rule.labels.len() - k,
+{
+    if k >= rule.labels.len() {
+        true
+    } else {
+        label_matches(rule.labels[rule.labels.len() - 1 - k], d[d.len() - 1 - k]) && rule_matches_from(rule, d, k + 1)
+    }
+}
+
 /// "A domain is said to match a rule if and only if all of the following
 /// conditions are met: When the domain and rule are split into
 /// corresponding labels, that the domain contains as many or more labels
@@ -133,11 +150,7 @@ pub open spec fn label_matches(rule_label: Seq<u32>, domain_label: Seq<u32>) -> 
 /// rule is "*"." `d` is the domain's labels.
 pub open spec fn rule_matches(rule: Rule, d: Seq<Seq<u32>>) -> bool {
     &&& rule.labels.len() <= d.len()
-    &&& forall|k: int|
-        0 <= k < rule.labels.len() ==> label_matches(
-            #[trigger] rule.labels[rule.labels.len() - 1 - k],
-            d[d.len() - 1 - k],
-        )
+    &&& rule_matches_from(rule, d, 0)
 }
 
 /// `a` beats `b` as the prevailing rule: A3 "the prevailing rule is the one
@@ -214,9 +227,22 @@ pub open spec fn domain_labels(domain: Seq<u32>) -> Seq<Seq<u32>> {
     clazel_url::host::spec::strictly_split(strip_trailing_dot(domain), 0x2E)
 }
 
+/// Some label of `labels` from the `k`-th on is empty. (Recursive, so that
+/// Verus can evaluate it; `lemma_has_empty_label_exists` proves it is the
+/// existential statement.)
+pub open spec fn has_empty_label_from(labels: Seq<Seq<u32>>, k: nat) -> bool
+    decreases labels.len() - k,
+{
+    if k >= labels.len() {
+        false
+    } else {
+        labels[k as int].len() == 0 || has_empty_label_from(labels, k + 1)
+    }
+}
+
 /// "Empty labels are not permitted."
 pub open spec fn has_empty_label(labels: Seq<Seq<u32>>) -> bool {
-    exists|k: int| 0 <= k < labels.len() && (#[trigger] labels[k]).len() == 0
+    has_empty_label_from(labels, 0)
 }
 
 /// `labels` joined with ".", and "A trailing dot shall be added if the
