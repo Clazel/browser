@@ -5,8 +5,9 @@
 //!   globally unique identifier;
 //! - §5 "Comparing Origins";
 //! - §6.2 "Serializing Origins" (ASCII serialization).
-//! ([`super::independent_equivalence`] proves it equal to the spec on the
-//! class stated there.)
+//!
+//! [`super::independent_equivalence`] proves it equal to the spec on the
+//! class stated there.
 //!
 //! Modelling choices:
 //! - RFC 6454 §4 says a triple's host is a string and its port a number;
