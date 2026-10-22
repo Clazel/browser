@@ -22,3 +22,4 @@ pub mod spec;
 pub mod table;
 pub mod tables;
 pub mod wf;
+pub mod wf_table;
