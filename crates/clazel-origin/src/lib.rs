@@ -7,10 +7,12 @@
 //! - [`spec`]: the standards' algorithms, over abstract origins, hosts and
 //!   URLs.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`examples`]: the spec evaluated on concrete origins, sites and URLs.
 //! - [`exec`]: the executable origin and site types and functions.
 //! - [`lemmas`]: facts proven about the spec.
 
 pub mod contract;
+pub mod examples;
 pub mod exec;
 pub mod lemmas;
 pub mod spec;

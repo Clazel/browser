@@ -1,0 +1,407 @@
+{
+  "mutations": [
+    {
+      "id": "same-origin-ignores-scheme",
+      "file": "src/spec.rs",
+      "find": "sa == sb && pa == pb && ha == hb",
+      "replace": "pa == pb && ha == hb",
+      "expect": "killed",
+      "reason": "Same origin ignores the scheme: `http://a.com` and `https://a.com` are the same origin, so example_same_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin()",
+        "witness": "same_origin(crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None), crate::examples::tup(crate::examples::http(), crate::examples::a_com(), None))"
+      }
+    },
+    {
+      "id": "same-origin-ignores-port",
+      "file": "src/spec.rs",
+      "find": "sa == sb && pa == pb && ha == hb",
+      "replace": "sa == sb && ha == hb",
+      "expect": "killed",
+      "reason": "Same origin ignores the port: `https://a.com` and `https://a.com:8080` are the same origin, so example_same_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin()",
+        "witness": "same_origin(crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None), crate::examples::tup(crate::examples::https(), crate::examples::a_com(), Some(8080nat)))"
+      }
+    },
+    {
+      "id": "same-origin-ignores-host",
+      "file": "src/spec.rs",
+      "find": "sa == sb && pa == pb && ha == hb",
+      "replace": "sa == sb && pa == pb",
+      "expect": "killed",
+      "reason": "Same origin ignores the host: `https://a.com` and `https://b.com` are the same origin, so example_same_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin()",
+        "witness": "same_origin(crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None), crate::examples::tup(crate::examples::https(), crate::examples::b_com(), None))"
+      }
+    },
+    {
+      "id": "opaque-origins-all-equal",
+      "file": "src/spec.rs",
+      "find": "(Origin::Opaque(x), Origin::Opaque(y)) => x == y,\n        // 2.\n        (Origin::Tuple { scheme: sa, host: ha",
+      "replace": "(Origin::Opaque(x), Origin::Opaque(y)) => true,\n        // 2.\n        (Origin::Tuple { scheme: sa, host: ha",
+      "expect": "killed",
+      "reason": "Any two opaque origins are the same origin: opaque origins 1 and 2 are the same, so example_same_origin_opaque is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_opaque()",
+        "witness": "same_origin(Origin::Opaque(1nat), Origin::Opaque(2nat))"
+      }
+    },
+    {
+      "id": "opaque-and-tuple-same-origin",
+      "file": "src/spec.rs",
+      "find": "        // 3.\n        _ => false,\n    }\n}\n\n/// HTML \u00a77.1.1 \"same origin-domain\"",
+      "replace": "        // 3.\n        _ => true,\n    }\n}\n\n/// HTML \u00a77.1.1 \"same origin-domain\"",
+      "expect": "killed",
+      "reason": "An opaque origin is the same origin as a tuple origin, so example_same_origin_opaque is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_opaque()",
+        "witness": "same_origin(Origin::Opaque(1nat), crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None))"
+      }
+    },
+    {
+      "id": "domain-opaque-origins-all-equal",
+      "file": "src/spec.rs",
+      "find": "(Origin::Opaque(x), Origin::Opaque(y)) => x == y,\n        // 2.\n        (Origin::Tuple { scheme: sa, domain: da",
+      "replace": "(Origin::Opaque(x), Origin::Opaque(y)) => true,\n        // 2.\n        (Origin::Tuple { scheme: sa, domain: da",
+      "expect": "killed",
+      "reason": "Any two opaque origins are the same origin-domain, so example_same_origin_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_domain()",
+        "witness": "same_origin_domain(Origin::Opaque(1nat), Origin::Opaque(2nat))"
+      }
+    },
+    {
+      "id": "domain-null-domains-match",
+      "file": "src/spec.rs",
+      "find": "if sa == sb && da == db && da is Some {",
+      "replace": "if sa == sb && da == db {",
+      "expect": "killed",
+      "reason": "Null domains count as equal domains (2.1 no longer needs them non-null): `www.a.com` and `b.a.com` with null domains are the same origin-domain, so example_same_origin_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_domain()",
+        "witness": "same_origin_domain(crate::examples::tup(crate::examples::https(), crate::examples::www_a_com(), None), crate::examples::tup(crate::examples::https(), crate::examples::b_a_com(), None))"
+      }
+    },
+    {
+      "id": "domain-ignores-scheme",
+      "file": "src/spec.rs",
+      "find": "if sa == sb && da == db && da is Some {",
+      "replace": "if da == db && da is Some {",
+      "expect": "killed",
+      "reason": "Equal domains match across schemes: `https` and `http` origins with domain `a.com` are the same origin-domain, so example_same_origin_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_domain()",
+        "witness": "same_origin_domain(crate::examples::tup_domain(crate::examples::https(), crate::examples::www_a_com(), crate::examples::a_com()), crate::examples::tup_domain(crate::examples::http(), crate::examples::b_a_com(), crate::examples::a_com()))"
+      }
+    },
+    {
+      "id": "domain-one-sided-matches",
+      "file": "src/spec.rs",
+      "find": "same_origin(a, b) && da is None && db is None",
+      "replace": "same_origin(a, b)",
+      "expect": "killed",
+      "reason": "Step 2.2 no longer requires both domains null: an origin that set `document.domain` is the same origin-domain as one that did not, so example_same_origin_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_domain()",
+        "witness": "same_origin_domain(crate::examples::tup(crate::examples::https(), crate::examples::www_a_com(), None), crate::examples::tup_domain(crate::examples::https(), crate::examples::www_a_com(), crate::examples::a_com()))"
+      }
+    },
+    {
+      "id": "domain-requires-nothing",
+      "file": "src/spec.rs",
+      "find": "if sa == sb && da == db && da is Some {",
+      "replace": "if sa == sb {",
+      "expect": "killed",
+      "reason": "Step 2.1 matches any two origins with the same scheme: `www.a.com` and `b.a.com` are the same origin-domain, so example_same_origin_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_origin_domain()",
+        "witness": "same_origin_domain(crate::examples::tup(crate::examples::https(), crate::examples::www_a_com(), None), crate::examples::tup(crate::examples::https(), crate::examples::b_a_com(), None))"
+      }
+    },
+    {
+      "id": "effective-domain-ignores-domain",
+      "file": "src/spec.rs",
+      "find": "Some(d) => Some(d),",
+      "replace": "Some(d) => Some(host),",
+      "expect": "killed",
+      "reason": "The effective domain is the host even when a domain is set, so example_effective_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_effective_domain()",
+        "witness": "effective_domain(crate::examples::tup_domain(crate::examples::https(), crate::examples::www_a_com(), crate::examples::a_com())) == Some(crate::examples::www_a_com())"
+      }
+    },
+    {
+      "id": "serialization-omits-port",
+      "file": "src/spec.rs",
+      "find": "Some(p) => result + seq![0x3Au32] + clazel_url::host::spec::serialize_integer(p),",
+      "replace": "Some(p) => result,",
+      "expect": "killed",
+      "reason": "The port is left out of an origin's serialization, so example_serialization_of_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_serialization_of_origin()",
+        "witness": "serialization_of_origin(crate::examples::tup(crate::examples::https(), crate::examples::a_com(), Some(8080nat))) == seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x2F, 0x2F, 0x61, 0x2E, 0x63, 0x6F, 0x6D]"
+      }
+    },
+    {
+      "id": "serialization-leaks-opaque-id",
+      "file": "src/spec.rs",
+      "find": "Origin::Opaque(_) => seq![0x6Eu32, 0x75, 0x6C, 0x6C],",
+      "replace": "Origin::Opaque(id) => clazel_url::host::spec::serialize_integer(id),",
+      "expect": "killed",
+      "reason": "An opaque origin serializes to its id, not \"null\", so example_serialization_of_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_serialization_of_origin()",
+        "witness": "serialization_of_origin(Origin::Opaque(1nat)) == seq![0x31u32]"
+      }
+    },
+    {
+      "id": "serialization-separator",
+      "file": "src/spec.rs",
+      "find": "let result = scheme + seq![0x3Au32, 0x2F, 0x2F];",
+      "replace": "let result = scheme + seq![0x3Au32];",
+      "expect": "killed",
+      "reason": "The \"://\" is just \":\", so example_serialization_of_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_serialization_of_origin()",
+        "witness": "serialization_of_origin(crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None)) == seq![0x68u32, 0x74, 0x74, 0x70, 0x73, 0x3A, 0x61, 0x2E, 0x63, 0x6F, 0x6D]"
+      }
+    },
+    {
+      "id": "site-uses-host",
+      "file": "src/spec.rs",
+      "find": "Some(rd) => Site::SchemeAndHost(scheme, clazel_url::host::spec::Host::Domain(rd)),",
+      "replace": "Some(rd) => Site::SchemeAndHost(scheme, host),",
+      "expect": "killed",
+      "reason": "A site is the scheme and the whole host, not the registrable domain, so `www.a.com` and `b.a.com` are different sites and example_same_site is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site()",
+        "witness": "!same_site(clazel_psl::examples::rules(), crate::examples::tup(crate::examples::https(), crate::examples::www_a_com(), None), crate::examples::tup(crate::examples::https(), crate::examples::b_a_com(), Some(8080nat)))"
+      }
+    },
+    {
+      "id": "site-drops-scheme",
+      "file": "src/spec.rs",
+      "find": "Some(rd) => Site::SchemeAndHost(scheme, clazel_url::host::spec::Host::Domain(rd)),",
+      "replace": "Some(rd) => Site::SchemeAndHost(seq![], clazel_url::host::spec::Host::Domain(rd)),",
+      "expect": "killed",
+      "reason": "A site with a registrable domain has no scheme, so `https://www.a.com` and `http://b.a.com` are the same site and example_same_site is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site()",
+        "witness": "same_site(clazel_psl::examples::rules(), crate::examples::tup(crate::examples::https(), crate::examples::www_a_com(), None), crate::examples::tup(crate::examples::http(), crate::examples::b_a_com(), None))"
+      }
+    },
+    {
+      "id": "same-site-ignores-scheme",
+      "file": "src/spec.rs",
+      "find": "sa == sb && ha == hb",
+      "replace": "ha == hb",
+      "expect": "killed",
+      "reason": "Same site ignores the scheme of two sites, so example_same_site_sites is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site_sites()",
+        "witness": "same_site_sites(Site::SchemeAndHost(crate::examples::https(), crate::examples::a_com()), Site::SchemeAndHost(crate::examples::http(), crate::examples::a_com()))"
+      }
+    },
+    {
+      "id": "same-site-ignores-host",
+      "file": "src/spec.rs",
+      "find": "sa == sb && ha == hb",
+      "replace": "sa == sb",
+      "expect": "killed",
+      "reason": "Same site ignores the host of two sites, so example_same_site_sites is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site_sites()",
+        "witness": "same_site_sites(Site::SchemeAndHost(crate::examples::https(), crate::examples::a_com()), Site::SchemeAndHost(crate::examples::https(), crate::examples::b_com()))"
+      }
+    },
+    {
+      "id": "opaque-sites-all-equal",
+      "file": "src/spec.rs",
+      "find": "(Site::Opaque(x), Site::Opaque(y)) => x == y,",
+      "replace": "(Site::Opaque(x), Site::Opaque(y)) => true,",
+      "expect": "killed",
+      "reason": "Any two opaque sites are the same site, so example_same_site_sites is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site_sites()",
+        "witness": "same_site_sites(Site::Opaque(1nat), Site::Opaque(2nat))"
+      }
+    },
+    {
+      "id": "opaque-site-matches-host-site",
+      "file": "src/spec.rs",
+      "find": "(Site::Opaque(_), _) => false,",
+      "replace": "(Site::Opaque(_), _) => true,",
+      "expect": "killed",
+      "reason": "An opaque site is the same site as a scheme-and-host, so example_same_site_sites is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_same_site_sites()",
+        "witness": "same_site_sites(Site::Opaque(1nat), Site::SchemeAndHost(crate::examples::https(), crate::examples::a_com()))"
+      }
+    },
+    {
+      "id": "schemelessly-null-registrable-domains-match",
+      "file": "src/spec.rs",
+      "find": "ra == rb && ra is Some",
+      "replace": "ra == rb",
+      "expect": "killed",
+      "reason": "Two hosts without a registrable domain are schemelessly same site (null equals null): `com` and `uk`, so example_schemelessly_same_site is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_schemelessly_same_site()",
+        "witness": "schemelessly_same_site(clazel_psl::examples::rules(), crate::examples::tup(crate::examples::https(), crate::examples::com(), None), crate::examples::tup(crate::examples::https(), crate::examples::uk(), None))"
+      }
+    },
+    {
+      "id": "schemelessly-null-registrable-host-differs",
+      "file": "src/spec.rs",
+      "find": "if host_a == host_b && ra is None {",
+      "replace": "if ra is None && rb is None {",
+      "expect": "killed",
+      "reason": "Hosts without a registrable domain are schemelessly same site although different (step 2.2 loses its equality): `com` and `uk`, so example_schemelessly_same_site is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_schemelessly_same_site()",
+        "witness": "schemelessly_same_site(clazel_psl::examples::rules(), crate::examples::tup(crate::examples::https(), crate::examples::com(), None), crate::examples::tup(crate::examples::https(), crate::examples::uk(), None))"
+      }
+    },
+    {
+      "id": "file-has-a-tuple-origin",
+      "file": "src/spec.rs",
+      "find": "s == clazel_url::url::spec::ftp_str() ||",
+      "replace": "s == clazel_url::url::spec::file_str() || s == clazel_url::url::spec::ftp_str() ||",
+      "expect": "killed",
+      "reason": "`file:` URLs get a tuple origin (so two files are the same origin), not a new opaque one, so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(clazel_url::url::spec::file_str(), Some(clazel_url::host::spec::Host::Empty), None), clazel_url::url::examples::identity_domain_parser(), 7nat) == crate::examples::tup(clazel_url::url::spec::file_str(), clazel_url::host::spec::Host::Empty, None)"
+      }
+    },
+    {
+      "id": "wss-has-no-tuple-origin",
+      "file": "src/spec.rs",
+      "find": "|| s == clazel_url::url::spec::ws_str() || s == clazel_url::url::spec::wss_str()",
+      "replace": "|| s == clazel_url::url::spec::ws_str()",
+      "expect": "killed",
+      "reason": "`wss:` URLs get a new opaque origin, so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(clazel_url::url::spec::wss_str(), Some(crate::examples::a_com()), None), clazel_url::url::examples::identity_domain_parser(), 7nat) == Origin::Opaque(7nat)"
+      }
+    },
+    {
+      "id": "url-origin-drops-port",
+      "file": "src/spec.rs",
+      "find": "Some(host) => Origin::Tuple { scheme: url.scheme, host, port: url.port, domain: None },",
+      "replace": "Some(host) => Origin::Tuple { scheme: url.scheme, host, port: None, domain: None },",
+      "expect": "killed",
+      "reason": "The tuple origin of a URL has no port, so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(crate::examples::https(), Some(crate::examples::a_com()), Some(8080nat)), clazel_url::url::examples::identity_domain_parser(), 7nat) == crate::examples::tup(crate::examples::https(), crate::examples::a_com(), None)"
+      }
+    },
+    {
+      "id": "url-origin-sets-domain",
+      "file": "src/spec.rs",
+      "find": "Some(host) => Origin::Tuple { scheme: url.scheme, host, port: url.port, domain: None },",
+      "replace": "Some(host) => Origin::Tuple { scheme: url.scheme, host, port: url.port, domain: Some(host) },",
+      "expect": "killed",
+      "reason": "The tuple origin of a URL starts with its domain set to its host (it is \"null unless stated otherwise\"), so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(crate::examples::https(), Some(crate::examples::a_com()), Some(8080nat)), clazel_url::url::examples::identity_domain_parser(), 7nat) == Origin::Tuple { scheme: crate::examples::https(), host: crate::examples::a_com(), port: Some(8080nat), domain: Some(crate::examples::a_com()) }"
+      }
+    },
+    {
+      "id": "url-origin-hostless-is-tuple",
+      "file": "src/spec.rs",
+      "find": "            None => Origin::Opaque(fresh),\n        }\n    } else {",
+      "replace": "            None => Origin::Tuple { scheme: url.scheme, host: clazel_url::host::spec::Host::Empty, port: url.port, domain: None },\n        }\n    } else {",
+      "expect": "killed",
+      "reason": "A special URL without a host gets a tuple origin with an empty host, so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(crate::examples::https(), None, None), clazel_url::url::examples::identity_domain_parser(), 7nat) == crate::examples::tup(crate::examples::https(), clazel_url::host::spec::Host::Empty, None)"
+      }
+    },
+    {
+      "id": "other-schemes-have-tuple-origin",
+      "file": "src/spec.rs",
+      "find": "        Origin::Opaque(fresh)\n    }\n}\n\n/// URL \u00a74.7 \"origin\" of a blob URL",
+      "replace": "        match url.host {\n            Some(host) => Origin::Tuple { scheme: url.scheme, host, port: url.port, domain: None },\n            None => Origin::Opaque(fresh),\n        }\n    }\n}\n\n/// URL \u00a74.7 \"origin\" of a blob URL",
+      "expect": "killed",
+      "reason": "Every URL with a host gets a tuple origin, not only the five schemes: `file:///` gets one, so example_url_origin is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin()",
+        "witness": "url_origin(crate::examples::url_of(clazel_url::url::spec::file_str(), Some(clazel_url::host::spec::Host::Empty), None), clazel_url::url::examples::identity_domain_parser(), 7nat) == crate::examples::tup(clazel_url::url::spec::file_str(), clazel_url::host::spec::Host::Empty, None)"
+      }
+    },
+    {
+      "id": "blob-accepts-any-scheme",
+      "file": "src/spec.rs",
+      "find": "if path_url.scheme == clazel_url::url::spec::http_str() || path_url.scheme == clazel_url::url::spec::https_str()\n                || path_url.scheme == clazel_url::url::spec::file_str() {",
+      "replace": "if true {",
+      "expect": "killed",
+      "reason": "A blob URL whose path is any URL takes that URL's origin: `blob:ftp://a.com/` gets a tuple origin, so example_url_origin_of_blob_path_url is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin_of_blob_path_url()",
+        "witness": "url_origin_of_blob_path_url(Some(crate::examples::url_of(clazel_url::url::spec::ftp_str(), Some(crate::examples::a_com()), None)), 7nat) == crate::examples::tup(clazel_url::url::spec::ftp_str(), crate::examples::a_com(), None)"
+      }
+    },
+    {
+      "id": "blob-is-always-opaque",
+      "file": "src/spec.rs",
+      "find": "                url_origin_not_blob(path_url, fresh)\n            } else {",
+      "replace": "                Origin::Opaque(fresh)\n            } else {",
+      "expect": "killed",
+      "reason": "A blob URL's origin is always a new opaque one: `blob:https://a.com/` gets no tuple origin, so example_url_origin_of_blob_path_url is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin_of_blob_path_url()",
+        "witness": "url_origin_of_blob_path_url(Some(crate::examples::url_of(crate::examples::https(), Some(crate::examples::a_com()), None)), 7nat) == Origin::Opaque(7nat)"
+      }
+    },
+    {
+      "id": "blob-parse-failure-keeps-origin",
+      "file": "src/spec.rs",
+      "find": "        // 3. \"If pathURL is failure, then return a new opaque origin.\"\n        None => Origin::Opaque(fresh),",
+      "replace": "        // 3. \"If pathURL is failure, then return a new opaque origin.\"\n        None => Origin::Tuple { scheme: seq![], host: clazel_url::host::spec::Host::Empty, port: None, domain: None },",
+      "expect": "killed",
+      "reason": "A blob URL whose path fails to parse gets a shared tuple origin instead of a new opaque one, so example_url_origin_of_blob_path_url is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_url_origin_of_blob_path_url()",
+        "witness": "url_origin_of_blob_path_url(None, 7nat) == crate::examples::tup(seq![], clazel_url::host::spec::Host::Empty, None)"
+      }
+    }
+  ]
+}
