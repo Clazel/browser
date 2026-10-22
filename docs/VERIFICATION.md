@@ -86,6 +86,26 @@ in CI (`.github/workflows/ci.yml`), on Linux x86-64 with the pinned
 toolchain, on every push to `main` and every pull request. Nothing is done,
 and no tier is raised, until that run is green.
 
+CI splits the run into parts, one job each, so no job comes near GitHub's
+six-hour limit (`xtask/src/parts.rs`):
+
+- `verify --part base`: static checks, rustfmt, clippy, tests and Miri over
+  the whole workspace.
+- `verify --part crate <name> --metrics <dir>`, one job per workspace crate
+  (the list comes from `cargo xtask crates`): static checks, then Kani,
+  Verus, line counts, mutations and conformance for that crate. On success
+  it writes what it measured to `<dir>/<name>.json`, tagged with the commit
+  (with `+dirty` if tracked files have uncommitted changes).
+- `verify --part assemble --metrics <dir>`, which runs only after every
+  other job passed: static checks, then it requires a file for every
+  workspace crate from this commit, and compares README.md's table with
+  them.
+
+The parts together run exactly the checks of one `cargo xtask verify`, which
+`scripts/verify.sh` and the Docker command in README.md still run on one
+machine. "CI is green" means every job passed on the same commit, the
+`Full verification` (assemble) job included.
+
 Locally, `cargo xtask verify --changed [base]` runs the same checks over
 less. `base` defaults to `origin/main`, the last commit CI verified, and
 the run compares the working tree (committed, staged, unstaged and

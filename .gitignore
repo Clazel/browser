@@ -3,3 +3,5 @@
 .DS_Store
 /.verus-log
 /kani-out
+# `cargo xtask verify --part crate` measurements (xtask/src/parts.rs)
+/parts/

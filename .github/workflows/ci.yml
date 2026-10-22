@@ -1,13 +1,26 @@
 # Runs the checks in docs/VERIFICATION.md on every push to main and every
-# pull request. Two jobs:
+# pull request. The full verification is split into parts (xtask/src/parts.rs)
+# so that no job comes near GitHub's six-hour limit:
 #
-#   check   `cargo xtask check`: the fast static checks (unsafe, lint
-#           overrides, escape hatches, tier declarations, pins, allowlist).
-#           Fails in a minute or two, so obvious mistakes show up early.
-#   verify  `scripts/setup.sh && scripts/verify.sh`: every check, with the
-#           pinned, checksummed proof toolchain. This is the job that counts.
-#           verify.sh exits 2 when a tool is missing and checks were skipped;
-#           any non-zero exit fails the job, so a skipped check is never green.
+#   check     `cargo xtask check`: the fast static checks (unsafe, lint
+#             overrides, escape hatches, tier declarations, pins, allowlist).
+#             Fails in a minute or two, so obvious mistakes show up early.
+#   crates    lists the workspace crates (`cargo xtask crates`) for the
+#             matrix below, so a new crate cannot be left out.
+#   base      `verify --part base`: static checks, rustfmt, clippy, tests and
+#             Miri over the whole workspace.
+#   crate     one job per crate, `verify --part crate <name>`: Kani, Verus,
+#             line counts, mutations and conformance for that crate. Each
+#             uploads what it measured, tagged with the commit.
+#   assemble  `verify --part assemble`: needs every job above to pass, then
+#             checks that every crate's measurements are present and from
+#             this commit, and that README.md's table matches them.
+#
+# Together the parts run exactly the checks of one `scripts/verify.sh`, which
+# still runs them all on one machine. Verification has passed only when every
+# job above is green; `assemble` cannot be, unless the others were. Every
+# part exits non-zero when a tool is missing and checks were skipped, so a
+# skipped check is never green.
 #
 # Linux x86-64 only: it is the platform the Dockerfile reproduces, and Verus
 # publishes no Linux arm64 build.
@@ -50,8 +63,24 @@ jobs:
       - name: cargo xtask check
         run: cargo xtask check
 
-  verify:
-    name: Full verification
+  crates:
+    name: List crates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      list: ${{ steps.list.outputs.list }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install
+      - id: list
+        name: cargo xtask crates
+        run: echo "list=$(cargo xtask crates)" >> "$GITHUB_OUTPUT"
+
+  base:
+    name: Verify (base)
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     steps:
@@ -65,5 +94,56 @@ jobs:
           key: clazel-tools-${{ runner.os }}-${{ hashFiles('scripts/toolchains.env', 'scripts/checksums.txt') }}
       - name: Install pinned toolchain
         run: scripts/setup.sh
-      - name: Verify
-        run: scripts/verify.sh
+      - name: Verify (base)
+        run: cargo xtask verify --part base
+
+  crate:
+    name: Verify ${{ matrix.crate }}
+    needs: crates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 360
+    strategy:
+      # Run every crate, so one failure does not hide another.
+      fail-fast: false
+      matrix:
+        crate: ${{ fromJSON(needs.crates.outputs.list) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Cache tool downloads
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/clazel-tools/downloads
+          key: clazel-tools-${{ runner.os }}-${{ hashFiles('scripts/toolchains.env', 'scripts/checksums.txt') }}
+      - name: Install pinned toolchain
+        run: scripts/setup.sh
+      - name: Verify ${{ matrix.crate }}
+        run: cargo xtask verify --part crate "${{ matrix.crate }}" --metrics parts
+      - name: Upload measurements
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: part-${{ matrix.crate }}
+          path: parts/${{ matrix.crate }}.json
+          if-no-files-found: error
+          retention-days: 7
+
+  assemble:
+    name: Full verification
+    needs: [check, base, crate]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: Download measurements
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: part-*
+          path: parts
+          merge-multiple: true
+      - name: Assemble
+        run: cargo xtask verify --part assemble --metrics parts
