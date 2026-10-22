@@ -310,4 +310,47 @@ pub open spec fn date_of(year: nat, f: HttpDateFields) -> CookieDate {
     CookieDate { year, month: f.month + 1, day_of_month: f.day, hour: f.hour, minute: f.minute, second: f.second }
 }
 
+// ---------------------------------------------------------------------
+// The statements (lemma statements first, proofs in the next commit).
+// ---------------------------------------------------------------------
+
+/// What the cookie-date parser makes of the string of fields `f` in
+/// `format`: the date the fields denote when they denote one a cookie-date
+/// can represent, and failure otherwise. `year` is the year the fields
+/// denote (the four digits, or the pivoted two).
+pub open spec fn reads_as_denoted(input: Seq<u8>, year: nat, f: HttpDateFields) -> bool {
+    parse_a_cookie_date(input) == if denotes_cookie_date(year, f.month, f.day, f.hour, f.minute, f.second) {
+        Some(date_of(year, f))
+    } else {
+        None
+    }
+}
+
+/// The year RFC 850's two digits stand for under §5.1.1 steps 3 and 4.
+pub open spec fn pivoted_year(two_digit: nat) -> nat {
+    if two_digit >= 70 { 1900 + two_digit } else { 2000 + two_digit }
+}
+
+/// Statement of `lemma_imf_fixdate_agrees`: every IMF-fixdate the grammar
+/// produces, with a year from 100, is read as the date its fields denote.
+pub open spec fn imf_fixdate_agrees(f: HttpDateFields) -> bool {
+    (fields_allowed(f) && f.year >= 100) ==> reads_as_denoted(imf_fixdate(f), f.year, f)
+}
+
+/// Statement of `lemma_asctime_agrees`: likewise for asctime-date, in
+/// both forms of `date3` (`padded` only for a day below 10).
+pub open spec fn asctime_agrees(f: HttpDateFields, padded: bool) -> bool {
+    (fields_allowed(f) && f.year >= 100 && (padded ==> f.day < 10)) ==> reads_as_denoted(
+        asctime_date(f, padded),
+        f.year,
+        f,
+    )
+}
+
+/// Statement of `lemma_rfc850_agrees`: likewise for rfc850-date, where the
+/// year is two digits and the cookie-date parser's pivot reads it.
+pub open spec fn rfc850_agrees(f: HttpDateFields) -> bool {
+    (fields_allowed(f) && f.year < 100) ==> reads_as_denoted(rfc850_date(f), pivoted_year(f.year), f)
+}
+
 } // verus!
