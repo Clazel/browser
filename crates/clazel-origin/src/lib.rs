@@ -14,5 +14,7 @@
 pub mod contract;
 pub mod examples;
 pub mod exec;
+pub mod independent;
+pub mod independent_equivalence;
 pub mod lemmas;
 pub mod spec;

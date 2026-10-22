@@ -146,4 +146,281 @@ pub proof fn lemma_label_suffix_is_domain(domain: Seq<u32>, k: nat)
     }
 }
 
+// ---------------------------------------------------------------------
+// Suffixes in labels and the cookie root (items 2.4 and 2.9).
+// ---------------------------------------------------------------------
+
+/// A suffix of `d` with `m` labels is a string suffix of `d`.
+pub proof fn lemma_label_suffix_is_string_suffix(d: Seq<u32>, m: nat)
+    requires
+        1 <= m <= domain_labels(d).len(),
+    ensures
+        label_suffix(domain_labels(d), has_trailing_dot(d), m).is_suffix_of(d),
+{
+    let dl = domain_labels(d);
+    let td = has_trailing_dot(d);
+    let n = dl.len();
+    lemma_domain_labels_join(d);
+    let tail = if td {
+        seq![0x2Eu32]
+    } else {
+        seq![]
+    };
+    let s = label_suffix(dl, td, m);
+    if m == n {
+        assert(dl.skip(0) =~= dl);
+        assert(s == d);
+    } else {
+        let pre = dl.take((n - m) as int);
+        let sub = dl.skip((n - m) as int);
+        assert(dl =~= pre + sub);
+        assert(pre.len() >= 1);
+        assert(sub.len() >= 1);
+        super::join::lemma_split_join_concat(pre, sub);
+        let jp = clazel_url::host::lemmas::split_join(pre, 0x2E);
+        let js = clazel_url::host::lemmas::split_join(sub, 0x2E);
+        assert(d =~= (jp + seq![0x2Eu32]) + (js + tail));
+        assert(s =~= js + tail);
+    }
+}
+
+/// The labels of a suffix of `d` with `m` labels are the last `m` labels
+/// of `d`, with the same trailing dot.
+pub proof fn lemma_label_suffix_labels(d: Seq<u32>, m: nat)
+    requires
+        1 <= m <= domain_labels(d).len(),
+    ensures
+        domain_labels(label_suffix(domain_labels(d), has_trailing_dot(d), m)) == domain_labels(d).skip(domain_labels(d).len() - m),
+        has_trailing_dot(label_suffix(domain_labels(d), has_trailing_dot(d), m)) == has_trailing_dot(d),
+{
+    let dl = domain_labels(d);
+    let td = has_trailing_dot(d);
+    lemma_domain_labels_join(d);
+    lemma_label_suffix_is_string_suffix(d, m);
+    let s = label_suffix(dl, td, m);
+    let sub = dl.skip((dl.len() - m) as int);
+    let js = clazel_url::host::lemmas::split_join(sub, 0x2E);
+    assert(sub.len() >= 1);
+    assert forall|k: int| 0 <= k < sub.len() implies clazel_url::host::lemmas::free_of(#[trigger] sub[k], 0x2E) by {
+        assert(sub[k] == dl[dl.len() - m + k]);
+    }
+    if td {
+        assert(s =~= js + seq![0x2Eu32]);
+        assert(has_trailing_dot(s));
+        assert(strip_trailing_dot(s) =~= js);
+    } else {
+        assert(s =~= js);
+        if s.len() > 0 {
+            assert(s.last() == d.last());
+        }
+        assert(!has_trailing_dot(s));
+        assert(strip_trailing_dot(s) =~= js);
+    }
+    clazel_url::host::lemmas::lemma_strictly_split_join(sub, 0x2E);
+}
+
+/// A suffix of a suffix: the `k` last labels of the suffix of `d` with `m`
+/// labels are the `k` last labels of `d`.
+pub proof fn lemma_label_suffix_of_suffix(d: Seq<u32>, m: nat, k: nat)
+    requires
+        1 <= k <= m <= domain_labels(d).len(),
+    ensures
+        label_suffix(
+            domain_labels(label_suffix(domain_labels(d), has_trailing_dot(d), m)),
+            has_trailing_dot(label_suffix(domain_labels(d), has_trailing_dot(d), m)),
+            k,
+        ) == label_suffix(domain_labels(d), has_trailing_dot(d), k),
+{
+    let dl = domain_labels(d);
+    lemma_label_suffix_labels(d, m);
+    let sub = dl.skip((dl.len() - m) as int);
+    assert(sub.skip((m - k) as int) =~= dl.skip((dl.len() - k) as int));
+}
+
+/// The search for the cookie root from `k` on, in the suffix `s` of `d`
+/// with `m` labels, finds what the search in `d` finds, once `s` is not a
+/// public suffix (or is `d`).
+pub proof fn lemma_root_from_suffix(rules: Seq<Rule>, d: Seq<u32>, m: nat, k: nat)
+    requires
+        1 <= k <= m <= domain_labels(d).len(),
+        m == domain_labels(d).len() || !is_public_suffix(rules, label_suffix(domain_labels(d), has_trailing_dot(d), m)),
+    ensures
+        cookie_root_from(rules, label_suffix(domain_labels(d), has_trailing_dot(d), m), k) == cookie_root_from(rules, d, k),
+    decreases m - k,
+{
+    let dl = domain_labels(d);
+    let td = has_trailing_dot(d);
+    let s = label_suffix(dl, td, m);
+    lemma_label_suffix_labels(d, m);
+    let sl = domain_labels(s);
+    assert(sl.len() == m);
+    if m == dl.len() {
+        lemma_label_suffix_is_domain(d, m);
+        assert(s == d);
+    } else {
+        lemma_label_suffix_of_suffix(d, m, k);
+        if k == m {
+            assert(label_suffix(dl, td, k) == s);
+            assert(cookie_root_from(rules, s, k) == s);
+            assert(cookie_root_from(rules, d, k) == s);
+        } else {
+            lemma_root_from_suffix(rules, d, m, k + 1);
+            assert(label_suffix(sl, has_trailing_dot(s), k) == label_suffix(dl, td, k));
+        }
+    }
+}
+
+/// The cookie root of a suffix of a domain that is not a public suffix.
+/// Statement: [`root_of_suffix_statement`].
+pub proof fn lemma_root_of_suffix(rules: Seq<Rule>, d: Seq<u32>, s: Seq<u32>)
+    ensures
+        root_of_suffix_statement(rules, d, s),
+{
+    if is_label_suffix(d, s) && !is_public_suffix(rules, s) {
+        let m = choose|k: nat| 1 <= k <= domain_labels(d).len() && s == label_suffix(domain_labels(d), has_trailing_dot(d), k);
+        lemma_root_from_suffix(rules, d, m, 1);
+        lemma_root_is_label_suffix(rules, s);
+    }
+}
+
+/// The cookie root of a domain is a suffix of it, in labels.
+pub proof fn lemma_root_from_is_label_suffix(rules: Seq<Rule>, d: Seq<u32>, k: nat)
+    requires
+        1 <= k,
+    ensures
+        is_label_suffix(d, cookie_root_from(rules, d, k)),
+    decreases domain_labels(d).len() - k,
+{
+    let dl = domain_labels(d);
+    let td = has_trailing_dot(d);
+    lemma_domain_labels_join(d);
+    if k >= dl.len() {
+        lemma_label_suffix_is_domain(d, dl.len());
+        assert(label_suffix(dl, td, dl.len()) == d);
+    } else if !is_public_suffix(rules, label_suffix(dl, td, k)) {
+        assert(label_suffix(dl, td, k) == cookie_root_from(rules, d, k));
+    } else {
+        lemma_root_from_is_label_suffix(rules, d, k + 1);
+    }
+}
+
+/// The cookie root of a domain is a suffix of it, in labels.
+pub proof fn lemma_root_is_label_suffix(rules: Seq<Rule>, d: Seq<u32>)
+    ensures
+        is_label_suffix(d, cookie_root_of_domain(rules, d)),
+{
+    lemma_root_from_is_label_suffix(rules, d, 1);
+}
+
+/// The cookie root is either the domain itself or not a public suffix.
+pub proof fn lemma_root_from_not_public(rules: Seq<Rule>, d: Seq<u32>, k: nat)
+    requires
+        1 <= k,
+    ensures
+        cookie_root_from(rules, d, k) == d || !is_public_suffix(rules, cookie_root_from(rules, d, k)),
+    decreases domain_labels(d).len() - k,
+{
+    let dl = domain_labels(d);
+    if k >= dl.len() {
+    } else if !is_public_suffix(rules, label_suffix(dl, has_trailing_dot(d), k)) {
+    } else {
+        lemma_root_from_not_public(rules, d, k + 1);
+    }
+}
+
+/// The cookie root of a domain is the domain or not a public suffix.
+pub proof fn lemma_root_not_public_or_domain(rules: Seq<Rule>, d: Seq<u32>)
+    ensures
+        cookie_root_of_domain(rules, d) == d || !is_public_suffix(rules, cookie_root_of_domain(rules, d)),
+{
+    lemma_root_from_not_public(rules, d, 1);
+}
+
+/// The cookie root of a cookie root is itself.
+pub proof fn lemma_root_idempotent(rules: Seq<Rule>, d: Seq<u32>)
+    ensures
+        cookie_root_of_domain(rules, cookie_root_of_domain(rules, d)) == cookie_root_of_domain(rules, d),
+{
+    let r = cookie_root_of_domain(rules, d);
+    lemma_root_not_public_or_domain(rules, d);
+    lemma_root_is_label_suffix(rules, d);
+    if r != d {
+        lemma_root_of_suffix(rules, d, r);
+    }
+}
+
+/// A non-empty domain string that domain-matches the host is a suffix of it
+/// in labels.
+pub proof fn lemma_domain_match_is_label_suffix(h: Seq<u32>, c: Seq<u32>)
+    requires
+        c.len() > 0,
+        domain_match_u32(h, c),
+    ensures
+        is_label_suffix(h, c),
+{
+    if h == c {
+        lemma_domain_labels_join(h);
+        lemma_label_suffix_is_domain(h, domain_labels(h).len());
+        assert(label_suffix(domain_labels(h), has_trailing_dot(h), domain_labels(h).len()) == h);
+    } else {
+        let p = h.subrange(0, (h.len() - c.len() - 1) as int);
+        assert(h =~= p + seq![0x2Eu32] + c);
+        let td = has_trailing_dot(c);
+        assert(has_trailing_dot(h) == td);
+        lemma_domain_labels_join(c);
+        let cl = domain_labels(c);
+        super::join::lemma_split_join_round_trip(p);
+        let pl = clazel_url::host::spec::strictly_split(p, 0x2E);
+        let all = pl + cl;
+        super::join::lemma_split_join_concat(pl, cl);
+        assert forall|k: int| 0 <= k < all.len() implies clazel_url::host::lemmas::free_of(#[trigger] all[k], 0x2E) by {
+            if k < pl.len() {
+                assert(all[k] == pl[k]);
+            } else {
+                assert(all[k] == cl[k - pl.len()]);
+            }
+        }
+        let sc = strip_trailing_dot(c);
+        assert(strip_trailing_dot(h) =~= p + seq![0x2Eu32] + sc) by {
+            if td {
+                assert(h.drop_last() =~= p + seq![0x2Eu32] + c.drop_last());
+            }
+        }
+        assert(clazel_url::host::lemmas::split_join(all, 0x2E) =~= strip_trailing_dot(h));
+        clazel_url::host::lemmas::lemma_strictly_split_join(all, 0x2E);
+        assert(domain_labels(h) == all);
+        assert(all.skip(all.len() - cl.len()) =~= cl);
+        assert(label_suffix(all, td, cl.len()) =~= c);
+    }
+}
+
+/// A non-empty cookie domain that domain-matches a host, and is not a
+/// public suffix, has the host's cookie root. Statement:
+/// [`domain_match_root_statement`].
+pub proof fn lemma_domain_match_same_root(rules: Seq<Rule>, h: Seq<u32>, c: Seq<u32>)
+    ensures
+        domain_match_root_statement(rules, h, c),
+{
+    if c.len() > 0 && domain_match_u32(h, c) && !is_public_suffix(rules, c) {
+        lemma_domain_match_is_label_suffix(h, c);
+        lemma_root_of_suffix(rules, h, c);
+    }
+}
+
+/// The same for hosts: for a domain-matching cookie domain that is the
+/// host itself or not a public suffix, the cookie roots of the two hosts
+/// are equal.
+pub proof fn lemma_domain_match_same_cookie_root(rules: Seq<Rule>, h: Seq<u32>, c: Seq<u32>)
+    requires
+        c.len() > 0,
+        domain_match_u32(h, c),
+        h == c || !is_public_suffix(rules, c),
+    ensures
+        cookie_root(rules, clazel_url::host::spec::Host::Domain(c)) == cookie_root(rules, clazel_url::host::spec::Host::Domain(h)),
+{
+    if h != c {
+        lemma_domain_match_same_root(rules, h, c);
+    }
+}
+
 } // verus!

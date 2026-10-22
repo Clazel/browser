@@ -151,4 +151,37 @@ pub proof fn lemma_split_join_push(a: Seq<Seq<u32>>, x: Seq<u32>)
     assert(a.push(x)[0] == a[0]);
 }
 
+/// The tail of two lists is the tails joined.
+pub proof fn lemma_split_tail_append(x: Seq<Seq<u32>>, y: Seq<Seq<u32>>)
+    ensures
+        clazel_url::host::lemmas::split_tail(x + y, 0x2E) == clazel_url::host::lemmas::split_tail(x, 0x2E) + clazel_url::host::lemmas::split_tail(y, 0x2E),
+    decreases x.len(),
+{
+    if x.len() == 0 {
+        assert(x + y =~= y);
+        assert(clazel_url::host::lemmas::split_tail(x, 0x2E) == Seq::<u32>::empty());
+    } else {
+        lemma_split_tail_append(x.drop_first(), y);
+        assert((x + y).drop_first() =~= x.drop_first() + y);
+        assert((x + y)[0] == x[0]);
+        assert(clazel_url::host::lemmas::split_tail(x + y, 0x2E) =~= seq![0x2Eu32] + x[0] + clazel_url::host::lemmas::split_tail(x.drop_first() + y, 0x2E));
+        assert(clazel_url::host::lemmas::split_tail(x, 0x2E) =~= seq![0x2Eu32] + x[0] + clazel_url::host::lemmas::split_tail(x.drop_first(), 0x2E));
+    }
+}
+
+/// Joining two lists is joining each, with a "." between.
+pub proof fn lemma_split_join_concat(a: Seq<Seq<u32>>, b: Seq<Seq<u32>>)
+    requires
+        a.len() >= 1,
+        b.len() >= 1,
+    ensures
+        clazel_url::host::lemmas::split_join(a + b, 0x2E) == clazel_url::host::lemmas::split_join(a, 0x2E) + seq![0x2Eu32] + clazel_url::host::lemmas::split_join(b, 0x2E),
+{
+    lemma_split_tail_append(a.drop_first(), b);
+    assert((a + b).drop_first() =~= a.drop_first() + b);
+    assert((a + b)[0] == a[0]);
+    assert(clazel_url::host::lemmas::split_tail(b, 0x2E) =~= seq![0x2Eu32] + clazel_url::host::lemmas::split_join(b, 0x2E));
+    assert(clazel_url::host::lemmas::split_join(a + b, 0x2E) =~= clazel_url::host::lemmas::split_join(a, 0x2E) + seq![0x2Eu32] + clazel_url::host::lemmas::split_join(b, 0x2E));
+}
+
 } // verus!

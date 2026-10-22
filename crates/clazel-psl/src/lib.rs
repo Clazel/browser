@@ -12,10 +12,15 @@
 
 pub mod contract;
 pub mod data;
+pub mod equivalence;
+pub mod equivalence_proof;
 pub mod examples;
 pub mod exec;
+pub mod independent;
 pub mod join;
 pub mod lemmas;
 pub mod spec;
 pub mod table;
 pub mod tables;
+pub mod wf;
+pub mod wf_table;

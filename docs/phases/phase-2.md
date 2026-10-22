@@ -424,11 +424,41 @@ prevailing-rule choice, the default rule, trailing dot and empty labels, the
 registrable domain, five cookie-root mutations, the root of an IP address, and
 `label_suffix`) and one `killed-incidentally` (the cookie-root search
 running past the whole domain fails only the `decreases` check, and its
-mutant has no evaluable value to certify). **Not done:** `independent.rs`
-(the formal-algorithm transcription proven equal), and the lemma 2.9 needs
-that a non-public-suffix suffix of a domain has the same cookie root
-(`lemma_root_of_suffix`). So the crate is at tier 0 and `cargo xtask check`
-would reject a higher claim.
+mutant has no evaluable value to certify). **Added after the first pass:** `lemma_root_of_suffix` (`lemmas.rs`), stated by
+`root_of_suffix_statement`: for a domain `d` and `s` with
+`is_label_suffix(d, s)` (the last `k >= 1` labels of `d`, with its trailing
+dot) that is not a public suffix, `cookie_root_of_domain(s) ==
+cookie_root_of_domain(d)` and the root is a suffix of `s`. It holds for every
+list of rules; the non-public-suffix hypothesis alone makes the root of `d`
+a suffix of `s` (the root is the shortest such suffix), so "has `d`'s root as
+a suffix" needs no hypothesis. Companions: `lemma_root_is_label_suffix`,
+`lemma_root_not_public_or_domain`, `lemma_root_idempotent`,
+`lemma_domain_match_is_label_suffix` and `lemma_domain_match_same_root`
+(`domain_match_u32(h, c)`, RFC 6265bis 5.1.3 over code points, with `c`
+non-empty and not a public suffix, gives the same root), and
+`lemma_domain_match_same_cookie_root` for hosts. `independent.rs` is the
+"Formal algorithm" transcribed by a separate session that did not read
+`spec.rs`, from the wiki page "Format" (its fetch tool returned a paraphrase,
+not the page's exact words, so the quoted steps are worded by the
+transcriber). Since the standard leaves ties open, the prevailing rule is a
+relation there. `equivalence_proof.rs` proves it equal to the spec (public
+suffix and registrable domain, as strings with the trailing dot) for every
+domain and every list with `rules_wf`: each rule has a label, an exception rule
+has two or more and no `*`, and no exception rule is a label suffix of
+another. `wf_table.rs` proves `rules_wf(psl_rules())` inside Verus: the
+`exception` flag over all 10396 rows is checked per chunk by the SMT solver
+(`compute` on 10396 rows exceeds Verus's default limit for it), the eight
+exception rules' texts are read from the characters table with `compute_only`,
+and their pairwise condition is evaluated. Nothing about the tables is
+assumed; no proof depended on the generator's check before either, since
+the executable lookups are proven equal to the spec for any rules. The whole
+crate verifies in about two minutes (201 obligations, 0 errors).
+**Not done: tier.** `clazel-psl` stays at tier 0 because `cargo xtask check`
+rejects tier 2 while `cookie-root-search-runs-past-the-domain` is
+`killed-incidentally`. It is an equivalent mutant (its value is the same as
+the original's wherever it terminates; only the `decreases` check fails), so
+no certificate exists for it. Dropping it from `mutations.json` is a decision
+for a person, and the tier follows.
 
 ### 2.5 Origins and sites (M)
 
@@ -447,7 +477,7 @@ domain; HTML's site definitions have no second source, so their evidence is
 same site) and the conformance rows in 2.6. Lemmas: same origin is an
 equivalence on tuple origins; same site is implied by same origin.
 
-**As built (partial, `clazel-origin` stays at tier 0):** `spec.rs` transcribes
+**As built (`clazel-origin` at tier 2):** `spec.rs` transcribes
 HTML §7.1.1 and §7.1.1.1 (origin, effective domain, serialization, same
 origin, same origin-domain, site, obtain a site, same site, serialization of a
 site, schemelessly same site, same site) and §7.1.1.2 (registrable domain
@@ -466,7 +496,17 @@ and 9 of 2.6 (below): same origin (scheme, port, host, opaque identity), same
 origin-domain (null domains, scheme, one-sided domains), effective domain,
 serialization (port, opaque "null", separator), obtain a site (registrable
 domain, scheme), same site, and schemelessly same site (null registrable
-domains). **Not done:** `independent.rs` (RFC 6454 §5, §6.2), so tier 0.
+domains). `independent.rs` is RFC 6454 4, 5 and 6.2 transcribed before reading the
+crate's spec, over its own `RfcOrigin` (a triple with a numeric port, or a
+unique identifier); `independent_equivalence.rs` proves "same origin" and
+"serialization of an origin" equal to it on the class `in_class`: opaque
+origins and tuple origins with a null domain whose port is null exactly when it
+is the scheme's default (null with a scheme that has a default port, or a
+number that is not the default; the URL parser produces only these). Default
+ports (http 80, https 443, ftp 21, ws 80, wss 443) are a modelling choice at
+the top of `independent.rs`, because the RFC leaves them to the scheme. With
+that, `cargo xtask check` accepts `clazel-origin` at **tier 2**; CI's full run
+is still the gate.
 
 ### 2.6 Origin of a URL (S)
 
@@ -481,7 +521,7 @@ Conformance: the `origin` field of every row of WPT `url/resources/urltestdata.j
 that has one, through the real parser. Differential against rust-url's
 `Url::origin()` (the `url` crate, a `test` row).
 
-**As built (partial, same crate and tier):** `url_origin` in `spec.rs` is URL
+**As built (same crate and tier):** `url_origin` in `spec.rs` is URL
 §4.7 (blob case through `clazel-url`'s basic URL parser, tuple origins for the
 five schemes, `file:` and the rest opaque; the blob URL entry is not modelled,
 as in `clazel-url`), taking the new opaque origin's id as a parameter;
@@ -1002,9 +1042,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.1 IPC wire format: spec | done |
 | 2.2 IPC wire format: implementation | done |
 | 2.3 IPC frames and messages | done |
-| 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance, differential and examples done, 22 mutations killed (1 incidental); independent transcription and the root lemma not done (tier 0) |
-| 2.5 Origins and sites | partial: spec, contracts, proven implementation, lemmas, example tables done, 31 mutations killed (with 2.6); independent transcription not done (tier 0) |
-| 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done, mutations killed (counted with 2.5; none for blob steps 1 and 2) (tier 0) |
+| 2.4 Public Suffix List | partial: everything done, including `lemma_root_of_suffix`, proven table well-formedness and the independent transcription proven equal; tier 0 only because one equivalent mutation is `killed-incidentally` (see the as-built note) |
+| 2.5 Origins and sites | done at tier 2 (RFC 6454 transcription proven equal on the stated class), 31 mutations killed (with 2.6) |
+| 2.6 Origin of a URL | done at tier 2 with 2.5: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential, mutations killed (counted with 2.5; none for blob steps 1 and 2) |
 | 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
 | 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; no Set-Cookie conformance data |
 | 2.9 Cookie storage and retrieval | spec and contracts done; implementation and proofs not started |
