@@ -89,15 +89,15 @@
 //! ignores the host-only-flag, as written.
 
 #[allow(unused_imports)]
-use crate::matching::independent::*;
-#[allow(unused_imports)]
 use vstd::prelude::*;
 
 verus! {
 
 /// A canonicalized host: its name and whether it is an IP address.
 pub struct Host6265 {
+    /// The canonicalized host name or address text.
     pub name: Seq<u8>,
+    /// The host is an IP address.
     pub is_ip: bool,
 }
 
@@ -115,26 +115,43 @@ pub struct Request6265 {
 /// creation-time, last-access-time, persistent-flag, host-only-flag,
 /// secure-only-flag, and http-only-flag").
 pub struct Cookie6265 {
+    /// name.
     pub name: Seq<u8>,
+    /// value.
     pub value: Seq<u8>,
+    /// expiry-time.
     pub expiry_time: int,
+    /// domain.
     pub domain: Host6265,
+    /// path.
     pub path: Seq<u8>,
+    /// creation-time.
     pub creation_time: int,
+    /// last-access-time.
     pub last_access_time: int,
+    /// persistent-flag.
     pub persistent_flag: bool,
+    /// host-only-flag.
     pub host_only_flag: bool,
+    /// secure-only-flag.
     pub secure_only_flag: bool,
+    /// http-only-flag.
     pub http_only_flag: bool,
 }
 
 /// An entry of the cookie-attribute-list (§5.2), after parsing.
 pub enum Attr6265 {
+    /// "Expires", with the parsed expiry date.
     Expires(int),
+    /// "Max-Age", with the expiry-time §5.2.2 computes.
     MaxAge(int),
+    /// "Domain", lower-cased, without a leading dot.
     Domain(Seq<u8>),
+    /// "Path".
     Path(Seq<u8>),
+    /// "Secure".
     Secure,
+    /// "HttpOnly".
     HttpOnly,
 }
 
@@ -295,7 +312,7 @@ pub open spec fn receive_cookie_6265(
                     //    host-only-flag to true. Set the cookie's domain to
                     //    the canonicalized request-host."
                     let domain_step: Option<(bool, Host6265)> = if domain_attribute.len() > 0 {
-                        if !domain_matches_6265(
+                        if !crate::matching::independent::domain_matches_6265(
                             request_host.name,
                             !request_host.is_ip,
                             domain_attribute,
@@ -326,7 +343,7 @@ pub open spec fn receive_cookie_6265(
                             //    to the default-path of the request-uri."
                             let path: Seq<u8> = match last_path_6265(cookie_attribute_list) {
                                 Some(v) => v,
-                                None => default_path_6265(req.path),
+                                None => crate::matching::independent::default_path_6265(req.path),
                             };
                             // 8. "If the cookie-attribute-list contains an
                             //    attribute with an attribute-name of "Secure",
@@ -502,10 +519,10 @@ pub open spec fn in_cookie_list_6265(c: Cookie6265, req: Request6265, from_non_h
             (if c.host_only_flag {
                 request_host.name == c.domain.name
             } else {
-                domain_matches_6265(request_host.name, !request_host.is_ip, c.domain.name)
+                crate::matching::independent::domain_matches_6265(request_host.name, !request_host.is_ip, c.domain.name)
             })
             // "*  The request-uri's path path-matches the cookie's path."
-            && path_matches_6265(req.path, c.path)
+            && crate::matching::independent::path_matches_6265(req.path, c.path)
             // "*  If the cookie's secure-only-flag is true, then the
             //  request-uri's scheme must denote a "secure" protocol (as
             //  defined by the user agent)."
