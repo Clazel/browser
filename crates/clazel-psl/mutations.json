@@ -1,0 +1,298 @@
+{
+  "mutations": [
+    {
+      "id": "wildcard-never-matches",
+      "file": "src/spec.rs",
+      "find": "rule_label == domain_label || rule_label == star_label()",
+      "replace": "rule_label == domain_label",
+      "expect": "killed",
+      "reason": "A wildcard label matches nothing: `*.ck` no longer matches `b.a.ck`, so example_public_suffix_wildcard is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_wildcard()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_b(), crate::examples::l_a(), crate::examples::l_ck()])) == Some(crate::examples::dom(seq![crate::examples::l_ck()]))"
+      }
+    },
+    {
+      "id": "label-always-matches",
+      "file": "src/spec.rs",
+      "find": "rule_label == domain_label || rule_label == star_label()",
+      "replace": "true",
+      "expect": "killed",
+      "reason": "Every rule label matches every domain label: with `co.uk` listed first it matches `b.uk`, so example_public_suffix_short_rule is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_short_rule()",
+        "witness": "public_suffix_of_domain(crate::examples::rules_reversed(), crate::examples::dom(seq![crate::examples::l_b(), crate::examples::l_uk()])) == Some(crate::examples::dom(seq![crate::examples::l_b(), crate::examples::l_uk()]))"
+      }
+    },
+    {
+      "id": "rule-matched-from-the-left",
+      "file": "src/spec.rs",
+      "find": "d[d.len() - 1 - k]",
+      "replace": "d[k as int]",
+      "expect": "killed",
+      "reason": "Labels are compared from the left, not the right: `co.uk` no longer matches `a.co.uk`, so example_public_suffix_longest_rule is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_longest_rule()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_co(), crate::examples::l_uk()])) == Some(crate::examples::dom(seq![crate::examples::l_uk()]))"
+      }
+    },
+    {
+      "id": "exception-does-not-beat",
+      "file": "src/spec.rs",
+      "find": "(a.exception && !b.exception) || (!a.exception && !b.exception && a.labels.len() > b.labels.len())",
+      "replace": "(!a.exception && !b.exception && a.labels.len() > b.labels.len())",
+      "expect": "killed",
+      "reason": "An exception rule no longer prevails over `*.ck` (A3): `www.ck` gets the public suffix `www.ck`, so example_public_suffix_exception is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_exception()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_ck()])) == Some(crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_ck()]))"
+      }
+    },
+    {
+      "id": "exception-keeps-leftmost-label",
+      "file": "src/spec.rs",
+      "find": "(rule.labels.len() - 1) as nat",
+      "replace": "rule.labels.len()",
+      "expect": "killed",
+      "reason": "A prevailing exception rule does not lose its leftmost label (A5): `www.ck` gets the public suffix `www.ck`, so example_public_suffix_exception is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_exception()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_ck()])) == Some(crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_ck()]))"
+      }
+    },
+    {
+      "id": "longest-rule-loses",
+      "file": "src/spec.rs",
+      "find": "a.labels.len() > b.labels.len()",
+      "replace": "a.labels.len() < b.labels.len()",
+      "expect": "killed",
+      "reason": "The rule with fewest labels prevails (A4): `a.co.uk` gets `uk`, so example_public_suffix_longest_rule is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_longest_rule()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_co(), crate::examples::l_uk()])) == Some(crate::examples::dom(seq![crate::examples::l_uk()]))"
+      }
+    },
+    {
+      "id": "later-rule-always-prevails",
+      "file": "src/spec.rs",
+      "find": "beats(rule, rules[best->Some_0 as int])",
+      "replace": "true",
+      "expect": "killed",
+      "reason": "A later matching rule always replaces an earlier one: with `co.uk` listed before `uk`, `a.co.uk` gets `uk`, so example_public_suffix_longest_rule is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_longest_rule()",
+        "witness": "public_suffix_of_domain(crate::examples::rules_reversed(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_co(), crate::examples::l_uk()])) == Some(crate::examples::dom(seq![crate::examples::l_uk()]))"
+      }
+    },
+    {
+      "id": "prevailing-ignores-match",
+      "file": "src/spec.rs",
+      "find": "if rule_matches(rule, d) && (best is None",
+      "replace": "if true && (best is None",
+      "expect": "killed",
+      "reason": "A rule prevails without matching the domain: lemma_prevailing_matches is false for `co.uk` against `zz`.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::lemmas::lemma_prevailing_matches(crate::examples::rules_reversed(), seq![crate::examples::l_zz()], 2nat)",
+        "witness": "prevailing_from(crate::examples::rules_reversed(), seq![crate::examples::l_zz()], 2nat) == Some(0nat) && !rule_matches(crate::examples::rules_reversed()[0], seq![crate::examples::l_zz()])"
+      }
+    },
+    {
+      "id": "default-rule-has-two-labels",
+      "file": "src/spec.rs",
+      "find": "None => Rule { labels: seq![star_label()], exception: false },",
+      "replace": "None => Rule { labels: seq![star_label(), star_label()], exception: false },",
+      "expect": "killed",
+      "reason": "The default rule is `*.*` (A2): `a.b.zz` gets the public suffix `b.zz`, so example_public_suffix_default_rule is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_default_rule()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_b(), crate::examples::l_zz()])) == Some(crate::examples::dom(seq![crate::examples::l_b(), crate::examples::l_zz()]))"
+      }
+    },
+    {
+      "id": "exception-count-can-be-zero",
+      "file": "src/spec.rs",
+      "find": "if rule.exception && rule.labels.len() > 1 {",
+      "replace": "if rule.exception {",
+      "expect": "killed",
+      "reason": "A one-label exception rule leaves no label in the public suffix: lemma_suffix_label_count_bounds is false for `!com`.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::lemmas::lemma_suffix_label_count_bounds(crate::examples::rules_single_label_exception(), seq![crate::examples::l_com()])",
+        "witness": "suffix_label_count(crate::examples::rules_single_label_exception(), seq![crate::examples::l_com()]) == 0nat"
+      }
+    },
+    {
+      "id": "trailing-dot-never-recognised",
+      "file": "src/spec.rs",
+      "find": "domain.last() == 0x2Eu32",
+      "replace": "domain.last() == 0x2Fu32",
+      "expect": "killed",
+      "reason": "A trailing dot is not recognised, so it stays in the last label (empty): `a.com.` has no public suffix, so example_public_suffix_trailing_dot is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_trailing_dot()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom_dot(seq![crate::examples::l_a(), crate::examples::l_com()])) is None"
+      }
+    },
+    {
+      "id": "trailing-dot-not-stripped",
+      "file": "src/spec.rs",
+      "find": "domain.drop_last()",
+      "replace": "domain",
+      "expect": "killed",
+      "reason": "The trailing dot is not set aside before splitting: `a.com.` has an empty last label and no public suffix, so example_public_suffix_trailing_dot is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_trailing_dot()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom_dot(seq![crate::examples::l_a(), crate::examples::l_com()])) is None"
+      }
+    },
+    {
+      "id": "public-suffix-loses-trailing-dot",
+      "file": "src/spec.rs",
+      "find": "    let trailing_dot = has_trailing_dot(domain);\n    let d = domain_labels(domain);\n    if has_empty_label(d) {",
+      "replace": "    let trailing_dot = false;\n    let d = domain_labels(domain);\n    if has_empty_label(d) {",
+      "expect": "killed",
+      "reason": "The public suffix of `a.com.` is `com`, without the dot (A6, Note 3): example_public_suffix_trailing_dot is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_trailing_dot()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom_dot(seq![crate::examples::l_a(), crate::examples::l_com()])) == Some(crate::examples::dom(seq![crate::examples::l_com()]))"
+      }
+    },
+    {
+      "id": "empty-labels-allowed",
+      "file": "src/spec.rs",
+      "find": "if has_empty_label(d) {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "A domain with an empty label has a public suffix: `a..com` gets `com`, so example_public_suffix_empty_label is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_public_suffix_empty_label()",
+        "witness": "public_suffix_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), seq![], crate::examples::l_com()])) is Some"
+      }
+    },
+    {
+      "id": "registrable-domain-is-public-suffix",
+      "file": "src/spec.rs",
+      "find": "suffix_label_count(rules, d) + 1))",
+      "replace": "suffix_label_count(rules, d)))",
+      "expect": "killed",
+      "reason": "The registrable domain is the public suffix itself, not one more label (A7): `a.com` gets `com`, so example_registrable_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_registrable_domain()",
+        "witness": "registrable_domain_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_com()])) == Some(crate::examples::dom(seq![crate::examples::l_com()]))"
+      }
+    },
+    {
+      "id": "registrable-guard-inverted",
+      "file": "src/spec.rs",
+      "find": "if public_suffix == domain {",
+      "replace": "if public_suffix != domain {",
+      "expect": "killed",
+      "reason": "A domain that is not a public suffix has no registrable domain: `a.com` gets null, so example_registrable_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_registrable_domain()",
+        "witness": "registrable_domain_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_com()])) is None"
+      }
+    },
+    {
+      "id": "cookie-root-is-whole-domain",
+      "file": "src/spec.rs",
+      "find": "else if !is_public_suffix(rules, label_suffix(d, trailing_dot, k)) {",
+      "replace": "else if false {",
+      "expect": "killed",
+      "reason": "No suffix is ever a cookie root, so the root is the whole domain: `www.a.com` has root `www.a.com`, so example_cookie_root_registrable is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_registrable()",
+        "witness": "cookie_root_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])) == crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])"
+      }
+    },
+    {
+      "id": "cookie-root-is-shortest-public-suffix",
+      "file": "src/spec.rs",
+      "find": "else if !is_public_suffix(rules, label_suffix(d, trailing_dot, k)) {",
+      "replace": "else if is_public_suffix(rules, label_suffix(d, trailing_dot, k)) {",
+      "expect": "killed",
+      "reason": "The root is the shortest public suffix, not the shortest suffix that is not one: `www.a.com` has root `com`, so example_cookie_root_registrable is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_registrable()",
+        "witness": "cookie_root_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])) == crate::examples::dom(seq![crate::examples::l_com()])"
+      }
+    },
+    {
+      "id": "cookie-root-skips-a-label",
+      "file": "src/spec.rs",
+      "find": "cookie_root_from(rules, domain, k + 1)",
+      "replace": "cookie_root_from(rules, domain, k + 2)",
+      "expect": "killed",
+      "reason": "The search skips every other suffix: `www.a.com` has root `www.a.com`, so example_cookie_root_registrable is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_registrable()",
+        "witness": "cookie_root_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])) == crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])"
+      }
+    },
+    {
+      "id": "cookie-root-one-label-too-long",
+      "file": "src/spec.rs",
+      "find": "    } else if !is_public_suffix(rules, label_suffix(d, trailing_dot, k)) {\n        label_suffix(d, trailing_dot, k)",
+      "replace": "    } else if !is_public_suffix(rules, label_suffix(d, trailing_dot, k)) {\n        label_suffix(d, trailing_dot, k + 1)",
+      "expect": "killed",
+      "reason": "The root has one label more than the shortest non-public suffix: `www.a.com` has root `www.a.com`, so example_cookie_root_registrable is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_registrable()",
+        "witness": "cookie_root_of_domain(crate::examples::rules(), crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])) == crate::examples::dom(seq![crate::examples::l_www(), crate::examples::l_a(), crate::examples::l_com()])"
+      }
+    },
+    {
+      "id": "cookie-root-of-address-is-empty",
+      "file": "src/spec.rs",
+      "find": "        _ => host,\n    }\n}\n\n}",
+      "replace": "        _ => clazel_url::host::spec::Host::Empty,\n    }\n}\n\n}",
+      "expect": "killed",
+      "reason": "Every host that is not a domain has the empty host as its cookie root, so all IP addresses share one: example_cookie_root_not_a_domain is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_cookie_root_not_a_domain()",
+        "witness": "cookie_root(crate::examples::rules(), clazel_url::host::spec::Host::Ipv4(1)) == clazel_url::host::spec::Host::Empty"
+      }
+    },
+    {
+      "id": "label-suffix-takes-first-labels",
+      "file": "src/spec.rs",
+      "find": "labels.skip(labels.len() - k)",
+      "replace": "labels.take(k as int)",
+      "expect": "killed",
+      "reason": "The last `k` labels become the first `k`: the suffix of `a.b.com` with two labels is `a.b`, so example_label_suffix is false.",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::example_label_suffix()",
+        "witness": "label_suffix(seq![crate::examples::l_a(), crate::examples::l_b(), crate::examples::l_com()], false, 2) == crate::examples::dom(seq![crate::examples::l_a(), crate::examples::l_b()])"
+      }
+    },
+    {
+      "id": "cookie-root-search-runs-past-the-domain",
+      "file": "src/spec.rs",
+      "find": "if k >= d.len() {",
+      "replace": "if k > d.len() {",
+      "expect": "killed-incidentally",
+      "reason": "The search for a root past the whole domain does not terminate when every suffix is a public suffix (the `decreases` check fails); no theorem is false, so this is not coverage."
+    }
+  ]
+}
