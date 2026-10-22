@@ -537,12 +537,20 @@ order), the default-path path-matches its URL, parsed dates are in range,
 consecutive days are 86400 seconds apart. Independent: `matching/independent.rs`
 (RFC 6265 §5.1.3 and §5.1.4, index-based) is proven equal on **every input**.
 Conformance: `tests/conformance_dates.rs` runs all 70 rows of `http-state`
-`tests/data/dates/` (70/70). **Not done:** the RFC 9110 HTTP-date
-transcription in `date/independent.rs` has its tokenization lemmas and
-builders but not the agreement proof, so the date parser has no proven
-independent transcription yet; no WPT `cookies/` data is vendored (every test
-there sets and reads back a cookie, so it is 2.9); no differential engine for
-dates. Nine certified mutations.
+`tests/data/dates/` (70/70). The RFC 9110 §5.6.7 HTTP-date transcription in
+`date/independent.rs` is proven to agree with the cookie-date parser
+(`lemma_imf_fixdate_agrees`, `lemma_asctime_agrees` in both `date3` forms,
+`lemma_rfc850_agrees`): on **every string the three grammars produce**, for
+IMF-fixdate and asctime with a year of 100 to 9999, and for RFC 850 with its
+two-digit year, the parser returns the date the fields denote (the same
+record, so the same instant) when they denote a date a cookie-date can
+represent, and fails otherwise. The exceptions are stated in the file: a
+four-digit year below 100 is a two-digit year to the cookie-date algorithm;
+RFC 850's two-digit year is read by the algorithm's fixed pivot (70 to 99 is
+19xx, 0 to 69 is 20xx), where RFC 9110 reads it relative to the current
+time; second 60 and years below 1601 fail. **Not done:** no WPT `cookies/`
+data is vendored (every test there sets and reads back a cookie, so it is
+2.9); no differential engine for dates. Nine certified mutations.
 
 ### 2.8 Set-Cookie parsing (M)
 
@@ -568,9 +576,23 @@ duration for Max-Age). Lemmas: no instant exceeds now plus the limit; Max-Age
 is the earliest instant or within the limit; Domain is lower case and loses
 its leading dot; Path is absolute; the list never loses an attribute; a
 name and value total at most 4096; the prefix requirements. Ten certified
-mutations. **Not done:** the independent transcription of the §4.1.1
-`set-cookie-string` grammar (and its equality proof on the stated class);
-no Set-Cookie conformance data (the `http-state` parser corpus and WPT
+mutations. Independent: `set_cookie/independent.rs` transcribes the
+§4.1.1 `set-cookie-string` grammar (written before the spec was read) and
+`lemma_set_cookie_agrees` proves the user-agent parser gives the same name,
+value and attribute list on every string the grammar matches, within a class
+the file states: name and value at most 4096 octets; `Max-Age`, `Domain` and
+`Path` values at most 1024 octets and a `Path` value without trailing white
+space; an `Expires` date with a four-digit year from 100 (using the date
+lemma above); and no `extension-av` that is, up to white space around its
+first `=`, one of the seven attribute names (the grammar matches `Max-Age=0`
+or `Secure=x` as an `extension-av`; the user agent reads the attribute).
+Repeated attributes need not be excluded: both sides keep every attribute in
+order. The grammar is ambiguous in four places (white space before a `;`,
+named against extension productions, name case, quoted values), and the
+file lists how each is read. `Max-Age` keeps its digits as written in the
+transcription, a representation change made after reading the spec so the
+1024-octet limit is stated on the string. **Not done:** no Set-Cookie
+conformance data (the `http-state` parser corpus and WPT
 `cookies/` need the storage model of 2.9); the `Cookie`-side and storage
 steps of §5.7 are 2.9.
 
@@ -954,8 +976,8 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.4 Public Suffix List | partial: spec, contracts, proven implementation, conformance, differential and examples done, 22 mutations killed (1 incidental); independent transcription and the root lemma not done (tier 0) |
 | 2.5 Origins and sites | partial: spec, contracts, proven implementation, lemmas, example tables done, 31 mutations killed (with 2.6); independent transcription not done (tier 0) |
 | 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done, mutations killed (counted with 2.5; none for blob steps 1 and 2) (tier 0) |
-| 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching independent proven, http-state dates 70/70; the RFC 9110 date independent transcription is not proven |
-| 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed; the §4.1.1 independent transcription is not written |
+| 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
+| 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; no Set-Cookie conformance data |
 | 2.9 Cookie storage and retrieval | not started |
 | 2.10 Kernel spec | not started |
 | 2.11 Isolation theorems | not started |

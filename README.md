@@ -30,7 +30,7 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 | Crate | Tier (target) | Verus | Kani | Axioms | `unsafe` blocks (lines)⁵ | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |
 |-------|---------------|-------|------|--------|--------------------------|-----------------------------|---------------------------------------------------|--------------|--------------|
 | clazel-base64 | 2 (2) | 80 verified, 0 errors | no harnesses | 0 | 0 (0) | 665 / 758 / 173 | 23 / 0 / 0 of 23 | WPT fetch/data-urls base64: 80 / 80 | 0 of 3 files current |
-| clazel-cookie | 0 (2) | 165 verified, 0 errors | no harnesses | 0 | 0 (0) | 1177 / 776 / 856 | 19 / 0 / 0 of 19 | http-state dates/: 70 / 70 | 0 of 7 files current |
+| clazel-cookie | 0 (2) | 252 verified, 0 errors | no harnesses | 0 | 0 (0) | 2030 / 2234 / 876 | 19 / 0 / 0 of 19 | http-state dates/: 70 / 70 | 0 of 7 files current |
 | clazel-encoding | 2 (2) | 81 verified, 0 errors | no harnesses | 0 | 0 (0) | 764 / 485 / 205 | 22 / 0 / 0 of 22 | WPT encoding/ UTF-8 decode: 57 / 57<br>WPT encoding/ UTF-8 encode (decode cases reversed): 8 / 8 | 0 of 3 files current |
 | clazel-idna | 2 (2) | 375 verified, 0 errors | no harnesses | 0 | 0 (0) | 2406 / 2887 / 17549 | 69 / 0 / 0 of 69 | RFC 3492 section 7.1 samples: 19 / 19<br>WPT url/ IdnaTestV2.json: 2675 / 2675<br>WPT url/ toascii.json: 87 / 87 | 0 of 5 files current |
 | clazel-ipc | 2 (2) | 177 verified, 0 errors | no harnesses | 0 | 0 (0) | 1240 / 1076 / 545 | 69 / 0 / 0 of 69 | RFC 8949 Appendix A (cbor/test-vectors): 82 / 82<br>minicbor differential: random and mutated bytes: 60000 / 60000<br>minicbor differential: random items: 20000 / 20000 | 0 of 7 files current |
