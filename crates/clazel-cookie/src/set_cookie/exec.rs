@@ -569,7 +569,7 @@ pub fn parse_a_set_cookie_string(s: &[u8], uri_path: &[u8], now: u64) -> (output
 }
 
 /// `s` contains a CTL character excluding HTAB (§5.6 step 1).
-fn contains_ctl_exec(s: &[u8]) -> (r: bool)
+pub fn contains_ctl_exec(s: &[u8]) -> (r: bool)
     ensures
         r == contains_ctl_excluding_htab(s@),
 {

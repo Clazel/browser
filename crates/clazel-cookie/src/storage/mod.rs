@@ -9,6 +9,7 @@
 //! Item 2.9 so far is the spec and the contracts: there is no `exec` yet.
 
 pub mod contract;
+pub mod exec;
 pub mod independent;
 pub mod isolation;
 pub mod lemmas;

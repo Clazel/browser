@@ -28,7 +28,8 @@
 //! kernel's invariant (2.10) must include it. The store lemmas need no such
 //! hypothesis.
 
-use super::lemmas::*;
+
+#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -351,7 +352,7 @@ pub proof fn lemma_filter_remove_accepted<A>(s: Seq<A>, i: int, p: spec_fn(A) ->
     Seq::<A>::filter_distributes_over_add(a, m, p);
     Seq::<A>::filter_distributes_over_add(a, b, p);
     assert(m =~= Seq::<A>::empty().push(s[i]));
-    lemma_filter_push(Seq::<A>::empty(), s[i], p);
+    super::lemmas::lemma_filter_push(Seq::<A>::empty(), s[i], p);
     reveal(Seq::filter);
     assert(Seq::<A>::empty().filter(p) == Seq::<A>::empty());
     assert(m.filter(p) =~= seq![s[i]]);
@@ -458,7 +459,7 @@ pub proof fn lemma_evict_expired_props(
     if jar_keys_unique(jar) {
         lemma_filter_keys_unique(jar, not_expired(now));
     }
-    lemma_filter_commute(jar, not_expired(now), in_root(rules, root));
+    super::lemmas::lemma_filter_commute(jar, not_expired(now), in_root(rules, root));
     jar.filter(in_root(rules, root)).lemma_filter_len(not_expired(now));
     assert forall|x: Cookie| evict_expired(jar, now).contains(x) implies jar.contains(x) by {
         lemma_filter_elem(jar, not_expired(now), x);
@@ -493,7 +494,7 @@ pub proof fn lemma_insert_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<Coo
         }),
         forall|x: Cookie| insert_a_cookie(jar, new).contains(x) ==> (jar.contains(x) || x == new),
 {
-    lemma_find_old_cookie_from(jar, new, 0);
+    super::lemmas::lemma_find_old_cookie_from(jar, new, 0);
     let p = in_root(rules, root);
     match find_old_cookie(jar, new) {
         Some(i) => {
@@ -510,11 +511,11 @@ pub proof fn lemma_insert_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<Coo
                 }
             }
             lemma_push_keys_unique(r, new);
-            lemma_filter_push(r, new, p);
+            super::lemmas::lemma_filter_push(r, new, p);
             if p(jar[i]) {
                 lemma_filter_remove_accepted(jar, i, p);
             } else {
-                lemma_filter_remove_rejected(jar, i, p);
+                super::lemmas::lemma_filter_remove_rejected(jar, i, p);
             }
             // The old cookie has the new one's domain, hence its root.
             assert(cookie_root_of(rules, jar[i]) == cookie_root_of(rules, new));
@@ -529,7 +530,7 @@ pub proof fn lemma_insert_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<Coo
         None => {
             lemma_find_old_cookie_none(jar, new, 0);
             lemma_push_keys_unique(jar, new);
-            lemma_filter_push(jar, new, p);
+            super::lemmas::lemma_filter_push(jar, new, p);
             assert forall|x: Cookie| jar.push(new).contains(x) implies (jar.contains(x) || x == new) by {
                 let k = choose|k: int| 0 <= k < jar.push(new).len() && jar.push(new)[k] == x;
                 if k < jar.len() {
@@ -578,7 +579,7 @@ pub proof fn lemma_evict_over_limit_props(rules: Seq<clazel_psl::spec::Rule>, ja
     if root_count(rules, jar, root) > max_cookies_per_root() {
         lemma_filter_nonempty(jar, in_root(rules, root));
         lemma_victim_from_some(rules, jar, root, jar.len());
-        lemma_victim_from_in_root(rules, jar, root, jar.len());
+        super::lemmas::lemma_victim_from_in_root(rules, jar, root, jar.len());
         let i = victim_from(rules, jar, root, jar.len())->Some_0;
         assert(0 <= i < jar.len());
         jar.remove_ensures(i);
@@ -629,7 +630,7 @@ pub proof fn lemma_store_frame(
     if created is Some {
         let new = created->Some_0;
         lemma_store_within_root(rules, live, url, ctx, received, now, host, new);
-        lemma_store_frame_of_new_root(rules, jar, url, ctx, received, now, new, other);
+        super::lemmas::lemma_store_frame_of_new_root(rules, jar, url, ctx, received, now, new, other);
     }
 }
 
@@ -738,7 +739,7 @@ pub proof fn lemma_store_bounds(
             lemma_insert_props(rules, live, new, root);
             lemma_evict_expired_props(rules, inserted, now, root);
             if root != r {
-                lemma_evict_over_limit_frame(rules, evicted, r, root);
+                super::lemmas::lemma_evict_over_limit_frame(rules, evicted, r, root);
             }
         }
     }
