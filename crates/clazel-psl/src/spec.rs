@@ -327,6 +327,40 @@ pub open spec fn registrable_domain(rules: Seq<Rule>, host: clazel_url::host::sp
     }
 }
 
+/// `s` is a suffix of the domain `d` in labels: the last `k` labels of
+/// `d` (at least one) joined, with `d`'s trailing dot. This is the "suffix
+/// of it (in labels)" of the cookie root's definition, and what a cookie's
+/// Domain attribute must be of the request host for the cookie root to be
+/// shared (`lemmas::lemma_root_of_suffix`).
+pub open spec fn is_label_suffix(d: Seq<u32>, s: Seq<u32>) -> bool {
+    exists|k: nat| 1 <= k <= domain_labels(d).len() && s == label_suffix(domain_labels(d), has_trailing_dot(d), k)
+}
+
+/// RFC 6265bis §5.1.3 "domain-matches" for a non-empty domain string `c`
+/// and a host name `h`, over code points: "The domain string and the
+/// string are identical", or "The domain string is a suffix of the
+/// string" and "The last character of the string that is not included in
+/// the domain string is a %x2E (".") character" (the host is a host name
+/// by the caller's choice of `Host::Domain`).
+pub open spec fn domain_match_u32(h: Seq<u32>, c: Seq<u32>) -> bool {
+    h == c || (c.is_suffix_of(h) && h.len() > c.len() && h[h.len() - c.len() - 1] == 0x2Eu32)
+}
+
+/// The statement of `lemmas::lemma_root_of_suffix`: a suffix `s` of the
+/// domain `d` in labels that is not a public suffix has the cookie root of
+/// `d`, and that root is a suffix of `s`.
+pub open spec fn root_of_suffix_statement(rules: Seq<Rule>, d: Seq<u32>, s: Seq<u32>) -> bool {
+    is_label_suffix(d, s) && !is_public_suffix(rules, s) ==> (cookie_root_of_domain(rules, s) == cookie_root_of_domain(rules, d)
+        && is_label_suffix(s, cookie_root_of_domain(rules, d)))
+}
+
+/// The statement of `lemmas::lemma_domain_match_same_root`: a non-empty
+/// cookie domain `c` that domain-matches the host `h`, and is not a public
+/// suffix, has the same cookie root as `h`.
+pub open spec fn domain_match_root_statement(rules: Seq<Rule>, h: Seq<u32>, c: Seq<u32>) -> bool {
+    c.len() > 0 && domain_match_u32(h, c) && !is_public_suffix(rules, c) ==> cookie_root_of_domain(rules, c) == cookie_root_of_domain(rules, h)
+}
+
 /// A suffix of a domain is "a public suffix" when obtaining its public
 /// suffix returns it.
 pub open spec fn is_public_suffix(rules: Seq<Rule>, domain: Seq<u32>) -> bool {
@@ -364,40 +398,6 @@ pub open spec fn cookie_root(rules: Seq<Rule>, host: clazel_url::host::spec::Hos
         clazel_url::host::spec::Host::Domain(domain) => clazel_url::host::spec::Host::Domain(cookie_root_of_domain(rules, domain)),
         _ => host,
     }
-}
-
-/// `s` is a suffix of the domain `d` in labels: the last `k` labels of
-/// `d` (at least one) joined, with `d`'s trailing dot. This is the "suffix
-/// of it (in labels)" of the cookie root's definition, and what a cookie's
-/// Domain attribute must be of the request host for the cookie root to be
-/// shared (`lemmas::lemma_root_of_suffix`).
-pub open spec fn is_label_suffix(d: Seq<u32>, s: Seq<u32>) -> bool {
-    exists|k: nat| 1 <= k <= domain_labels(d).len() && s == label_suffix(domain_labels(d), has_trailing_dot(d), k)
-}
-
-/// RFC 6265bis §5.1.3 "domain-matches" for a non-empty domain string `c`
-/// and a host name `h`, over code points: "The domain string and the
-/// string are identical", or "The domain string is a suffix of the
-/// string" and "The last character of the string that is not included in
-/// the domain string is a %x2E (".") character" (the host is a host name
-/// by the caller's choice of `Host::Domain`).
-pub open spec fn domain_match_u32(h: Seq<u32>, c: Seq<u32>) -> bool {
-    h == c || (c.is_suffix_of(h) && h.len() > c.len() && h[h.len() - c.len() - 1] == 0x2Eu32)
-}
-
-/// The statement of `lemmas::lemma_root_of_suffix`: a suffix `s` of the
-/// domain `d` in labels that is not a public suffix has the cookie root of
-/// `d`, and that root is a suffix of `s`.
-pub open spec fn root_of_suffix_statement(rules: Seq<Rule>, d: Seq<u32>, s: Seq<u32>) -> bool {
-    is_label_suffix(d, s) && !is_public_suffix(rules, s) ==> (cookie_root_of_domain(rules, s) == cookie_root_of_domain(rules, d)
-        && is_label_suffix(s, cookie_root_of_domain(rules, d)))
-}
-
-/// The statement of `lemmas::lemma_domain_match_same_root`: a non-empty
-/// cookie domain `c` that domain-matches the host `h`, and is not a public
-/// suffix, has the same cookie root as `h`.
-pub open spec fn domain_match_root_statement(rules: Seq<Rule>, h: Seq<u32>, c: Seq<u32>) -> bool {
-    c.len() > 0 && domain_match_u32(h, c) && !is_public_suffix(rules, c) ==> cookie_root_of_domain(rules, c) == cookie_root_of_domain(rules, h)
 }
 
 } // verus!
