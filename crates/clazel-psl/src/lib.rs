@@ -13,6 +13,7 @@
 pub mod contract;
 pub mod data;
 pub mod equivalence;
+pub mod equivalence_proof;
 pub mod examples;
 pub mod exec;
 pub mod independent;
