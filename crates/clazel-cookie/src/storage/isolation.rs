@@ -28,7 +28,6 @@
 //! kernel's invariant (2.10) must include it. The store lemmas need no such
 //! hypothesis.
 
-
 #[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
