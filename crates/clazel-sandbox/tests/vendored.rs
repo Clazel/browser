@@ -124,6 +124,7 @@ fn check(defs: &HashMap<String, String>, name: &str, ours: u64) -> Result<(), St
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // reads vendored files, which Miri's isolation forbids
 fn bpf_constants_match_headers() -> Result<(), String> {
     let d = defines(HEADERS)?;
     let table: &[(&str, u16)] = &[
@@ -182,6 +183,7 @@ fn bpf_constants_match_headers() -> Result<(), String> {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // reads vendored files, which Miri's isolation forbids
 fn seccomp_constants_match_headers() -> Result<(), String> {
     let d = defines(HEADERS)?;
     let table: &[(&str, u32)] = &[
@@ -230,6 +232,7 @@ fn seccomp_constants_match_headers() -> Result<(), String> {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // reads vendored files, which Miri's isolation forbids
 fn landlock_and_namespace_constants_match_headers() -> Result<(), String> {
     let d = defines(HEADERS)?;
     let table: &[(&str, u64)] = &[
@@ -317,6 +320,7 @@ fn is_alias(defs: &HashMap<String, String>, name: &str) -> bool {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // reads vendored files, which Miri's isolation forbids
 fn allowlist_numbers_match_kernel_tables() -> Result<(), String> {
     let tbl = vendored("syscall_64.tbl")?;
     let generic = defines(&["unistd.h"])?;
@@ -402,6 +406,7 @@ fn allowlist_has_no_duplicates_and_no_forbidden_names() {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // reads vendored files, which Miri's isolation forbids
 fn doc_sections_cited_exist() -> Result<(), String> {
     let seccomp = vendored("seccomp_filter.rst")?;
     for heading in ["Usage", "Return values", "Pitfalls"] {

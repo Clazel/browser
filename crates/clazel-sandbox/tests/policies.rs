@@ -12,12 +12,18 @@ use clazel_sandbox::seccomp::{
 use clazel_sandbox::syscalls::{self, AUDIT_ARCH_AARCH64, AUDIT_ARCH_X86_64, Arch};
 use clazel_sandbox::{landlock, namespaces, seatbelt};
 
+/// Every syscall number normally; under Miri, every seventeenth (Miri runs
+/// the interpreter slowly, and Kani covers all numbers anyway).
+fn miri_step() -> usize {
+    if cfg!(miri) { 17 } else { 1 }
+}
+
 #[test]
 fn programs_allow_exactly_the_allowlist_below_1024() -> Result<(), String> {
     for arch in Arch::ALL {
         let prog = renderer_program(arch).map_err(|e| format!("{e:?}"))?;
         validate(&prog).map_err(|e| format!("{e:?}"))?;
-        for nr in 0..1024u32 {
+        for nr in (0..1024u32).step_by(miri_step()) {
             let got = run(&prog, &SeccompData::new(nr, arch.audit_arch()));
             let want = if syscalls::is_allowed(arch, nr) {
                 SECCOMP_RET_ALLOW
@@ -47,7 +53,7 @@ fn wrong_architecture_is_killed_for_every_number() -> Result<(), String> {
     for arch in Arch::ALL {
         let prog = renderer_program(arch).map_err(|e| format!("{e:?}"))?;
         for other in wrong.iter().filter(|a| **a != arch.audit_arch()) {
-            for nr in 0..1024u32 {
+            for nr in (0..1024u32).step_by(miri_step()) {
                 let got = run(&prog, &SeccompData::new(nr, *other));
                 assert_eq!(
                     got,

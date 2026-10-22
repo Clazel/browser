@@ -223,6 +223,9 @@ fn rows() -> (usize, Vec<Row>) {
             });
         }
     }
+    // Under Miri, every 23rd row: parsing each URL there is slow.
+    let step = if cfg!(miri) { 23 } else { 1 };
+    let out = out.into_iter().step_by(step).collect();
     (total_objects, out)
 }
 

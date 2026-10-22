@@ -33,18 +33,19 @@ fn text(v: &[u32]) -> String {
 
 #[test]
 fn check_public_suffix() {
-    // The size of the suite: its non-comment, non-blank lines.
-    let total = TESTS
+    // The suite: its non-comment, non-blank lines. Under Miri, every
+    // thirteenth (each lookup scans the whole list, which Miri runs slowly).
+    let step = if cfg!(miri) { 13 } else { 1 };
+    let lines: Vec<&str> = TESTS
         .lines()
-        .filter(|l| !l.trim().is_empty() && !l.trim().starts_with("//"))
-        .count();
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with("//"))
+        .step_by(step)
+        .collect();
+    let total = lines.len();
     let mut pass = 0usize;
     let mut failures = Vec::new();
-    for line in TESTS.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with("//") {
-            continue;
-        }
+    for line in lines {
         let mut it = line.split_whitespace();
         let (Some(input), Some(expected)) = (it.next(), it.next()) else {
             failures.push(format!("malformed line {line:?}"));

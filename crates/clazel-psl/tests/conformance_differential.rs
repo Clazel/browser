@@ -22,7 +22,11 @@ fn text(v: Option<Vec<u32>>) -> Option<String> {
     v.map(|v| v.iter().filter_map(|c| char::from_u32(*c)).collect())
 }
 
+// Not under Miri: nearly all its time there is the reference crate parsing
+// the whole list (about 20 minutes even with the lookups sampled), and that
+// crate is test-only. `conformance_psl.rs` runs our lookups under Miri.
 #[test]
+#[cfg_attr(miri, ignore)]
 fn differential() {
     let parsed = LIST.parse::<List>();
     assert!(parsed.is_ok(), "the vendored list parses");
