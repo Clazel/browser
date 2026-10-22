@@ -89,8 +89,7 @@ and in `clazel-kernel`.
 
 ## Dependencies on Phase 1
 
-Every Phase 1 item is merged (only its Linux CI run is outstanding), so no
-item waits on it. Used here:
+Phase 1 is complete (2026-10-21), so no item waits on it. Used here:
 `clazel-encoding` (UTF-8 for CBOR text and cookie strings), `clazel-url`'s
 host parser and serializers (1.9, for canonical hosts and origins), its
 basic URL parser (1.10, for URL §4.7 "origin" in 2.6, navigation in 2.13,

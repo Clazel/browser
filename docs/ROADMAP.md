@@ -20,8 +20,9 @@ contributor rules for AI agents (`CLAUDE.md`), and honesty metrics script.
 UTF-8 encoding, percent-encoding, base64, MIME sniffing, WHATWG URL parser.
 *Exit:* WPT `url/` tests pass and the parsers are proven against spec functions.
 Detailed plan: [phases/phase-1.md](phases/phase-1.md).
-**Status: all items done; `scripts/verify.sh` passes on macOS arm64
-(2026-10-21). Complete once the Linux x86-64 CI run is green.**
+**Status: complete (2026-10-21).** `scripts/verify.sh` passes on macOS arm64,
+and CI's full verification passed on Linux x86-64 at `619d7dd`
+([run 39652504757](https://github.com/clazel/browser/actions/runs/39652504757)).
 
 ## Phase 2: Kernel and IPC
 Quark-style process model. A small kernel process owns all network, cookie

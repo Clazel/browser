@@ -9,13 +9,12 @@ instead of trust.
 - **Honest about it:** each crate declares its verification tier, and the
   trusted computing base is listed in [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-Status: Phase 0 (foundations) is complete. Phase 1 (verified primitives) has
-started: UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`),
-forgiving base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`),
-IDNA (`clazel-idna`) and URLs (`clazel-url`: host parsing with the real domain
-parser, the basic URL parser with state override, the URL serializer and the
-URL API setters) are at Tier 2. A green Linux run on CI, which completes the
-phase, is next.
+Status: Phases 0 (foundations) and 1 (verified primitives) are complete:
+UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`), forgiving
+base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`), IDNA
+(`clazel-idna`) and URLs (`clazel-url`) are at Tier 2, on macOS and on
+Linux CI. Phase 2 (kernel and IPC) is in progress; see the table below and
+[docs/phases/phase-2.md](docs/phases/phase-2.md).
 Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh
