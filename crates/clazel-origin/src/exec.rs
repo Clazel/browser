@@ -1,14 +1,14 @@
 //! The executable origin and site types and functions, each proven to meet
 //! its contract in [`super::contract`].
 
+#[allow(unused_imports)]
+use super::spec::*;
 use clazel_psl::exec::registrable_domain_exec;
 use clazel_url::host::record::{ParsedHost, append, at16, copy};
 use clazel_url::host::serialize::push_decimal;
 use clazel_url::url::parse::basic_url_parser;
 use clazel_url::url::record::{ParsedUrl, clone_host};
 use clazel_url::url::serialize::url_path_serializer;
-#[allow(unused_imports)]
-use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 

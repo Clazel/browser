@@ -58,7 +58,8 @@ Formalizing the standards has already found one spec bug: see
 
 ```sh
 scripts/setup.sh         # install the pinned, checksummed toolchain (needs rustup)
-scripts/verify.sh        # every check, fresh proof runs (same as `cargo xtask verify`)
+scripts/verify.sh        # every check, fresh proof runs (same as `cargo xtask verify`; CI runs this)
+cargo xtask verify --changed   # every check, but proofs and tests only for crates changed since origin/main
 cargo xtask check        # fast static checks only
 ```
 

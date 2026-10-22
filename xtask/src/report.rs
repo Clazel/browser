@@ -76,14 +76,60 @@ impl Metrics {
 /// Metrics for every crate, keyed (and so ordered) by crate name.
 pub type Table = BTreeMap<String, Metrics>;
 
-/// The generated block, markers included.
+/// The table's header and rule lines.
+const HEADER: &str = "| Crate | Tier (target) | Verus | Kani | Axioms | `unsafe` blocks (lines)⁵ | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |";
+const RULE: &str = "|-------|---------------|-------|------|--------|--------------------------|-----------------------------|---------------------------------------------------|--------------|--------------|";
+
+/// The columns a `--changed` run carries over from the committed table for
+/// crates it did not select: Verus, Kani, lines, mutations and conformance,
+/// the ones only a proof or test run measures. The others (tier, axioms,
+/// `unsafe`, reviews) come from the static checks, which always run in
+/// full, so they are measured afresh for every crate.
+const CARRIED_COLUMNS: [usize; 5] = [2, 3, 6, 7, 8];
+
+/// Cells of a committed table row, crate name first, keyed by crate name.
+pub type Rows = BTreeMap<String, Vec<String>>;
+
+/// The rows of a generated block. Fails if its header is not this
+/// version's, because then its cells do not line up with the columns.
+pub fn rows(block: &str) -> Result<Rows, String> {
+    let mut lines = block.lines().skip(1);
+    if lines.next() != Some(HEADER) || lines.next() != Some(RULE) {
+        return Err(
+            "README.md's table has another column layout; run the full report once".to_owned(),
+        );
+    }
+    let mut out = Rows::new();
+    for line in lines.take_while(|l| l.starts_with('|')) {
+        let cells: Vec<String> = line
+            .trim_matches('|')
+            .split('|')
+            .map(|c| c.trim().to_owned())
+            .collect();
+        if cells.len() != 10 {
+            return Err(format!(
+                "README.md table row has {} cells: {line}",
+                cells.len()
+            ));
+        }
+        if let Some(name) = cells.first() {
+            out.insert(name.clone(), cells);
+        }
+    }
+    Ok(out)
+}
+
+/// The generated block, markers included, with nothing carried over.
+#[cfg(test)]
 pub fn render(table: &Table) -> String {
+    render_with(table, &Rows::new())
+}
+
+/// The generated block, taking [`CARRIED_COLUMNS`] from `carried` for the
+/// crates it has a row for, and every other cell from `table`.
+pub fn render_with(table: &Table, carried: &Rows) -> String {
     let dash = || "—".to_owned();
-    let mut out = vec![
-        BEGIN.to_owned(),
-        "| Crate | Tier (target) | Verus | Kani | Axioms | `unsafe` blocks (lines)⁵ | Lines: spec / proof / exec¹ | Spec mutations: theorem / incidental / survived² | Conformance⁴ | Spec review³ |".to_owned(),
-        "|-------|---------------|-------|------|--------|--------------------------|-----------------------------|---------------------------------------------------|--------------|--------------|".to_owned(),
-    ];
+    let mut out = vec![BEGIN.to_owned(), HEADER.to_owned(), RULE.to_owned()];
     for (name, m) in table {
         let tier = match (m.tier, m.target_tier) {
             (Some(t), Some(target)) => format!("{t} ({target})"),
@@ -118,10 +164,26 @@ pub fn render(table: &Table) -> String {
             .conformance
             .as_deref()
             .map_or_else(dash, conformance::cell);
-        out.push(format!(
-            "| {name} | {tier} | {verus} | {kani} | {} | {} ({}) | {lines} | {mutations} | {suites} | {review} |",
-            m.axioms, m.unsafe_blocks, m.unsafe_lines
-        ));
+        let mut cells = vec![
+            name.clone(),
+            tier,
+            verus,
+            kani,
+            m.axioms.to_string(),
+            format!("{} ({})", m.unsafe_blocks, m.unsafe_lines),
+            lines,
+            mutations,
+            suites,
+            review,
+        ];
+        if let Some(old) = carried.get(name) {
+            for i in CARRIED_COLUMNS {
+                if let (Some(cell), Some(kept)) = (cells.get_mut(i), old.get(i)) {
+                    cell.clone_from(kept);
+                }
+            }
+        }
+        out.push(format!("| {} |", cells.join(" | ")));
     }
     out.push(String::new());
     out.push(
@@ -211,7 +273,9 @@ pub fn which(bin: &str) -> Option<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{BEGIN, END, Metrics, Table, current, render, splice};
+    use super::{
+        BEGIN, END, Lines, Metrics, Mutations, Table, current, render, render_with, rows, splice,
+    };
 
     #[test]
     fn splice_replaces_only_the_block() -> Result<(), String> {
@@ -235,6 +299,62 @@ mod tests {
             "| a | 0 (0) | not used | no harnesses | 0 | 0 (0) | — | — | none | no spec files |"
         ));
         Ok(())
+    }
+
+    #[test]
+    fn carried_rows_keep_only_the_measured_columns() -> Result<(), String> {
+        let measured = Metrics {
+            tier: Some(2),
+            target_tier: Some(2),
+            is_verus: true,
+            axioms: 1,
+            verus: Some("5 verified, 0 errors".into()),
+            lines: Some(Lines {
+                spec: 1,
+                proof: 2,
+                exec: 3,
+            }),
+            mutations: Some(Mutations {
+                killed: 4,
+                incidental: 0,
+                survived: 0,
+                total: 4,
+            }),
+            reviews: Some((0, 2)),
+            conformance: Some(Vec::new()),
+            ..Metrics::default()
+        };
+        let mut t = Table::new();
+        t.insert("a".into(), measured.clone());
+        let old = rows(&render(&t))?;
+        assert_eq!(old.get("a").map(Vec::len), Some(10));
+        // A later run that measured nothing expensive, with a review added
+        // and the tier raised: carried cells come from `old`, the rest is new.
+        let mut later = Table::new();
+        later.insert(
+            "a".into(),
+            Metrics {
+                tier: Some(2),
+                target_tier: Some(2),
+                is_verus: true,
+                axioms: 1,
+                reviews: Some((1, 2)),
+                ..Metrics::default()
+            },
+        );
+        let block = render_with(&later, &old);
+        assert!(block.contains(
+            "| a | 2 (2) | 5 verified, 0 errors | no harnesses | 1 | 0 (0) | 1 / 2 / 3 | 4 / 0 / 0 of 4 | none | 1 of 2 files current |"
+        ));
+        // Round trip: rendering the full measurement again changes nothing.
+        assert_eq!(render_with(&t, &old), render(&t));
+        Ok(())
+    }
+
+    #[test]
+    fn rows_reject_another_layout() {
+        let old = format!("{BEGIN}\n| Crate | Tier |\n|---|---|\n| a | 0 |\n{END}");
+        assert!(rows(&old).is_err());
     }
 
     #[test]

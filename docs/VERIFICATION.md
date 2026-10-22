@@ -79,6 +79,47 @@ Pinned versions (proofs must be reproducible). The source of truth is
 (x86-64). It checks every download against `scripts/checksums.txt` and
 installs nothing if a checksum differs.
 
+## Local and CI runs
+
+The full `cargo xtask verify` takes hours, so it runs where it is the gate:
+in CI (`.github/workflows/ci.yml`), on Linux x86-64 with the pinned
+toolchain, on every push to `main` and every pull request. Nothing is done,
+and no tier is raised, until that run is green.
+
+Locally, `cargo xtask verify --changed [base]` runs the same checks over
+less. `base` defaults to `origin/main`, the last commit CI verified, and
+the run compares the working tree (committed, staged, unstaged and
+untracked files) with HEAD's merge base with it (`xtask/src/changed.rs`):
+
+- The static checks, rustfmt and clippy cover the whole workspace, as in a
+  full run.
+- Tests, Miri, Kani, Verus, mutations and conformance run only for the
+  crates with a changed file and every crate that depends on one of them,
+  directly or not, dev-dependencies included.
+- A change anywhere else, except `docs/`, `.github/`, `.claude/`, README.md,
+  CLAUDE.md, LICENSE and `.gitignore`, checks every crate. That covers
+  `Cargo.lock`, the workspace `Cargo.toml`, `rust-toolchain.toml`,
+  `scripts/` and `xtask/`, which decides what passing means.
+- The run ends in `RESULT: CHANGED CRATES PASSED (n of m crates …)`, never
+  `ALL CHECKS PASSED`.
+
+`cargo xtask report --write --changed` updates README.md's table the same
+way. Rows of crates it checked are measured afresh. Rows of the others
+keep their Verus, Kani, line, mutation and conformance cells from the
+committed table, since nothing they depend on changed, and the remaining
+cells (tier, axioms, `unsafe`, reviews) come from the static checks, which
+always cover every crate. If the committed table has another column layout,
+or lacks a row to keep, it refuses and asks for a full run. CI's full run
+re-measures every row and fails if the committed table differs, so a kept
+cell that is wrong cannot pass CI.
+
+What this relies on: that a crate's proofs and tests depend only on its own
+files, the workspace crates it depends on, and the shared files listed
+above. Verus, Kani and the tests read nothing else, but a crate that read a
+file outside its directory (say, another crate's vendored data through
+`include_str!`) would not be re-checked when that file changed. CI's full
+run catches it; the local run may not.
+
 ## Trusted computing base (what we do *not* prove)
 
 We list this openly. Proofs are only as good as their assumptions.
