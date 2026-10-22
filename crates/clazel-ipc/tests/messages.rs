@@ -109,7 +109,8 @@ fn random_bytes_decode_to_one_encoding() {
     };
     let all_bytes: Vec<Vec<u8>> = all().iter().map(encode_message).collect();
     let mut decoded = 0usize;
-    for i in 0..50_000usize {
+    let rounds = if cfg!(miri) { 200 } else { 50_000usize };
+    for i in 0..rounds {
         let mut b = all_bytes
             .get(usize::try_from(next() % 15).unwrap_or(0))
             .cloned()
@@ -129,8 +130,9 @@ fn random_bytes_decode_to_one_encoding() {
             assert_eq!(encode_message(&m), b, "case {i}: {b:02X?}");
         }
     }
+    // Over 100 in the full run, and in the same proportion under Miri.
     assert!(
-        decoded > 100,
+        decoded > rounds / 500,
         "only {decoded} mutated messages still decoded"
     );
 }

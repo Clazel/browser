@@ -246,7 +246,7 @@ fn mini_bytes(e: &Ex) -> Vec<u8> {
 #[test]
 fn differential_random_items() {
     let mut r = Rng(0x2545_F491_4F6C_DD1D);
-    let cases = 20_000usize;
+    let cases = if cfg!(miri) { 200 } else { 20_000usize };
     let mut failed = 0usize;
     for n in 0..cases {
         let item = random_item(&mut r, 3);
@@ -312,7 +312,7 @@ fn mutate(r: &mut Rng, mut b: Vec<u8>) -> Vec<u8> {
 #[test]
 fn differential_random_bytes() {
     let mut r = Rng(0x9E37_79B9_7F4A_7C15);
-    let cases = 60_000usize;
+    let cases = if cfg!(miri) { 500 } else { 60_000usize };
     let mut failed = 0usize;
     let (mut both, mut only_theirs) = (0usize, 0usize);
     for n in 0..cases {
@@ -351,6 +351,9 @@ fn differential_random_bytes() {
         "clazel-conformance: suite=\"minicbor differential: random and mutated bytes\" pass={} xfail=0 fail={failed} total={cases}",
         cases.saturating_sub(failed)
     );
-    assert!(both > 1000 && only_theirs > 1000, "{both} {only_theirs}");
+    // Both kinds of input must be well represented: over 1000 each in the
+    // full run, and in the same proportion under Miri.
+    let floor = cases / 60;
+    assert!(both > floor && only_theirs > floor, "{both} {only_theirs}");
     assert_eq!(failed, 0);
 }
