@@ -11,12 +11,19 @@ vstd = "=0.0.0-2026-10-04-0306"
 # §5.1.2 canonicalized host names are the URL Standard's host parser and
 # serializer (a modelling choice, see the header of src/matching/spec.rs).
 clazel-url = { path = "../clazel-url" }
+# §5.7 step 9 and §5.8.3 step 3 ask whether a domain is a public suffix, and
+# the cookie root (the isolation boundary, see src/storage/spec.rs) is
+# defined over the Public Suffix List.
+clazel-psl = { path = "../clazel-psl" }
+# §5.2 "same-site" requests are the HTML Standard's "same site" of origins.
+clazel-origin = { path = "../clazel-origin" }
 
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires.
 # Phase 2 items 2.7 and 2.8 (RFC 6265bis §5.1, §5.4 to §5.6) are specified
-# here; the crate stays at tier 0 until item 2.9 (storage and retrieval)
-# is built and its proofs, conformance suites and independent
+# here, and item 2.9 (§5.2, §5.7, §5.8) is specified with contracts only;
+# the crate stays at tier 0 until item 2.9's storage and retrieval are
+# built and their proofs, conformance suites and independent
 # transcription exist, because the tier describes the whole crate.
 [package.metadata.clazel]
 tier = 0

@@ -127,3 +127,25 @@ it evidently means. Each entry records what we specified instead.
   `process_expires` and `process_max_age` in
   `crates/clazel-cookie/src/set_cookie/spec.rs`.
 - **Reported upstream:** not yet.
+
+## RFC 6265bis §5.7 step 10: "request-host-canonical" is not bound unless step 9 runs
+
+- **Spec:** draft-ietf-httpbis-rfc6265bis-22 (1 December 2025),
+  <https://www.ietf.org/archive/id/draft-ietf-httpbis-rfc6265bis-22.txt>
+- **Text and problem:** step 9 reads "If the user agent is configured to
+  reject 'public suffixes' and the domain-attribute is a public suffix:
+  1. Let request-host-canonical be the canonicalized request-host. 2. If
+  request-host fails to be canonicalized then abort this algorithm and ignore
+  the cookie entirely." Step 10 then says "If request-host-canonical does not
+  domain-match [...] the domain-attribute" and, for an empty
+  domain-attribute, "Set the cookie's domain to request-host-canonical". So
+  the variable is defined only inside step 9's condition (a user agent that
+  is not configured to reject public suffixes, or a domain-attribute that is
+  not one, never binds it), and the failure to canonicalize is only detected
+  there. Read literally, the usual cookie (no Domain attribute) has its
+  domain set from an undefined name.
+- **We specify:** the evident intent. The request host is canonicalized
+  before step 9 for every cookie, and the cookie is ignored entirely if that
+  fails; steps 9 and 10 then use the result. See `create_a_cookie` and
+  `step_9_domain_attribute` in `crates/clazel-cookie/src/storage/spec.rs`.
+- **Reported upstream:** not yet.

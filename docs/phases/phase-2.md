@@ -666,7 +666,36 @@ current drafts), where the two RFCs agree. Conformance:
 - Differential against `cookie_store` (a `test` row, with its own
   dependencies) on random cookie strings and random set and get sequences.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (spec and contracts only; no implementation or exec proofs yet,
+`clazel-cookie` stays at tier 0):** `crates/clazel-cookie/src/storage/`.
+`spec.rs` transcribes §5.2 (same-site requests, over `clazel-origin`'s "same
+site"), §5.7 (`create_a_cookie` is steps 1 to 23.3, `insert_a_cookie` is
+23.4 and 24, `store_a_cookie` adds the eviction) and §5.8.3
+(`retrieval_cookie_list`, `retrieve_cookie_string`, `jar_after_retrieval`),
+with the jar a `Seq<Cookie>`, time an argument, the request URL a
+`RequestUrl` (scheme, canonical host, path) and the request context an
+abstract `RequestContext` (`Http` or `NonHttp`). Its header lists every
+modelling choice, including the two isolation decisions above: the boundary
+is `cookie_root` over a canonical host, and eviction is `evict_over_limit`,
+per root, 180 cookies (`max_cookies_per_root`), with no global limit; expired
+cookies are evicted globally (`evict_expired`), which depends only on time.
+`contract.rs` has `evict_expired`, `store_a_cookie`,
+`store_a_set_cookie_string` and `retrieve_a_cookie_string` over the
+generated PSL tables. One erratum (§5.7 step 10 uses a variable bound only in
+step 9). `lemmas.rs` proves what does not need `lemma_root_of_suffix`:
+`lemma_store_frame_of_new_root` (storing changes only the new cookie's
+root, besides expiry) and `lemma_retrieve_frame_of_root`, with the filter
+lemmas under them. **Statements 2.9 will prove**, recorded in the header of
+`spec.rs` (they need `clazel-psl`'s `lemma_root_of_suffix`, item 2.4):
+`lemma_store_within_root` (the created cookie's domain has the request host's
+root), `lemma_retrieve_within_root` (every retrieved cookie has the host's
+root, from any jar, which is why step 3's public-suffix condition is read as
+part of the second alternative), `lemma_store_frame` and
+`lemma_retrieve_frame` (the plan's forms, from the two proven lemmas and
+those), and `lemma_store_bounds` (storage keeps every root at 180 or fewer
+and keys unique). **Not done:** `exec.rs`, the proofs against the contracts,
+`independent.rs`, the WPT, http-state and `cookie_store` evidence, and
+mutations (a spec-only item has none to certify yet).
 
 ### 2.10 Kernel state machine: spec and contracts (L)
 
@@ -978,7 +1007,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.6 Origin of a URL | partial: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential done, mutations killed (counted with 2.5; none for blob steps 1 and 2) (tier 0) |
 | 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
 | 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; no Set-Cookie conformance data |
-| 2.9 Cookie storage and retrieval | not started |
+| 2.9 Cookie storage and retrieval | spec and contracts done; implementation and proofs not started |
 | 2.10 Kernel spec | not started |
 | 2.11 Isolation theorems | not started |
 | 2.12 Kernel implementation | not started |

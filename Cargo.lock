@@ -26,6 +26,8 @@ dependencies = [
 name = "clazel-cookie"
 version = "0.0.0"
 dependencies = [
+ "clazel-origin",
+ "clazel-psl",
  "clazel-url",
  "vstd",
 ]
