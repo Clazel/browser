@@ -65,8 +65,8 @@
       "reason": "Every tuple origin may use cookies, ftp and ws too: the getter returns a string and the setter stores, where HTML says empty and nothing (theorem_cookie_confidentiality and theorem_cookie_integrity): ml_ftp_is_cookie_averse is false.",
       "certificate": {
         "file": "src/mutation_lemmas.rs",
-        "lemma": "ml_ftp_is_cookie_averse()",
-        "witness": "!cookie_averse(ml_tuple(seq![0x66u32, 0x74, 0x70]))"
+        "lemma": "ml_ftp_is_cookie_averse(false)",
+        "witness": "!cookie_averse_given(ml_tuple(seq![0x66u32, 0x74, 0x70]), false)"
       },
       "module": "mutation_lemmas"
     },
@@ -110,6 +110,20 @@
         "lemma": "ml_find_key(seq![StorageEntry { key: seq![1u8], value: seq![2u8, 3u8] }], seq![2u8, 3u8])",
         "witness": "find_key(seq![StorageEntry { key: seq![1u8], value: seq![2u8, 3u8] }], seq![2u8, 3u8], 0) == Some(0int)"
       }
+    },
+    {
+      "id": "public-suffix-host-not-cookie-averse",
+      "file": "src/spec.rs",
+      "find": " && !on_public_suffix)",
+      "replace": ")",
+      "expect": "killed",
+      "reason": "A document on a public-suffix host may use cookies: a host-only cookie of a public suffix can enter the jar, and RFC 6265bis step 16 reads across cookie roots again (example_public_suffix_overlay_crosses_roots), which breaks jar_no_public_suffix and theorem_cookie_noninterference's relation: ml_public_suffix_is_cookie_averse is false. (With the default rule every one-label host such as `a` is a public suffix; co.uk and github.io are the realistic cases.)",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_public_suffix_is_cookie_averse(ml_tuple(seq![0x68u32, 0x74, 0x74, 0x70, 0x73]))",
+        "witness": "!cookie_averse_given(ml_tuple(seq![0x68u32, 0x74, 0x74, 0x70, 0x73]), true)"
+      },
+      "module": "mutation_lemmas"
     }
   ]
 }
