@@ -19,6 +19,7 @@ pub mod domain;
 pub mod independent;
 pub mod invariant;
 pub mod lock;
+pub mod mutation_lemmas;
 pub mod ni_theorem;
 pub mod noninterference;
 pub mod projection;
