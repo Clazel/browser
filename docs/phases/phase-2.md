@@ -839,8 +839,8 @@ The URL-to-origin function is a **parameter** of the spec (`spec_fn(Seq<u32>)
 the kernel proofs do not unfold the URL parser's. 2.13 instantiates it with
 the real parser.
 
-**As built (spec done; contracts are the next commit; the implementation is
-2.12, so `clazel-kernel` is at `tier = 0`):** `crates/clazel-kernel/src/`.
+**As built (spec and contracts done; the implementation is 2.12, so
+`clazel-kernel` is at `tier = 0`):** `crates/clazel-kernel/src/`.
 `spec.rs` has the state (`State`: `renderers: Seq<Renderer>` with id, tab,
 committed URL as code points and lock; `jar: Seq<Cookie>`; `storage:
 Map<Origin, Seq<StorageEntry>>`; `next_id`; `now`), `Event` (`FromRenderer
@@ -848,7 +848,10 @@ Map<Origin, Seq<StorageEntry>>`; `next_id`; `now`), `Event` (`FromRenderer
 `RendererExited { id }`, `Tick { time }`), `Output` (`ToRenderer`, `Spawn`
 with a one-valued `Policy`, `Kill`) and `step(rules, urls, s, e)`, with the
 modelling choices at the top. `invariant.rs` has `kernel_wf` and its proofs,
-`domain.rs` the definitions of 2.11 below. **Decisions that change later
+`domain.rs` the definitions of 2.11 below, and `contract.rs` the contract of
+the exec `step` (`step_requires`, `step_ensures`: equality with the spec's
+`step` over the generated Public Suffix List, for any `UrlFns`) and of its
+frame helpers. **Decisions that change later
 items:**
 
 - **Three URL functions, not one** (`UrlFns`): `origin_of` is the plan's

@@ -10,7 +10,9 @@
 //!   facts proven about it.
 //! - [`domain`]: domains, observations and the intransitive purge that
 //!   item 2.11's noninterference theorem is stated with.
+//! - [`contract`]: what the executable `step` (item 2.12) must satisfy.
 
+pub mod contract;
 pub mod domain;
 pub mod invariant;
 pub mod spec;
