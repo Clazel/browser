@@ -13,9 +13,12 @@ enforces it:
    - `shipped`: may be reached directly from browser crates (every
      workspace crate except tooling). Allowed only for crypto (verified
      libraries), OS and windowing bindings, and GPU access.
-   - `proof`: reached from browser crates only through `vstd`. This is
-     Verus's proof library and its macro chain; ghost code is erased from
-     normal builds.
+   - `proof`: reached from browser crates only through `vstd`, or below a
+     dev-only edge. This is Verus's proof library and its macro chain; ghost
+     code is erased from normal builds. (A proof package may also be reached
+     below a dev-only edge, as `proc-macro2` is through `serde_derive` named
+     by `time` under the always-false `cfg(any())`: neither is compiled into a
+     shipped binary.)
    - `test`: reached from browser crates only through their
      `[dev-dependencies]`, so it is compiled into test binaries and never
      into the browser. Used for differential testing against other engines.
@@ -71,16 +74,25 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | tinyvec | 1.13.3 | test | Small-vector type, required by `unicode-normalization`. |
 | smallvec | 1.16.3 | test | Small-vector type, required by `idna`. No dependencies. |
 | utf8_iter | 1.0.4 | test | UTF-8 iteration, required by `idna`. No dependencies. |
+| cookie_store | 0.21.1 | test | The cookie jar of reqwest's `cookie_store` feature (it follows RFC 6265): the reference engine in `clazel-cookie`'s differential test (`tests/conformance_differential.rs`). Used without default features, so it has no Public Suffix List and no serde. Pinned to 0.21.1, whose `time` requirement (^0.3.16) lets `time` stay at 0.3.17, which has no dependency on `deranged`, `powerfmt` or `num-conv`. |
+| cookie | 0.18.2 | test | The `cookie` crate (`Cookie::parse`), used by `cookie_store`. Its dependencies are `time`, `percent-encoding` (already listed) and, as a build dependency, `version_check`. |
+| time | 0.3.17 | test | Date and time types, required by `cookie` and `cookie_store`; also a direct dev-dependency of `clazel-cookie`, to pin it to 0.3.17 (later releases pull `deranged`, `powerfmt` and `num-conv`). Its optional `serde` dependency is named by the weak feature `serde?/alloc`, which `cargo metadata` lists as an edge although `cargo tree` shows none; that is why `serde` and its pinned dependencies are `test` and not `tooling`. |
+| time-core | 0.1.0 | test | `time`'s shared constants. No dependencies. |
+| time-macros | 0.2.6 | test | `time`'s `format_description!` and date macros (proc-macro), required by `time` with the `macros` feature that `cookie` asks for. Its only dependency is `time-core`. |
+| version_check | 0.9.5 | test | Rust version detection in `cookie`'s build script. No dependencies. |
+| document-features | 0.2.12 | test | Documentation generation helper (proc-macro) named by `cookie_store`. Its only dependency is `litrs`. |
+| litrs | 1.0.1 | test | Literal parsing, required by `document-features`. No dependencies (its `proc-macro2` feature is off). |
+| log | 0.4.34 | test | The `log` facade, required by `cookie_store`. No dependencies. |
 | libc | 0.2.190 | shipped | Rust bindings to the C library: struct layouts and constants (`sock_filter`, `sock_fprog`, `CLONE_NEW*`, `SECCOMP_SET_MODE_FILTER`, `SYS_seccomp`, `SYS_landlock_*`, `PR_SET_NO_NEW_PRIVS`) and the declarations of `prctl`, `syscall` and `unshare`, for `clazel-sys` only (CLAUDE.md rules 1 and 8). Reached only on Linux (`[target.'cfg(target_os = "linux")'.dependencies]`), with default features off, so it has no dependencies; macOS needs none. Getting these layouts wrong by hand is undefined behaviour, which is why it is a dependency rather than our own declarations. |
 | minicbor | 2.3.1 | test | A small CBOR codec (no_std): the reference engine in `clazel-ipc`'s differential test (`tests/conformance_cbor.rs`). Chosen over `ciborium` (which pulls `serde`, `half` and two more). Used without default features (only `alloc`), so it has no dependencies. It accepts non-shortest arguments, which the test accounts for. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
-| serde_core | 1.0.229 | tooling | Required by `serde_json`. |
-| itoa | 1.0.18 | tooling | Integer formatting, required by `serde_json`. |
+| serde_core | 1.0.229 | test | Required by `serde_json`. |
+| itoa | 1.0.18 | test | Integer formatting, required by `serde_json`. |
 | memchr | 2.8.3 | tooling | Byte search, required by `serde_json`. |
 | zmij | 1.0.23 | tooling | Float formatting, required by `serde_json`. |
-| serde | 1.0.229 | tooling | Locked but never compiled: `serde_json` names it under the always-false `cfg(any())` to pin versions. |
-| serde_derive | 1.0.229 | tooling | Locked but never compiled: `serde_core` names it under `cfg(any())`. |
-| syn | 3.0.9 | tooling | Locked but never compiled: dependency of `serde_derive`. |
+| serde | 1.0.229 | test | Locked but never compiled: `serde_json` names it under the always-false `cfg(any())` to pin versions. |
+| serde_derive | 1.0.229 | test | Locked but never compiled: `serde_core` names it under `cfg(any())`. |
+| syn | 3.0.9 | test | Locked but never compiled: dependency of `serde_derive`. |
 <!-- END ALLOWLIST -->
 
 The only `shipped` package is `libc`, and only `clazel-sys` depends on it
