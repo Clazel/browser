@@ -1,0 +1,394 @@
+//! `lemma_navigate_declassify`, the four unwinding lemmas for kept events,
+//! the induction over traces, and **`theorem_cookie_noninterference`**
+//! (item 2.11).
+
+#[allow(unused_imports)]
+use super::domain::*;
+#[allow(unused_imports)]
+use super::invariant::*;
+#[allow(unused_imports)]
+use super::lock::*;
+#[allow(unused_imports)]
+use super::noninterference::*;
+#[allow(unused_imports)]
+use super::spec::*;
+#[allow(unused_imports)]
+use super::theorems::*;
+#[allow(unused_imports)]
+use super::unwind_base::*;
+#[allow(unused_imports)]
+use super::unwinding::*;
+#[allow(unused_imports)]
+use super::unwinding_b::*;
+#[allow(unused_imports)]
+use super::unwinding_d::*;
+#[allow(unused_imports)]
+use vstd::prelude::*;
+
+verus! {
+
+/// **`lemma_navigate_declassify`.**
+pub proof fn lemma_navigate_declassify(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, e: Event)
+    requires
+        rel(rules, urls, d, s1, s2),
+        other_domain_navigate(rules, urls, d, s1, e),
+        state_ps_free(rules, step(rules, urls, s1, e).0),
+    ensures
+        navigate_declassify_statement(rules, urls, d, s1, s2, e),
+{
+    let id = e->FromRenderer_id;
+    let bytes = e->FromRenderer_bytes;
+    assert(e == (Event::FromRenderer { id, bytes }));
+    let d2 = event_domain(rules, s1, e)->Some_0;
+    lemma_b_sender(rules, urls, d, s1, s2, id, bytes, d2);
+    let i1 = find_by_id(s1.renderers, id, 0)->Some_0;
+    let r = s1.renderers[i1];
+    let dn = declassified(urls, s1, e)->Some_0;
+    let (s1b, o1) = step(rules, urls, s1, e);
+    let (s2b, o2) = step(rules, urls, s2, dn);
+    // The declassified event is a NavigateTab of the sender's tab.
+    if let Some(clazel_ipc::message::spec::Message::Navigate { url }) = decode_renderer_frame(bytes) {
+        let relative = clazel_encoding::utf8::spec::utf8_decode_without_bom_or_fail(url)->Some_0;
+        let resolved = (urls.resolve)(r.url, relative)->Some_0;
+        assert(dn == (Event::NavigateTab { tab: r.tab, url: resolved, script: no_script() }));
+        lemma_found_contained(s1, r.tab);
+        assert(s1.renderers.contains(r));
+        lemma_find_contained(urls, s1, r);
+        if lock_of_url(urls, resolved, s1.next_id) is Some {
+            lemma_declassified_is_navigate_tab(rules, urls, s1, e, dn);
+            lemma_navigate_tab_consistency(rules, urls, d, s1, s2, r.tab, resolved, no_script());
+            lemma_outputs_for_same(rules, urls, d, s1, s2, s1b, s2b, o1);
+        } else {
+            // The kernel answers the sender with an error; the NavigateTab is ignored.
+            assert(s1b == s1);
+            assert(s2b == s2);
+            assert(o2 == Seq::<Output>::empty());
+            lemma_local_error_outputs(rules, urls, d, s1, s2, id, bytes, d2);
+            assert(o1 == step(rules, urls, s1, e).1);
+            reveal(Seq::filter);
+            assert(outputs_for(rules, d, s2, s2b, o2) == Seq::<Output>::empty());
+        }
+    }
+}
+
+/// A `Navigate` answered with an error: nothing is addressed to `d`.
+pub proof fn lemma_local_error_outputs(
+    rules: Seq<clazel_psl::spec::Rule>,
+    urls: UrlFns,
+    d: Domain,
+    s1: State,
+    s2: State,
+    id: nat,
+    bytes: Seq<u8>,
+    d2: Domain,
+)
+    requires
+        rel(rules, urls, d, s1, s2),
+        event_domain(rules, s1, Event::FromRenderer { id, bytes }) == Some(d2),
+        d2 != d,
+        decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::Navigate { url }) && clazel_encoding::utf8::spec::utf8_decode_without_bom_or_fail(
+            url,
+        ) matches Some(relative) && (urls.resolve)(s1.renderers[find_by_id(s1.renderers, id, 0)->Some_0].url, relative) matches Some(resolved) && lock_of_url(
+            urls,
+            resolved,
+            s1.next_id,
+        ) is None,
+    ensures
+        outputs_for(rules, d, s1, s1, step(rules, urls, s1, Event::FromRenderer { id, bytes }).1) == Seq::<Output>::empty(),
+{
+    lemma_found_contained(s1, id);
+    let i1 = find_by_id(s1.renderers, id, 0)->Some_0;
+    let r = s1.renderers[i1];
+    let out = step(rules, urls, s1, Event::FromRenderer { id, bytes }).1;
+    assert forall|k: int| 0 <= k < out.len() implies !addressed_to(rules, d, s1, s1, #[trigger] out[k]) by {
+        if addressed_to(rules, d, s1, s1, out[k]) {
+            let q = choose|q: Renderer| (s1.renderers.contains(q) || s1.renderers.contains(q)) && q.id == output_id(out[k]) && domain_of_renderer(rules, q) == d;
+            assert(output_id(out[k]) == id);
+            assert(s1.renderers.contains(r));
+            lemma_same_id_same_renderer(urls, s1.renderers, s1.next_id, q, r);
+        }
+    }
+    lemma_filter_none(out, |o: Output| addressed_to(rules, d, s1, s1, o));
+}
+
+// ---------------------------------------------------------------------
+// Kept events.
+// ---------------------------------------------------------------------
+
+/// A kept event gives the same outputs in both runs, and related states.
+pub proof fn lemma_kept_step(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, e: Event)
+    requires
+        rel(rules, urls, d, s1, s2),
+        kept_event(rules, urls, d, s1, e),
+        state_ps_free(rules, step(rules, urls, s1, e).0),
+    ensures
+        step(rules, urls, s1, e).1 == step(rules, urls, s2, e).1,
+        rel(rules, urls, d, step(rules, urls, s1, e).0, step(rules, urls, s2, e).0),
+{
+    match e {
+        Event::FromRenderer { id, bytes } => {
+            let d2 = event_domain(rules, s1, e)->Some_0;
+            assert(event_domain(rules, s1, e) is Some);
+            if d2 != d {
+                assert(declassified(urls, s1, e) == Some(e));
+                assert(declassified(urls, s1, e) matches Some(x) ==> x is NavigateTab);
+                assert(false);
+            }
+            lemma_d_event(rules, urls, d, s1, s2, id, bytes);
+        },
+        Event::OpenTab { url, script } => {
+            lemma_open_tab_consistency(rules, urls, d, s1, s2, url, script);
+        },
+        Event::NavigateTab { tab, url, script } => {
+            lemma_navigate_tab_consistency(rules, urls, d, s1, s2, tab, url, script);
+        },
+        Event::RendererExited { id } => {
+            lemma_exited_consistency(rules, urls, d, s1, s2, id);
+        },
+        Event::Tick { time } => {
+            lemma_tick_consistency(rules, urls, d, s1, s2, time);
+        },
+    }
+}
+
+/// **`lemma_output_consistency`.**
+pub proof fn lemma_output_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, e: Event)
+    requires
+        rel(rules, urls, d, s1, s2),
+        kept_event(rules, urls, d, s1, e),
+        state_ps_free(rules, step(rules, urls, s1, e).0),
+    ensures
+        output_consistency_statement(rules, urls, d, s1, s2, e),
+{
+    lemma_kept_step(rules, urls, d, s1, s2, e);
+    let (s1b, o1) = step(rules, urls, s1, e);
+    let (s2b, o2) = step(rules, urls, s2, e);
+    lemma_outputs_for_same(rules, urls, d, s1, s2, s1b, s2b, o1);
+}
+
+/// **`lemma_step_consistency`.**
+pub proof fn lemma_step_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, e: Event)
+    requires
+        rel(rules, urls, d, s1, s2),
+        kept_event(rules, urls, d, s1, e),
+        state_ps_free(rules, step(rules, urls, s1, e).0),
+    ensures
+        step_consistency_statement(rules, urls, d, s1, s2, e),
+{
+    lemma_kept_step(rules, urls, d, s1, s2, e);
+}
+
+// ---------------------------------------------------------------------
+// The induction over traces.
+// ---------------------------------------------------------------------
+
+/// A run of `[pe] + rest`.
+pub proof fn lemma_run_outputs_cons(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s: State, pe: Event, rest: Seq<Event>)
+    ensures
+        run_outputs_for(rules, urls, d, s, seq![pe] + rest) == outputs_for(rules, d, s, step(rules, urls, s, pe).0, step(rules, urls, s, pe).1)
+            + run_outputs_for(rules, urls, d, step(rules, urls, s, pe).0, rest),
+{
+    let t = seq![pe] + rest;
+    assert(t[0] == pe);
+    assert(t.drop_first() =~= rest);
+}
+
+/// The trace theorem: related states, run on a trace and on its purge,
+/// send the same outputs to `d`.
+pub proof fn lemma_trace_noninterference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, t: Seq<Event>)
+    requires
+        rel(rules, urls, d, s1, s2),
+        user_tabs_open(rules, urls, s1, t),
+        ps_free_run(rules, urls, s1, t),
+    ensures
+        run_outputs_for(rules, urls, d, s1, t) == run_outputs_for(rules, urls, d, s2, ipurge(rules, urls, s1, d, t)),
+    decreases t.len(),
+{
+    if t.len() > 0 {
+        let e = t[0];
+        let rest = t.drop_first();
+        let (s1b, o1) = step(rules, urls, s1, e);
+        assert(ps_free_run(rules, urls, s1b, rest));
+        assert(user_tabs_open(rules, urls, s1b, rest));
+        assert(state_ps_free(rules, s1b));
+        let pe_opt = ipurge_event(rules, urls, s1, d, e);
+        let kept: Seq<Event> = match pe_opt {
+            Some(pe) => seq![pe],
+            None => seq![],
+        };
+        assert(ipurge(rules, urls, s1, d, t) == kept + ipurge(rules, urls, s1b, d, rest));
+        reveal(Seq::filter);
+        match pe_opt {
+            None => {
+                // A frame of a renderer that is not open, or of another domain without a
+                // declassified part: the purged run does nothing.
+                assert(e is FromRenderer);
+                match event_domain(rules, s1, e) {
+                    None => {
+                        let id = e->FromRenderer_id;
+                        lemma_find_by_id(s1.renderers, id, 0);
+                        assert(find_by_id(s1.renderers, id, 0) is None);
+                        assert(s1b == s1 && o1 == Seq::<Output>::empty());
+                        assert(outputs_for(rules, d, s1, s1b, o1) == Seq::<Output>::empty());
+                        lemma_trace_noninterference(rules, urls, d, s1b, s2, rest);
+                        assert(kept + ipurge(rules, urls, s1b, d, rest) == ipurge(rules, urls, s1b, d, rest));
+                    },
+                    Some(d2) => {
+                        assert(d2 != d);
+                        assert(declassified(urls, s1, e) is None);
+                        lemma_local_respect(rules, urls, d, s1, s2, e);
+                        lemma_trace_noninterference(rules, urls, d, s1b, s2, rest);
+                        assert(kept + ipurge(rules, urls, s1b, d, rest) =~= ipurge(rules, urls, s1b, d, rest));
+                    },
+                }
+            },
+            Some(pe) => {
+                if pe == e {
+                    assert(kept_event(rules, urls, d, s1, e));
+                    lemma_kept_step(rules, urls, d, s1, s2, e);
+                    let (s2b, o2) = step(rules, urls, s2, e);
+                    lemma_outputs_for_same(rules, urls, d, s1, s2, s1b, s2b, o1);
+                    lemma_trace_noninterference(rules, urls, d, s1b, s2b, rest);
+                    lemma_run_outputs_cons(rules, urls, d, s2, e, ipurge(rules, urls, s1b, d, rest));
+                } else {
+                    // The declassified NavigateTab of a renderer of another domain.
+                    assert(e is FromRenderer);
+                    let d2 = event_domain(rules, s1, e)->Some_0;
+                    assert(d2 != d);
+                    assert(declassified(urls, s1, e) == Some(pe));
+                    assert(other_domain_navigate(rules, urls, d, s1, e));
+                    lemma_navigate_declassify(rules, urls, d, s1, s2, e);
+                    let (s2b, o2) = step(rules, urls, s2, pe);
+                    lemma_trace_noninterference(rules, urls, d, s1b, s2b, rest);
+                    lemma_run_outputs_cons(rules, urls, d, s2, pe, ipurge(rules, urls, s1b, d, rest));
+                }
+            },
+        }
+    }
+}
+
+// ---------------------------------------------------------------------
+// The theorem.
+// ---------------------------------------------------------------------
+
+/// `s` is reached from the initial state by a run with no renderer on a
+/// public-suffix host.
+pub open spec fn ps_free_reachable(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State) -> bool {
+    exists|t0: Seq<Event>| run_state(rules, urls, init_state(), t0) == s && ps_free_run(rules, urls, init_state(), t0)
+}
+
+/// A public-suffix-free run keeps the invariants the unwinding needs.
+pub proof fn lemma_ps_free_run_props(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, t0: Seq<Event>)
+    requires
+        kernel_wf(rules, urls, s),
+        jar_no_public_suffix(rules, s.jar),
+        ps_free_run(rules, urls, s, t0),
+    ensures
+        kernel_wf(rules, urls, run_state(rules, urls, s, t0)),
+        jar_no_public_suffix(rules, run_state(rules, urls, s, t0).jar),
+        state_ps_free(rules, run_state(rules, urls, s, t0)),
+    decreases t0.len(),
+{
+    if t0.len() > 0 {
+        lemma_step_preserves_wf(rules, urls, s, t0[0]);
+        lemma_jar_no_public_suffix_step(rules, urls, s, t0[0]);
+        lemma_ps_free_run_props(rules, urls, step(rules, urls, s, t0[0]).0, t0.drop_first());
+    }
+}
+
+/// The initial state is public-suffix free.
+pub proof fn lemma_init_ps_free(rules: Seq<clazel_psl::spec::Rule>)
+    ensures
+        state_ps_free(rules, init_state()),
+        jar_no_public_suffix(rules, init_state().jar),
+{
+}
+
+/// **`theorem_cookie_noninterference`**, from any state reached by a run
+/// with no renderer on a public-suffix host.
+pub proof fn theorem_cookie_noninterference_from(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, d: Domain, t: Seq<Event>)
+    requires
+        ps_free_reachable(rules, urls, s),
+        user_tabs_open(rules, urls, s, t),
+        ps_free_run(rules, urls, s, t),
+    ensures
+        cookie_noninterference_statement(rules, urls, s, d, t),
+{
+    lemma_init_wf(rules, urls);
+    lemma_init_ps_free(rules);
+    let t0 = choose|t0: Seq<Event>| run_state(rules, urls, init_state(), t0) == s && ps_free_run(rules, urls, init_state(), t0);
+    lemma_ps_free_run_props(rules, urls, init_state(), t0);
+    assert(rel(rules, urls, d, s, s));
+    lemma_trace_noninterference(rules, urls, d, s, s, t);
+}
+
+/// **`theorem_cookie_noninterference`**, the plan's form: from the initial
+/// state, with `purge(t, D)`. The outputs addressed to the renderers of `d`
+/// are the same from `t` and from its purge.
+pub proof fn theorem_cookie_noninterference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, t: Seq<Event>)
+    requires
+        user_tabs_open(rules, urls, init_state(), t),
+        ps_free_run(rules, urls, init_state(), t),
+    ensures
+        run_outputs_for(rules, urls, d, init_state(), t) == run_outputs_for(rules, urls, d, init_state(), purge(rules, urls, d, t)),
+{
+    let t0 = Seq::<Event>::empty();
+    assert(run_state(rules, urls, init_state(), t0) == init_state());
+    lemma_init_ps_free(rules);
+    assert(ps_free_run(rules, urls, init_state(), t0));
+    assert(ps_free_reachable(rules, urls, init_state()));
+    theorem_cookie_noninterference_from(rules, urls, init_state(), d, t);
+}
+
+/// The renderer id an output names, renamed by `f`.
+pub open spec fn rename_output(f: spec_fn(nat) -> nat, o: Output) -> Output {
+    match o {
+        Output::ToRenderer { id, bytes } => Output::ToRenderer { id: f(id), bytes },
+        Output::Spawn { id, policy } => Output::Spawn { id: f(id), policy },
+        Output::Kill { id } => Output::Kill { id: f(id) },
+    }
+}
+
+/// `f` is a bijection on renderer ids: it has an inverse `g`.
+pub open spec fn is_bijection(f: spec_fn(nat) -> nat) -> bool {
+    exists|g: spec_fn(nat) -> nat| #[trigger] is_inverse(f, g)
+}
+
+/// `g` is the inverse of `f`.
+pub open spec fn is_inverse(f: spec_fn(nat) -> nat, g: spec_fn(nat) -> nat) -> bool {
+    (forall|x: nat| #[trigger] g(f(x)) == x) && (forall|y: nat| #[trigger] f(g(y)) == y)
+}
+
+/// **`theorem_cookie_noninterference`, up to a bijection on renderer ids**,
+/// as the plan states it: the outputs to `d` of `t` are those of its purge
+/// with the ids renamed by a bijection. (The proof shows the identity does:
+/// a declassified `NavigateTab` takes the same id from the counter as the
+/// `Navigate` it replaces.)
+pub proof fn theorem_cookie_noninterference_up_to_ids(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, t: Seq<Event>)
+    requires
+        user_tabs_open(rules, urls, init_state(), t),
+        ps_free_run(rules, urls, init_state(), t),
+    ensures
+        exists|f: spec_fn(nat) -> nat|
+            is_bijection(f) && run_outputs_for(rules, urls, d, init_state(), t) =~= run_outputs_for(rules, urls, d, init_state(), purge(rules, urls, d, t)).map_values(
+                |o: Output| rename_output(f, o),
+            ),
+{
+    theorem_cookie_noninterference(rules, urls, d, t);
+    let f = |x: nat| x;
+    let outs = run_outputs_for(rules, urls, d, init_state(), purge(rules, urls, d, t));
+    assert(is_bijection(f)) by {
+        let g = |x: nat| x;
+        assert(is_inverse(f, g));
+    }
+    assert forall|k: int| 0 <= k < outs.len() implies outs.map_values(|o: Output| rename_output(f, o))[k] == outs[k] by {
+        match outs[k] {
+            Output::ToRenderer { id, bytes } => {},
+            Output::Spawn { id, policy } => {},
+            Output::Kill { id } => {},
+        }
+    }
+    assert(outs.map_values(|o: Output| rename_output(f, o)) =~= outs);
+}
+
+} // verus!
