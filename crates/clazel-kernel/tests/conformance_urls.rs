@@ -409,11 +409,55 @@ impl Rng {
 /// A random string of URL-ish pieces and hard characters.
 fn fuzz(rng: &mut Rng) -> String {
     const PIECES: &[&str] = &[
-        "http://", "https://", "file:///", "ws://", "data:", "blob:", "javascript:", "//", "/",
-        "\\", "./", "../", "?", "#", "@", ":", "[", "]", "%", "%41", "%zz", "a", "b.c",
-        "example.com", "xn--", "\u{e9}", "\u{3b1}", "\u{4e2d}\u{6587}", "\u{1f600}", "\u{fffd}",
-        "\u{0}", "\u{1}", " ", "\t", "\n", "\u{a0}", "\u{ff0e}", "1.2.3.4", "0x7f", "::1",
-        "[::1]", "8080", ";", "=", "&", "\u{202e}", "\u{200d}", "\u{80}", "\u{7f}",
+        "http://",
+        "https://",
+        "file:///",
+        "ws://",
+        "data:",
+        "blob:",
+        "javascript:",
+        "//",
+        "/",
+        "\\",
+        "./",
+        "../",
+        "?",
+        "#",
+        "@",
+        ":",
+        "[",
+        "]",
+        "%",
+        "%41",
+        "%zz",
+        "a",
+        "b.c",
+        "example.com",
+        "xn--",
+        "\u{e9}",
+        "\u{3b1}",
+        "\u{4e2d}\u{6587}",
+        "\u{1f600}",
+        "\u{fffd}",
+        "\u{0}",
+        "\u{1}",
+        " ",
+        "\t",
+        "\n",
+        "\u{a0}",
+        "\u{ff0e}",
+        "1.2.3.4",
+        "0x7f",
+        "::1",
+        "[::1]",
+        "8080",
+        ";",
+        "=",
+        "&",
+        "\u{202e}",
+        "\u{200d}",
+        "\u{80}",
+        "\u{7f}",
     ];
     let mut s = String::new();
     for _ in 0..rng.below(8).saturating_add(1) {
@@ -430,8 +474,18 @@ fn the_guards_never_fire() {
     let n: usize = if cfg!(miri) { 50 } else { 2000 };
     for i in 0..n {
         let input = fuzz(&mut rng);
-        let base = if i % 3 == 0 { None } else { Some(fuzz(&mut rng)) };
-        let base = base.map(|b| if i % 2 == 0 { format!("http://h/{b}") } else { b });
+        let base = if i % 3 == 0 {
+            None
+        } else {
+            Some(fuzz(&mut rng))
+        };
+        let base = base.map(|b| {
+            if i % 2 == 0 {
+                format!("http://h/{b}")
+            } else {
+                b
+            }
+        });
         cases.push((input, base));
     }
     let total = cases.len();
