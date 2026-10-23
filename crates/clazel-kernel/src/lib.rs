@@ -17,3 +17,4 @@ pub mod domain;
 pub mod independent;
 pub mod invariant;
 pub mod spec;
+pub mod statements;
