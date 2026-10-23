@@ -372,3 +372,20 @@ fn content_length() {
         Err(ContentLengthError::Invalid)
     );
 }
+
+/// The example in README.md.
+#[test]
+fn readme_example() {
+    assert_eq!(
+        list_elements(b"foo , ,\"a,b\",bar,"),
+        vec![b"foo".to_vec(), b"\"a,b\"".to_vec(), b"bar".to_vec()]
+    );
+    assert_eq!(
+        parse_quoted_string(b"\"a\\\"b\" rest"),
+        Some((b"a\"b".to_vec(), 6))
+    );
+    assert_eq!(parse_content_length(b"42, 42"), Ok(42));
+    assert!(parse_content_length(b"42, 43").is_err());
+    let codings = parse_transfer_encoding(b"gzip, chunked").unwrap_or_default();
+    assert_eq!(codings.len(), 2);
+}
