@@ -24,6 +24,7 @@ pub mod mutation_lemmas;
 pub mod ni_theorem;
 pub mod noninterference;
 pub mod projection;
+pub mod quark;
 pub mod retrieval_projection;
 pub mod spec;
 pub mod store_projection;
