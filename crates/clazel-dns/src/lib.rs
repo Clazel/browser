@@ -11,6 +11,12 @@
 //! - [`resolv`]: the `nameserver` lines of `/etc/resolv.conf` (a grammar of
 //!   our own).
 
+pub mod answer;
 pub mod contract;
+pub mod decode;
+pub mod encode;
+pub mod examples;
+pub mod lemmas;
 pub mod resolv;
 pub mod spec;
+pub mod types;

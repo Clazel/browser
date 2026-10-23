@@ -2,6 +2,7 @@
 //! fact to accept the spec's `decreases` clause (it names a `via` function
 //! in `spec.rs`, which only calls this); it says nothing else about the spec.
 
+#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;

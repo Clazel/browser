@@ -45,7 +45,6 @@
 //!   `u32` of its four octets, an IPv6 address the `u128` its eight 16-bit
 //!   pieces spell.
 
-use super::super::spec::Addr;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -166,11 +165,11 @@ pub open spec fn code_points(s: Seq<u8>) -> Seq<u32> {
 
 /// An address literal: IPv4 in strict dotted decimal, else IPv6 by the URL
 /// Standard's IPv6 parser.
-pub open spec fn parse_address(s: Seq<u8>) -> Option<Addr> {
+pub open spec fn parse_address(s: Seq<u8>) -> Option<crate::spec::Addr> {
     match parse_ipv4(s) {
-        Some(a) => Some(Addr::V4(a as u32)),
+        Some(a) => Some(crate::spec::Addr::V4(a as u32)),
         None => match clazel_url::host::spec::ipv6_parser(code_points(s)) {
-            Some(p) => Some(Addr::V6(pieces_value(p) as u128)),
+            Some(p) => Some(crate::spec::Addr::V6(pieces_value(p) as u128)),
             None => None,
         },
     }
@@ -178,7 +177,7 @@ pub open spec fn parse_address(s: Seq<u8>) -> Option<Addr> {
 
 /// The address of one line (without its line feed), if it is a
 /// `nameserver` line with an address.
-pub open spec fn parse_line(line: Seq<u8>) -> Option<Addr> {
+pub open spec fn parse_line(line: Seq<u8>) -> Option<crate::spec::Addr> {
     let a = skip_ws(line, 0);
     let b = token_end(line, a);
     if line.subrange(a as int, b as int) != keyword() {
@@ -208,7 +207,7 @@ pub open spec fn line_end(s: Seq<u8>, i: nat) -> nat
 }
 
 /// The addresses of the lines of `s` from `pos`, appended to `acc`.
-pub open spec fn parse_lines(s: Seq<u8>, pos: nat, acc: Seq<Addr>) -> Seq<Addr>
+pub open spec fn parse_lines(s: Seq<u8>, pos: nat, acc: Seq<crate::spec::Addr>) -> Seq<crate::spec::Addr>
     decreases s.len() - pos via parse_lines_decreases
 {
     if pos >= s.len() {
@@ -230,12 +229,12 @@ pub open spec fn parse_lines(s: Seq<u8>, pos: nat, acc: Seq<Addr>) -> Seq<Addr>
 
 /// Termination of [`parse_lines`] (see `termination.rs`).
 #[via_fn]
-pub proof fn parse_lines_decreases(s: Seq<u8>, pos: nat, acc: Seq<Addr>) {
+pub proof fn parse_lines_decreases(s: Seq<u8>, pos: nat, acc: Seq<crate::spec::Addr>) {
     super::termination::lemma_line_end_progress(s, pos);
 }
 
 /// The addresses of the `nameserver` lines of a resolv.conf, in order.
-pub open spec fn nameservers(file: Seq<u8>) -> Seq<Addr> {
+pub open spec fn nameservers(file: Seq<u8>) -> Seq<crate::spec::Addr> {
     parse_lines(file, 0, seq![])
 }
 
