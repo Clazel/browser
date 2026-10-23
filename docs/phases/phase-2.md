@@ -250,6 +250,42 @@ profile, indefinite lengths, truncation, trailing bytes, bad UTF-8).
 Text validity is `clazel-encoding`'s `decode_without_bom_or_fail`. There is
 no recursion depth limit because the decoder never recurses.
 
+**As built:** CLAUDE.md rule 1, VERIFICATION.md (Tier 0 row, TCB list, a new
+"The `unsafe` exception" section) and `docs/SYS-AUDITS.md` (format, hash
+definition, auditor instructions, no rows) say what the decision says.
+`cargo xtask check` (`xtask/src/sys.rs`) enforces: `unsafe_code` overridden
+only by `crates/clazel-sys`'s manifest, which must list the workspace lints
+itself (a crate cannot both inherit them and override one) with every other
+lint equal to the workspace's; `libc` as its only dependency, pinned
+exactly, and no `build.rs`; every `unsafe` a block or `unsafe extern` block;
+one call per block, to `sandbox_init`, `sandbox_free_error`, `prctl`,
+`unshare` or `syscall` (only with the numbers of `seccomp` and the three
+`landlock_*` calls); no dereference inside a block; a `// SAFETY:` comment
+directly above each, citing `man <section> <name>`; no pointer arithmetic
+methods, `macro_rules`, `include` or `#[path]` in the crate; no `pub`
+foreign declaration and no `pub use` of `libc`; the audit hash; and the
+README sentence's counts. The report table has an `unsafe` blocks (lines)
+column, and the README sentence is `check`ed, so `verify` fails on a wrong
+count. Each planted violation is a unit test in `sys.rs`.
+
+`clazel-sys` has 8 `unsafe` blocks (11 lines). On Linux: `set_no_new_privs`,
+`seccomp_set_mode_filter(&[SockFilter])`, `landlock_deny_filesystem(u64)` and
+`unshare(Namespaces)`. On macOS: `sandbox_init_profile(&str)`. Departures from
+the sketch above: `landlock_add_rule` is permitted by the checker but not
+wrapped (the policy allows no filesystem access, so no rule is ever added),
+the Landlock ruleset descriptor is left open (closing it needs `close`, which
+is not on the list, and an enforced ruleset gives no power), and the error
+text from `sandbox_init` is freed unread (reading it needs `CStr::from_ptr`, a
+second kind of `unsafe` call). 2.14's `clazel-sandbox` and `clazel-sys` do not
+depend on each other: the renderer (2.15) maps `clazel-sandbox`'s BPF
+instructions to `clazel_sys::linux::SockFilter` and passes its SBPL string to
+`clazel_sys::macos::sandbox_init_profile`.
+
+Not done in this item: the audit row (its author never writes it, so `check`
+fails on "clazel-sys audit" until another session adds one), and the
+regenerated README status table, which `report --write` refuses to write while
+that check fails, so it follows the audit.
+
 ### 2.1 IPC wire format: spec and contracts (M)
 
 The IPC codec parses bytes from an untrusted renderer, so it is ours (rule
@@ -453,8 +489,8 @@ with the contract in `src/contract.rs`.
   are not conformance tests and print no suite line. The URL functions of the
   tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
   `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
-  serializer; they are not 2.13's instantiation (nothing proves they equal
-  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  serializer; they were not 2.13's instantiation (nothing proved they equal
+  `UrlFns`); 2.13 replaced them with the proven `step_real`. Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
   case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
   reads the system clock on every parse and read, which Miri's isolation
   refuses, so the reference cannot run (the kernel is run under Miri by the
@@ -1330,8 +1366,8 @@ with the contract in `src/contract.rs`.
   are not conformance tests and print no suite line. The URL functions of the
   tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
   `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
-  serializer; they are not 2.13's instantiation (nothing proves they equal
-  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  serializer; they were not 2.13's instantiation (nothing proved they equal
+  `UrlFns`); 2.13 replaced them with the proven `step_real`. Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
   case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
   reads the system clock on every parse and read, which Miri's isolation
   refuses, so the reference cannot run (the kernel is run under Miri by the
@@ -1349,41 +1385,105 @@ as `host_parser_full` did in 1.9. The theorems of 2.11 then hold for the
 shipped kernel without change, because they were proven for every
 instantiation.
 
-**As built:** CLAUDE.md rule 1, VERIFICATION.md (Tier 0 row, TCB list, a new
-"The `unsafe` exception" section) and `docs/SYS-AUDITS.md` (format, hash
-definition, auditor instructions, no rows) say what the decision says.
-`cargo xtask check` (`xtask/src/sys.rs`) enforces: `unsafe_code` overridden
-only by `crates/clazel-sys`'s manifest, which must list the workspace lints
-itself (a crate cannot both inherit them and override one) with every other
-lint equal to the workspace's; `libc` as its only dependency, pinned
-exactly, and no `build.rs`; every `unsafe` a block or `unsafe extern` block;
-one call per block, to `sandbox_init`, `sandbox_free_error`, `prctl`,
-`unshare` or `syscall` (only with the numbers of `seccomp` and the three
-`landlock_*` calls); no dereference inside a block; a `// SAFETY:` comment
-directly above each, citing `man <section> <name>`; no pointer arithmetic
-methods, `macro_rules`, `include` or `#[path]` in the crate; no `pub`
-foreign declaration and no `pub use` of `libc`; the audit hash; and the
-README sentence's counts. The report table has an `unsafe` blocks (lines)
-column, and the README sentence is `check`ed, so `verify` fails on a wrong
-count. Each planted violation is a unit test in `sys.rs`.
+**As built (`clazel-kernel` stays at `tier = 2`):** `src/urls.rs` (spec),
+`src/exec/real_urls.rs` (exec), `src/real_theorems.rs`,
+`src/url_mutation_lemmas.rs`, `tests/conformance_urls.rs`.
 
-`clazel-sys` has 8 `unsafe` blocks (11 lines). On Linux: `set_no_new_privs`,
-`seccomp_set_mode_filter(&[SockFilter])`, `landlock_deny_filesystem(u64)` and
-`unshare(Namespaces)`. On macOS: `sandbox_init_profile(&str)`. Departures from
-the sketch above: `landlock_add_rule` is permitted by the checker but not
-wrapped (the policy allows no filesystem access, so no rule is ever added),
-the Landlock ruleset descriptor is left open (closing it needs `close`, which
-is not on the list, and an enforced ruleset gives no power), and the error
-text from `sandbox_init` is freed unread (reading it needs `CStr::from_ptr`, a
-second kind of `unsafe` call). 2.14's `clazel-sandbox` and `clazel-sys` do not
-depend on each other: the renderer (2.15) maps `clazel-sandbox`'s BPF
-instructions to `clazel_sys::linux::SockFilter` and passes its SBPL string to
-`clazel_sys::macos::sandbox_init_profile`.
-
-Not done in this item: the audit row (its author never writes it, so `check`
-fails on "clazel-sys audit" until another session adds one), and the
-regenerated README status table, which `report --write` refuses to write while
-that check fails, so it follows the audit.
+- **Where it lives, and why.** In `clazel-kernel` itself, not a new crate. The
+  kernel already depends on `clazel-url`, `clazel-origin`, `clazel-cookie` (for
+  `narrow`) and `clazel-encoding`; the parser, serializers and origin know
+  nothing of the kernel; and nothing of the kernel proof (`spec`, `invariant`,
+  `theorems`, ...) imports the new modules, so the dependency runs one way: the
+  proof is over the parameter `UrlFns` / `UrlFnsExec`, and `urls` and
+  `exec::real_urls` are its one instantiation. A crate of their own would add a
+  `Cargo.lock` row and an interface to keep, for no separation the modules do
+  not already give. (2.15's `clazel` depends on `clazel-kernel` for `step_real`.)
+- **The spec** (`urls::real_urls() = urls_with(real_domain_parser())`, the domain
+  parser being `clazel-idna`'s through `clazel_url::url::contract::url_domain_parser`,
+  as `host_parser_full` joined it in 1.9). With `parse_absolute(dp, s)` the
+  basic URL parser (§4.4) on `s` with no base:
+  - `origin_of(s)`: `parse_absolute` then URL §4.7 `url_origin(url, dp, 0)`;
+    **`None` if `s` does not parse** (so an `OpenTab`/`NavigateTab` is ignored and
+    a `Navigate` gets `error_bad_url`). The opaque id `0` is never read: the kernel
+    replaces any opaque origin with the renderer's id (`lock_of_origin`).
+  - `path_of(s)`: `narrow` of `url_path_serializer(url.path)` (the octets of the
+    URL path serializer's output, so the path and not the query or fragment);
+    **the empty path if `s` does not parse**. The kernel reads it only for a URL it
+    committed, which parsed.
+  - `resolve(base, input)`: parse `base` with no base, parse `input` with that
+    as base, and serialize the result with exclude fragment false (URL §4.5);
+    **`None` if the base does not parse, or the input does not parse against
+    it**.
+- **Scalar values.** The parser's precondition is "a scalar value string", but
+  the kernel's functions are total on `Seq<u32>`. A string with a surrogate or a
+  code point over U+10FFFF fails every function like a parse failure (the guard is
+  the first test of each exec method). The text the kernel gets is decoded from
+  UTF-8 (2.3), so the guard never fires on real input.
+- **`urls_resolve_scalar` (the obligation 2.12 left)** is proven for
+  `real_urls()` and for `urls_with(dp)` for every domain parser
+  (`lemma_urls_with_resolve_scalar`, `lemma_real_urls_resolve_scalar`), **by
+  construction, not by an argument about the parser**: `resolve` returns
+  `None` rather than a result that is not a scalar value string. That the
+  guard is vacuous, i.e. that the serialization of a parsed URL is always a
+  scalar value string (true because the parser percent-encodes or punycodes
+  every non-ASCII code point), is a property of all of `clazel-url` and
+  `clazel-idna` that is **not proven here**. I looked for a counterexample and
+  found none: `tests/conformance_urls.rs` runs every input of
+  `urltestdata.json` (896) and 2000 random hard inputs (non-ASCII, controls,
+  percent signs, brackets, IDNA and IP literals) through `RealUrls::resolve` and
+  `path_of` and checks that the guard never fires (2896/2896). The same holds of
+  `path_of`'s `narrow`, which is exact only on ASCII: the path serialization is
+  ASCII on all of them. Proving both would be a new invariant over the 20 parser
+  states and the host parser; it is left as a gap and nothing else depends on
+  it (the isolation theorems hold for every `UrlFns`, guarded or not).
+- **The exec** `RealUrls` implements `UrlFnsExec` with `urls() = real_urls()`:
+  each method is `all_scalar_values` (proven equal to the spec's quantifier)
+  followed by `basic_url_parser`, `url_origin_exec`, `url_path_serializer` and
+  `ParsedUrl::serialize`, and its `ensures` is the trait's. 8 obligations,
+  first try.
+- **For 2.15 (host shell):** call `clazel_kernel::exec::real_urls::step_real(s:
+  StateRecord, e: &EventRecord) -> (StateRecord, Vec<OutputRecord>)`: `step_exec`
+  with `RealUrls`, proven to meet `step_ensures(psl(), real_urls(), ..)`
+  under `step_requires(real_urls(), ..)`. The host's obligations are those of
+  2.12 (state from `init_record`, a `Tick` time in range, a URL in an `OpenTab` or
+  `NavigateTab` that is a scalar value string, `next_id` below `u64::MAX`); the
+  `urls_resolve_scalar` conjunct is now discharged.
+- **The theorems.** `real_theorems.rs` states the 2.11 theorems at `(psl(),
+  real_urls())`: `corollary_real_reply_only_to_sender`,
+  `_lock_is_committed_origin` (with `lock_set_only_by_navigation`),
+  `_cookie_confidentiality`, `_cookie_integrity`, `_storage_same_origin` and
+  `_cookie_noninterference`. Each is the generic theorem applied, with no new
+  proof; 2.10 and 2.11's specs and contracts are unchanged.
+- **Conformance** (all through `step_real`, so through the codec and the proven
+  parser): the kernel suites of 2.12 now run on the real URL functions instead of
+  `TestUrls`, which is gone: WPT `cookies/` 11/11 and 166/167 (the same 1
+  expected failure), WPT `webstorage/` 24/24, `cookie_store` differential
+  3000/3000. New: WPT `urltestdata.json` navigation, the 336 rows with a base:
+  the kernel opens a tab on the base, the renderer sends `Navigate` with the
+  input, and the kernel commits exactly the row's `href` (274 rows) or answers
+  `Error { code: 3 }` (the 62 failure rows), 336/336; `origin_of` and `path_of` on
+  the 560 rows without a base against the row's `origin` and `pathname`,
+  560/560; and the guards test above, 2896/2896. `tests/behaviour.rs` gained
+  two checks (a relative `Navigate` through dot segments, and a cookie's
+  default path from the committed URL's path and not its query). Miri
+  samples the new suites (every 29th row, 50 random inputs) as the others do;
+  Miri is not installed in this environment, so those runs were not made.
+- **Mutations:** 16 of 16 are certified kills (the 9 of 2.11 and 7 new on
+  `urls.rs`): `resolve` ignores the base, returns the base, drops the fragment;
+  `path_of` drops the path, is the whole URL; `origin_of` gives every URL a
+  tuple origin, accepts a parse failure. 16 killed by a theorem, 0 incidental, 0
+  survived. Each certificate reveals `clazel_url::url::spec::state_step`
+  (opaque) and evaluates the spec with an identity domain parser, as
+  `clazel-url`'s examples do, because Verus cannot evaluate `clazel-idna`'s
+  tables. Left out: a mutation that drops a scalar-value guard breaks the
+  proofs (`lemma_urls_with_resolve_scalar`, the exec methods) but
+  `all_scalar_values` is a quantifier, which `compute_only` cannot evaluate, so
+  no concrete certificate exists, and tier 2 admits only certified kills; and
+  `fresh_opaque_id` 0 to 1 changes `origin_of`'s opaque ids, which the kernel
+  never reads (not an equivalent function, an equivalent kernel).
+- **Verification:** 288 Verus obligations verify for the crate, 0 errors (2.12 had 266;
+  `cargo xtask verify --changed`). Tier: `clazel-kernel` stays at tier 2; everything
+  above holds.
 
 ### 2.14 Sandbox policies (M)
 
@@ -1453,6 +1553,11 @@ its socket, becomes `RendererExited`. `clazel-renderer` enters the sandbox
 (through 2.0's chosen mechanism) as its first act, before reading a byte,
 then waits for `Commit` and runs its script: a list of document.cookie and
 localStorage operations, printing each result.
+
+The host shell calls `clazel_kernel::exec::real_urls::step_real`, the exec
+`step` with the real URL parser (2.13), not `step_exec` with a URL
+implementation of its own; its guarantee for the real parser is
+`clazel_kernel::real_theorems`.
 
 Both are Tier 0. Keep the host shell under 300 lines; its line count is in
 the README table.
@@ -1543,8 +1648,8 @@ with the contract in `src/contract.rs`.
   are not conformance tests and print no suite line. The URL functions of the
   tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
   `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
-  serializer; they are not 2.13's instantiation (nothing proves they equal
-  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  serializer; they were not 2.13's instantiation (nothing proved they equal
+  `UrlFns`); 2.13 replaced them with the proven `step_real`. Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
   case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
   reads the system clock on every parse and read, which Miri's isolation
   refuses, so the reference cannot run (the kernel is run under Miri by the
@@ -1656,8 +1761,8 @@ with the contract in `src/contract.rs`.
   are not conformance tests and print no suite line. The URL functions of the
   tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
   `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
-  serializer; they are not 2.13's instantiation (nothing proves they equal
-  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  serializer; they were not 2.13's instantiation (nothing proved they equal
+  `UrlFns`); 2.13 replaced them with the proven `step_real`. Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
   case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
   reads the system clock on every parse and read, which Miri's isolation
   refuses, so the reference cannot run (the kernel is run under Miri by the
@@ -1702,10 +1807,10 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.10 Kernel spec | spec and contracts done; the implementation is 2.12 (done). `kernel_wf` and `step` preserving it are proven |
 | 2.11 Isolation theorems | done (the executable kernel is 2.12, which took `clazel-kernel` to tier 2): six theorems and four unwinding lemmas proven for every `UrlFns`; the plan's integrity and noninterference statements corrected (retrieval step 5; user opens tabs only), each with a Verus counterexample, and public-suffix hosts made cookie-averse so the noninterference theorem has one hypothesis; independent HTML transcription proven equal; Quark restated; 9 kernel mutations killed |
 | 2.12 Kernel implementation | done at tier 2: `step_exec` proven to meet 2.10's contract for any `UrlFnsExec`, the storage-length cast discharged, one contract precondition added (scalar-valued URLs), the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived), WPT cookies/ 11/11 (set and get) and 166/167 (1 xfail, read from the HTTP-built jar), WPT webstorage/ 24/24, cookie_store differential 3000/3000 |
-| 2.13 Navigation with the real URL parser | not started |
+| 2.13 Navigation with the real URL parser | done, `clazel-kernel` stays at tier 2: `RealUrls` proven equal to `urls::real_urls()` (the real parser, serializers, `url_origin_exec`), `urls_resolve_scalar` proven by a scalar guard on `resolve` (that the guard is vacuous is not proven; 2896/2896 inputs never trigger it), `step_real` for the host shell, the 2.11 theorems restated for the real parser, 16 of 16 mutations certified kills, WPT `urltestdata.json` navigation 336/336 and `origin_of`/`path_of` 560/560 through the kernel |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
 | 2.15 Host shell and renderer stub | not started; 2.0 is done, so it waits only on 2.12 |
-| 2.16 Exit demo and adversarial tests | not started; waits on 2.13 and 2.15 |
+| 2.16 Exit demo and adversarial tests | not started; waits on 2.15 (2.13 is done) |
 
 ## Risks
 

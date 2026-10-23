@@ -4,6 +4,8 @@
 //! - [`records`]: the exec state, event and output types and their views.
 //! - [`urls`]: [`urls::UrlFnsExec`], the exec counterpart of
 //!   [`crate::spec::UrlFns`].
+//! - [`real_urls`]: [`real_urls::RealUrls`], the URL functions with the real
+//!   parser (item 2.13), and [`real_urls::step_real`], `step` with them.
 //! - [`locks`]: locks, cookie-averse documents and cookie requests.
 //! - [`frames`]: the frames sent to renderers.
 //! - [`storage`]: Web Storage over the exec buckets.
@@ -15,6 +17,7 @@ pub use crate::spec;
 
 pub mod frames;
 pub mod locks;
+pub mod real_urls;
 pub mod records;
 pub mod step;
 pub mod storage;

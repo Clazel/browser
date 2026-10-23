@@ -11,7 +11,7 @@
 //! assertion. A call with no result (`setItem`, `removeItem`, `clear`) must
 //! get no reply at all. Every case starts with a fresh kernel.
 //!
-//! The URL functions are the test-only ones of `tests/support/mod.rs`.
+//! The URL functions are the real ones (`step_real`, item 2.13).
 //! Under Miri every 6th case is run.
 
 mod support;

@@ -207,3 +207,66 @@ fn a_script_that_is_not_utf8_cannot_be_sent() {
         Some(Out::To(_, Msg::Error { code: 4 }))
     ));
 }
+
+#[test]
+fn a_relative_navigate_is_resolved_by_the_real_parser() {
+    // Dot segments, query and fragment are the parser's, and the committed
+    // URL is its serialization (host lower-cased, default port dropped).
+    let mut kernel = Kernel::new();
+    let id = open(&mut kernel, "HTTPS://Example.TEST:443/a/b/c");
+    let out = kernel.send(
+        id,
+        &Msg::Navigate {
+            url: b"../d/./e?x=1#y".to_vec(),
+        },
+    );
+    assert_eq!(
+        out,
+        vec![Out::To(
+            id,
+            Msg::Commit {
+                url: b"https://example.test/a/d/e?x=1#y".to_vec(),
+                script: Vec::new()
+            }
+        )]
+    );
+    // An absolute URL on another origin replaces the renderer.
+    let out = kernel.send(
+        id,
+        &Msg::Navigate {
+            url: b"//other.test/z".to_vec(),
+        },
+    );
+    assert!(matches!(
+        out.as_slice(),
+        [Out::Kill(old), Out::Spawn(new), Out::To(to, Msg::Commit { .. })]
+            if *old == id && new == to && *new != id
+    ));
+}
+
+#[test]
+fn the_cookie_path_is_the_path_of_the_parsed_committed_url() {
+    let mut kernel = Kernel::new();
+    kernel.event(&clazel_kernel::exec::records::EventRecord::Tick {
+        time: 13_000_000_000,
+    });
+    // The default path of `/dir/page` is `/dir`, from the URL's path and not
+    // its query (`?/other/x`).
+    let a = open(&mut kernel, "https://example.test/dir/page?/other/x");
+    assert!(
+        kernel
+            .send(
+                a,
+                &Msg::CookieSet {
+                    cookie_string: b"a=b".to_vec()
+                }
+            )
+            .is_empty()
+    );
+    let in_dir = open(&mut kernel, "https://example.test/dir/other");
+    let out = kernel.send(in_dir, &Msg::CookieGet);
+    assert_eq!(cookie_string(&out, in_dir), Some(&b"a=b"[..]));
+    let elsewhere = open(&mut kernel, "https://example.test/else/where");
+    let out = kernel.send(elsewhere, &Msg::CookieGet);
+    assert_eq!(cookie_string(&out, elsewhere), Some(&b""[..]));
+}

@@ -24,7 +24,7 @@
 //!   setter on the first kind.
 //!
 //! Each case starts with a fresh kernel and the clock at 23 October 2026. The
-//! URL functions are the test-only ones of `tests/support/mod.rs`. The
+//! URL functions are the real ones (`step_real`, item 2.13). The
 //! expected failures are listed in `XFAIL`, each with its reason. Under Miri,
 //! every 4th `domCookieTest` case and every 89th `httpCookieTest` case is
 //! run (a cookie call runs the Public Suffix List scan, which Miri runs at

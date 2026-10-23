@@ -1,52 +1,19 @@
 //! Helpers shared by the kernel conformance tests: fake renderers that talk
-//! to the exec kernel in frames, and the URL functions the kernel is given.
+//! to the exec kernel in frames.
 //!
-//! The URL functions ([`TestUrls`]) are a **test-only** implementation of
-//! `UrlFnsExec` built on `clazel-url`'s proven parser, `clazel-origin`'s
-//! proven `url_origin_exec` and the URL serializer. They are not item 2.13's
-//! instantiation: nothing proves they equal the spec's `UrlFns`, only that
-//! each is the composition the plan names (the origin of the parsed URL; the
-//! serialized path; the serialization of the parse against a base). The
-//! kernel proof holds for any implementation, so the tests exercise it with
-//! this one.
+//! The kernel is driven by `clazel_kernel::exec::real_urls::step_real`: the
+//! exec `step` with the real URL functions (item 2.13), proven equal to the
+//! spec's `step` over `clazel_kernel::urls::real_urls()`. (Until item 2.13
+//! these helpers used a test-only `TestUrls`, built on the same parser but
+//! not proven equal to anything; it is gone.)
 
 use clazel_ipc::message::codec::{Msg, decode_framed, encode_framed};
+use clazel_kernel::exec::real_urls::step_real;
 use clazel_kernel::exec::records::{EventRecord, OutputRecord, StateRecord, init_record};
-use clazel_kernel::exec::step::step_exec;
-use clazel_kernel::exec::urls::UrlFnsExec;
-use clazel_origin::exec::{ParsedOrigin, url_origin_exec};
-use clazel_url::url::parse::basic_url_parser;
-use clazel_url::url::serialize::url_path_serializer;
 
 /// The code points of a string.
 pub fn code_points(s: &str) -> Vec<u32> {
     s.chars().map(u32::from).collect()
-}
-
-/// The URL functions of the tests.
-pub struct TestUrls;
-
-impl UrlFnsExec for TestUrls {
-    fn origin_of(&self, url: &[u32]) -> Option<ParsedOrigin> {
-        let parsed = basic_url_parser(url, None)?;
-        Some(url_origin_exec(&parsed, 0))
-    }
-
-    fn path_of(&self, url: &[u32]) -> Vec<u8> {
-        match basic_url_parser(url, None) {
-            Some(parsed) => url_path_serializer(&parsed.path)
-                .iter()
-                .map(|c| u8::try_from(*c).unwrap_or(b'?'))
-                .collect(),
-            None => Vec::new(),
-        }
-    }
-
-    fn resolve(&self, base: &[u32], input: &[u32]) -> Option<Vec<u32>> {
-        let base = basic_url_parser(base, None)?;
-        let parsed = basic_url_parser(input, Some(&base))?;
-        Some(parsed.serialize(false))
-    }
 }
 
 /// What the kernel sent, decoded.
@@ -81,7 +48,7 @@ impl Kernel {
         let Some(s) = self.state.take() else {
             return Vec::new();
         };
-        let (next, outputs) = step_exec(&TestUrls, s, e);
+        let (next, outputs) = step_real(s, e);
         self.state = Some(next);
         outputs
             .into_iter()

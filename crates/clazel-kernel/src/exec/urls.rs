@@ -1,7 +1,7 @@
 //! The exec counterpart of [`crate::spec::UrlFns`]: a trait whose methods are
 //! each proven equal to the spec function of the same name, so the kernel's
 //! proof holds for any implementation and never unfolds the URL parser.
-//! Item 2.13 implements it with the real parser.
+//! Item 2.13 implements it with the real parser (`real_urls::RealUrls`).
 
 use clazel_origin::exec::ParsedOrigin;
 #[allow(unused_imports)]
