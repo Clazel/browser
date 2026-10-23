@@ -17,6 +17,7 @@ pub mod cookie_theorems;
 pub mod counterexamples;
 pub mod domain;
 pub mod independent;
+pub mod independent_equivalence;
 pub mod invariant;
 pub mod lock;
 pub mod mutation_lemmas;
