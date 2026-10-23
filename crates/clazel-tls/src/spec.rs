@@ -1764,10 +1764,10 @@ pub open spec fn read_client_hello(b: Seq<u8>) -> Option<ClientHello> {
 
 /// §4.1.2: the bytes of a ClientHello's body, as the client sends it.
 pub open spec fn write_client_hello(ch: ClientHello) -> Seq<u8> {
-    write_u16(ch.legacy_version) + ch.random + write_vec(ch.session_id, 32) + write_vec(
+    write_u16(ch.legacy_version) + (ch.random + (write_vec(ch.session_id, 32) + (write_vec(
         write_u16s(ch.cipher_suites),
         65534,
-    ) + write_vec(ch.compression, 255) + write_exts(ch.extensions, 65535)
+    ) + (write_vec(ch.compression, 255) + write_exts(ch.extensions, 65535)))))
 }
 
 /// §4.1.3, the structure of a ServerHello (Appendix B.3.1), as the whole
@@ -1821,9 +1821,9 @@ pub open spec fn read_server_hello(b: Seq<u8>) -> Option<ServerHello> {
 
 /// §4.1.3: the bytes of a ServerHello's body.
 pub open spec fn write_server_hello(sh: ServerHello) -> Seq<u8> {
-    write_u16(sh.legacy_version) + sh.random + write_vec(sh.session_id_echo, 32) + write_u16(sh.cipher_suite) + seq![
+    write_u16(sh.legacy_version) + (sh.random + (write_vec(sh.session_id_echo, 32) + (write_u16(sh.cipher_suite) + (seq![
         sh.compression,
-    ] + write_exts(sh.extensions, 65535)
+    ] + write_exts(sh.extensions, 65535)))))
 }
 
 // ---------------------------------------------------------------------------
@@ -1975,6 +1975,16 @@ pub open spec fn write_certificate_verify(c: CertificateVerify) -> Seq<u8> {
     write_u16(c.algorithm) + write_vec(c.signature, 65535)
 }
 
+/// §4.3.1: the bytes of an EncryptedExtensions body.
+pub open spec fn write_encrypted_extensions(es: Seq<Ext>) -> Seq<u8> {
+    write_exts(es, 65535)
+}
+
+/// §4.3.2: the bytes of a CertificateRequest's body.
+pub open spec fn write_certificate_request(c: CertificateRequest) -> Seq<u8> {
+    write_vec(c.context, 255) + write_exts(c.extensions, 65535)
+}
+
 /// §4.4.4 `Finished`: `opaque verify_data[Hash.length]`, the whole of a
 /// body, for a hash of `hash_len` bytes (32 for SHA-256).
 pub open spec fn read_finished(b: Seq<u8>, hash_len: nat) -> Option<Seq<u8>> {
@@ -2047,11 +2057,24 @@ pub open spec fn read_new_session_ticket(b: Seq<u8>) -> Option<NewSessionTicket>
     }
 }
 
+/// §4.6.1: the bytes of a NewSessionTicket's body.
+pub open spec fn write_new_session_ticket(n: NewSessionTicket) -> Seq<u8> {
+    be_bytes(n.ticket_lifetime as nat, 4) + (be_bytes(n.ticket_age_add as nat, 4) + (write_vec(n.ticket_nonce, 255) + (write_vec(
+        n.ticket,
+        65535,
+    ) + write_exts(n.extensions, 65534))))
+}
+
 /// §4.6.3 `KeyUpdateRequest`: `update_not_requested(0)`.
 pub const UPDATE_NOT_REQUESTED: u8 = 0;
 
 /// `update_requested(1)`.
 pub const UPDATE_REQUESTED: u8 = 1;
+
+/// §4.6.3: the bytes of a KeyUpdate's body.
+pub open spec fn write_key_update(request_update: u8) -> Seq<u8> {
+    seq![request_update]
+}
 
 /// §4.6.3: the structure of a KeyUpdate, the whole of a body: one byte,
 /// `KeyUpdateRequest request_update`.

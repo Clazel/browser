@@ -9,4 +9,8 @@
 //! - [`contract`]: what the executable functions are proven to satisfy.
 
 pub mod contract;
+pub mod lemmas_ext;
+pub mod lemmas_hs;
+pub mod lemmas_pl;
+pub mod lemmas_record;
 pub mod spec;
