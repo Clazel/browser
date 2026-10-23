@@ -401,6 +401,7 @@ pub const NO_APPLICATION_PROTOCOL: u8 = 120;
 
 /// §6, `struct { AlertLevel level; AlertDescription description; } Alert`.
 /// Both enums are one byte, and any value may arrive (`(255)`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Alert {
     /// `AlertLevel`: `warning(1)`, `fatal(2)`, or any other byte.
     pub level: u8,
@@ -448,6 +449,7 @@ pub open spec fn alert_is_closure(a: Alert) -> bool {
 
 /// What went wrong, as a parse or record-layer error. Each kind names the
 /// rule that was broken and maps to exactly one alert ([`alert_of`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ErrKind {
     /// §6 "cannot be parsed according to the syntax": a length that runs
     /// past the message, a vector length outside its `<floor..ceiling>`,
@@ -1165,6 +1167,7 @@ pub open spec fn has_ext(es: Seq<Ext>, t: u16) -> bool {
 /// The messages of the §4.2 table: "CH (ClientHello), SH (ServerHello),
 /// EE (EncryptedExtensions), CT (Certificate), CR (CertificateRequest),
 /// NST (NewSessionTicket), and HRR (HelloRetryRequest)".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MsgKind {
     /// ClientHello.
     Ch,

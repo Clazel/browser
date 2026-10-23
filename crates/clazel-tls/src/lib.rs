@@ -13,4 +13,8 @@ pub mod lemmas_ext;
 pub mod lemmas_hs;
 pub mod lemmas_pl;
 pub mod lemmas_record;
+pub mod reader;
+pub mod reassemble;
+pub mod record;
 pub mod spec;
+pub mod writer;

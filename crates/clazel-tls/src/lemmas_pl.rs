@@ -53,6 +53,24 @@ pub proof fn lemma_pow256_widths()
     assert(pow256(8) == 0x1_0000_0000_0000_0000) by (compute_only);
 }
 
+/// Up to four bytes fit in 32 bits.
+pub proof fn lemma_pow256_at_most_4(n: nat)
+    requires
+        n <= 4,
+    ensures
+        pow256(n) <= 4294967296,
+        n < 4 ==> pow256(n) <= 16777216,
+{
+    lemma_pow256_widths();
+    assert(pow256(1) == 256);
+    assert(pow256(2) == 65536);
+    assert(pow256(3) == 16777216);
+    assert(pow256(4) == 4294967296);
+    if n == 0 {
+        assert(pow256(0) == 1);
+    }
+}
+
 /// `n` bytes spell a number below 256^n.
 pub proof fn lemma_be_value_bound(s: Seq<u8>)
     ensures
@@ -142,6 +160,34 @@ pub proof fn lemma_read_uint_write(v: nat, w: nat, rest: Seq<u8>)
     let b = be_bytes(v, w) + rest;
     assert(b.take(w as int) =~= be_bytes(v, w));
     assert(b.skip(w as int) =~= rest);
+}
+
+/// Two bytes spell `hi * 256 + lo`.
+pub proof fn lemma_be_value_2(s: Seq<u8>)
+    requires
+        s.len() == 2,
+    ensures
+        be_value(s) == s[0] as nat * 256 + s[1] as nat,
+{
+    let d = s.drop_last();
+    assert(d.len() == 1);
+    assert(d.drop_last() =~= Seq::<u8>::empty());
+    assert(be_value(d.drop_last()) == 0);
+    assert(be_value(d) == 0 * 256 + d.last() as nat);
+    assert(d.last() == s[0]);
+}
+
+/// Three bytes spell `b0 * 65536 + b1 * 256 + b2`.
+pub proof fn lemma_be_value_3(s: Seq<u8>)
+    requires
+        s.len() == 3,
+    ensures
+        be_value(s) == s[0] as nat * 65536 + s[1] as nat * 256 + s[2] as nat,
+{
+    let d = s.drop_last();
+    lemma_be_value_2(d);
+    assert(d[0] == s[0]);
+    assert(d[1] == s[1]);
 }
 
 /// What [`read_uint`] reads is what [`be_bytes`] writes: the bytes read

@@ -328,7 +328,7 @@ proof fn lemma_be_bytes_high_zero(v: nat, w: nat, k: nat)
 }
 
 /// 256^w is at least 256^8 for w at least 8.
-proof fn lemma_pow256_at_least_8(w: nat)
+pub proof fn lemma_pow256_at_least_8(w: nat)
     requires
         w >= 8,
     ensures
