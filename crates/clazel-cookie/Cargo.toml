@@ -18,15 +18,23 @@ clazel-psl = { path = "../clazel-psl" }
 # §5.2 "same-site" requests are the HTML Standard's "same site" of origins.
 clazel-origin = { path = "../clazel-origin" }
 
+[dev-dependencies]
+# The reference engine of tests/conformance_differential.rs: the cookie jar
+# of reqwest's `cookie_store` feature, which follows RFC 6265. Without its
+# default features (no Public Suffix List, no serde).
+cookie_store = { version = "=0.21.1", default-features = false }
+# Pinned to 0.3.17 so the Cargo.lock holds the fewest packages (see
+# docs/DEPENDENCIES.md); cookie_store asks for ^0.3.16.
+time = { version = "=0.3.17", default-features = false }
+url = { version = "=2.5.8", default-features = false }
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires.
-# Phase 2 items 2.7 and 2.8 (RFC 6265bis §5.1, §5.4 to §5.6) are specified
-# here, and item 2.9 (§5.2, §5.7, §5.8) is specified with contracts only;
-# the crate stays at tier 0 until item 2.9's storage and retrieval are
-# built and their proofs, conformance suites and independent
-# transcription exist, because the tier describes the whole crate.
+# Phase 2 items 2.7 to 2.9 (RFC 6265bis §5.1 to §5.8) are specified,
+# implemented and proven here, with their independent transcriptions, kill-
+# certified mutations and conformance suites.
 [package.metadata.clazel]
-tier = 0
+tier = 2
 target-tier = 2
 
 [package.metadata.verus]

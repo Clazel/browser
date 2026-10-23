@@ -280,7 +280,10 @@ fn reach_problems(
             let class = allowed.get(&(p.name.as_str(), p.version.as_str()));
             let ok = match class {
                 Some(Class::Shipped) | None => true, // None: reported under rule 1
-                Some(Class::Proof) => via.proof,
+                // A proof package may also sit below a dev-only edge: both
+                // are compiled into no shipped binary (a package used both
+                // ways takes the stricter class, `proof`).
+                Some(Class::Proof) => via.proof || via.test,
                 Some(Class::Test) => via.test,
                 Some(Class::Tooling) => false,
             };
@@ -376,6 +379,26 @@ mod tests {
         let rows = allow(&[("lib", Class::Shipped), ("cfg", Class::Test)]);
         let g = graph(&[("app", "lib", false), ("lib", "cfg", true)]);
         assert_eq!(reach_problems(&g, &rows, &tooling()).len(), 1);
+    }
+
+    #[test]
+    fn proof_packages_may_also_be_reached_below_dev_edges() {
+        let rows = allow(&[
+            ("vstd", Class::Proof),
+            ("syn", Class::Proof),
+            ("diff", Class::Test),
+        ]);
+        // syn is inside vstd and below a dev-only edge: both are fine.
+        let g = graph(&[
+            ("app", "vstd", false),
+            ("vstd", "syn", false),
+            ("app", "diff", true),
+            ("diff", "syn", false),
+        ]);
+        assert!(reach_problems(&g, &rows, &tooling()).is_empty());
+        // Through a normal edge it still fails.
+        let bad = graph(&[("app", "syn", false)]);
+        assert_eq!(reach_problems(&bad, &rows, &tooling()).len(), 1);
     }
 
     #[test]

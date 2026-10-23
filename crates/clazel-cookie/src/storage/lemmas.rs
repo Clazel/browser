@@ -2,16 +2,13 @@
 //! transcription is right (here: that storing a cookie touches only its own
 //! root), not part of what the implementation must meet.
 //!
-//! The lemmas the isolation theorems use that depend on `clazel-psl`'s
-//! `lemma_root_of_suffix` (`lemma_store_within_root`,
-//! `lemma_retrieve_within_root`, and the plan's forms of `lemma_store_frame`
-//! and `lemma_retrieve_frame`) are not here yet: their exact statements are
-//! in the header of [`super::spec`], to be proved by item 2.9. What is
-//! proven here is the part that does not need it: `lemma_store_frame_of_new_root`
-//! and `lemma_retrieve_frame_of_root`, which say that storing a cookie
-//! (retrieving for a host) changes only the cookies under the root of the
-//! new cookie (the host's root). With `lemma_store_within_root` the first is
-//! the plan's `lemma_store_frame`.
+//! What is proven here does not need `clazel-psl`'s root lemmas:
+//! `lemma_store_frame_of_new_root` and `lemma_retrieve_frame_of_root` say that
+//! storing a cookie (retrieving for a host) changes only the cookies under
+//! the root of the new cookie (the host's root). The isolation lemmas
+//! proper (`lemma_store_within_root`, `lemma_retrieve_within_root`,
+//! `lemma_store_frame`, `lemma_retrieve_frame`, `lemma_store_bounds`) are in
+//! [`super::isolation`], which builds on these.
 
 #[allow(unused_imports)]
 use super::spec::*;

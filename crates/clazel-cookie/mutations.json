@@ -249,6 +249,342 @@
         "lemma": "lemma_attributes_keep(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure], 0int)",
         "witness": "parse_attributes(seq![0x3Bu8, 0x48u8, 0x74u8, 0x74u8, 0x70u8, 0x4Fu8, 0x6Eu8, 0x6Cu8, 0x79u8], 0nat, seq![], 0int, seq![Attribute::Secure]) == seq![Attribute::HttpOnly]"
       }
+    },
+    {
+      "id": "retrieval-http-only-skipped",
+      "file": "src/storage/spec.rs",
+      "find": "    && !(cookie.http_only_flag && is_non_http(ctx))",
+      "replace": "    && true",
+      "expect": "killed",
+      "reason": "A \"non-HTTP\" retrieval no longer excludes an HttpOnly cookie: a script can read it, so lemma_retrieve_non_http_excludes_http_only is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_non_http_excludes_http_only(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_http_only())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_http_only()) && is_non_http(crate::storage::examples::document_call()) && crate::storage::examples::cookie_http_only().http_only_flag"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-secure-check-dropped",
+      "file": "src/storage/spec.rs",
+      "find": "    && (cookie.secure_only_flag ==> url_is_secure(url))",
+      "replace": "    && true",
+      "expect": "killed",
+      "reason": "A secure-only cookie is sent over http: lemma_retrieve_secure_needs_secure_url is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_secure_needs_secure_url(crate::storage::examples::rules(), crate::storage::examples::http_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_secure())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::http_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_secure()) && crate::storage::examples::cookie_secure().secure_only_flag && !url_is_secure(crate::storage::examples::http_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-path-check-dropped",
+      "file": "src/storage/spec.rs",
+      "find": "    && crate::matching::spec::path_matches(url.path, cookie.path)",
+      "replace": "    && true",
+      "expect": "killed",
+      "reason": "A cookie of path /z is returned for /x: lemma_retrieve_path_matches is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_path_matches(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::jar_one_matching()[1])",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::jar_one_matching()[1]) && !crate::matching::spec::path_matches(crate::storage::examples::p_x(), crate::storage::examples::p_z())"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-host-only-matches-subdomains",
+      "file": "src/storage/spec.rs",
+      "find": "(cookie.host_only_flag && retrieval_host_canonical == cookie.domain)",
+      "replace": "(cookie.host_only_flag && canonical_domain_matches(retrieval_host_canonical, cookie.domain))",
+      "expect": "killed",
+      "reason": "A host-only cookie of a.com is returned to x.a.com: lemma_retrieve_host_only_exact is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_host_only_exact(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_x_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_x_a_com()), crate::storage::examples::jar_one_matching()[0])",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_x_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_x_a_com()), crate::storage::examples::jar_one_matching()[0]) && crate::storage::examples::jar_one_matching()[0].host_only_flag && crate::storage::examples::host(crate::storage::examples::s_x_a_com()) != crate::storage::examples::jar_one_matching()[0].domain"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-public-suffix-check-dropped",
+      "file": "src/storage/spec.rs",
+      "find": " && !(!cookie.domain.is_ip_address\n        && is_public_suffix_string(rules, cookie.domain.name))))",
+      "replace": " && true))",
+      "expect": "killed",
+      "reason": "A cookie whose domain is the public suffix com is returned to a.com, whose cookie root is a.com: lemma_retrieve_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_within_root(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_domain_com())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_domain_com()) && crate::storage::examples::cookie_domain_com().domain.name.len() > 0 && cookie_root_of(crate::storage::examples::rules(), crate::storage::examples::cookie_domain_com()) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-domain-match-reversed",
+      "file": "src/storage/spec.rs",
+      "find": "crate::matching::spec::domain_matches(\n        string.name,\n        true,\n        domain.name,\n    ))",
+      "replace": "(crate::matching::spec::domain_matches(\n        string.name,\n        true,\n        domain.name,\n    ) || crate::matching::spec::domain_matches(domain.name, true, string.name)))",
+      "expect": "killed",
+      "reason": "The host may also be the suffix of the cookie's domain: a cookie for a.co.uk is returned to the public suffix co.uk, whose cookie root is co.uk, so lemma_retrieve_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_within_root(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_co_uk(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_co_uk()), crate::storage::examples::cookie_domain_a_co_uk())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_co_uk(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_co_uk()), crate::storage::examples::cookie_domain_a_co_uk()) && crate::storage::examples::cookie_domain_a_co_uk().domain.name.len() > 0 && cookie_root_of(crate::storage::examples::rules(), crate::storage::examples::cookie_domain_a_co_uk()) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_co_uk()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "domain-match-no-dot-boundary",
+      "file": "src/matching/spec.rs",
+      "find": "string[string.len() - domain.len() - 1] == 0x2E",
+      "replace": "true",
+      "expect": "killed",
+      "reason": "Domain-match widened: a cookie for a.com is returned to ba.com, whose cookie root is ba.com, so lemma_retrieve_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_within_root(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_ba_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_ba_com()), crate::storage::examples::cookie_domain_a_com())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_ba_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_ba_com()), crate::storage::examples::cookie_domain_a_com()) && crate::storage::examples::cookie_domain_a_com().domain.name.len() > 0 && cookie_root_of(crate::storage::examples::rules(), crate::storage::examples::cookie_domain_a_com()) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_ba_com()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "retrieval-cross-site-non-http-allowed",
+      "file": "src/storage/spec.rs",
+      "find": "        RequestContext::NonHttp(_) => false,\n    }))",
+      "replace": "        RequestContext::NonHttp(_) => true,\n    }))",
+      "expect": "killed",
+      "reason": "A cookie that is not SameSite=None is returned to a cross-site \"non-HTTP\" call: lemma_retrieve_cross_site_non_http is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_retrieve_cross_site_non_http(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::cross_site_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_lax())",
+        "witness": "cookie_is_retrieved(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::cross_site_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::cookie_lax()) && is_non_http(crate::storage::examples::cross_site_call()) && !is_same_site_request(crate::storage::examples::rules(), crate::storage::examples::cross_site_call()) && crate::storage::examples::cookie_lax().same_site_flag != crate::set_cookie::spec::SameSite::None"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "document-same-site-always",
+      "file": "src/storage/spec.rs",
+      "find": "RequestContext::NonHttp(call) => clazel_origin::spec::same_site(rules, call.site_for_cookies, call.top_level_origin),",
+      "replace": "RequestContext::NonHttp(_) => true,",
+      "expect": "killed",
+      "reason": "Every document is same-site with its top-level origin: example_cross_site_call is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_cross_site_call()",
+        "witness": "is_same_site_request(crate::storage::examples::rules(), crate::storage::examples::cross_site_call())"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "retrieval-last-access-not-updated",
+      "file": "src/storage/spec.rs",
+      "find": "            with_last_access_time(c, now)",
+      "replace": "            c",
+      "expect": "killed",
+      "reason": "Step 5 leaves the last-access-time alone: example_update_last_access is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_update_last_access()",
+        "witness": "update_last_access_time(crate::storage::examples::rules(), crate::storage::examples::https_url(crate::storage::examples::s_a_com(), crate::storage::examples::p_x()), crate::storage::examples::document_call(), crate::storage::examples::host(crate::storage::examples::s_a_com()), 9)(crate::storage::examples::jar_one_matching()[0]) == crate::storage::examples::jar_one_matching()[0]"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "sort-shorter-path-first",
+      "file": "src/storage/spec.rs",
+      "find": "a.path.len() > b.path.len() ||",
+      "replace": "a.path.len() < b.path.len() ||",
+      "expect": "killed",
+      "reason": "Shorter paths are listed first: example_sort_longer_path_first is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_sort_longer_path_first()",
+        "witness": "sort_cookie_list(crate::storage::examples::jar_two_paths()) == crate::storage::examples::jar_two_paths()"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "sort-later-creation-first",
+      "file": "src/storage/spec.rs",
+      "find": "a.creation_time < b.creation_time)",
+      "replace": "a.creation_time > b.creation_time)",
+      "expect": "killed",
+      "reason": "Later creation-times are listed first: example_sort_earlier_creation_first is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_sort_earlier_creation_first()",
+        "witness": "sort_cookie_list(crate::storage::examples::jar_two_creations()) == crate::storage::examples::jar_two_creations()"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "serialize-separator-no-space",
+      "file": "src/storage/spec.rs",
+      "find": "            seq![0x3Bu8, 0x20]",
+      "replace": "            seq![0x3Bu8]",
+      "expect": "killed",
+      "reason": "Cookies are separated by \";\" only: example_serialize is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_serialize()",
+        "witness": "serialize_cookie_list_from(crate::storage::examples::jar_two_paths(), 0) == seq![0x61u8, 0x3D, 0x31, 0x3B, 0x62, 0x3D, 0x32]"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "serialize-nameless-keeps-equals",
+      "file": "src/storage/spec.rs",
+      "find": "if cookie.name.len() > 0 {",
+      "replace": "if true {",
+      "expect": "killed",
+      "reason": "A cookie without a name is written \"=value\": example_serialize is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_serialize()",
+        "witness": "serialize_cookie_list_from(seq![crate::storage::examples::cookie(seq![], crate::storage::examples::s_1(), crate::storage::examples::host(crate::storage::examples::s_a_com()), true, crate::storage::examples::p_root(), 1)], 0) == seq![0x3Du8, 0x31]"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "expired-at-its-expiry-time",
+      "file": "src/storage/spec.rs",
+      "find": "    cookie.expiry_time < now",
+      "replace": "    cookie.expiry_time <= now",
+      "expect": "killed",
+      "reason": "A cookie is expired at its expiry-time, not after it: lemma_cookie_expired_iff is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_cookie_expired_iff(crate::storage::examples::cookie_expiring(), 5)",
+        "witness": "cookie_expired(crate::storage::examples::cookie_expiring(), 5)"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "store-step9-public-suffix-check-dropped",
+      "file": "src/storage/spec.rs",
+      "find": "    if is_public_suffix_string(rules, domain_attribute) {",
+      "replace": "    if false {",
+      "expect": "killed",
+      "reason": "A.com may set Domain=com: the new cookie's domain com has the root com, not a.com, so lemma_step_9_10_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_step_9_10_within_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_com(), crate::storage::examples::s_com(), crate::storage::examples::host(crate::storage::examples::s_com()), false)",
+        "witness": "step_9_domain_attribute(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_com()) == Some(crate::storage::examples::s_com()) && step_10_domain(crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_com()) == Some((crate::storage::examples::host(crate::storage::examples::s_com()), false)) && cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_com())) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "store-step10-domain-match-dropped",
+      "file": "src/storage/spec.rs",
+      "find": "        if !crate::matching::spec::domain_matches(\n            request_host_canonical.name,\n            !request_host_canonical.is_ip_address,\n            domain_attribute,\n        ) {",
+      "replace": "        if false {",
+      "expect": "killed",
+      "reason": "A.com may set Domain=b.com: lemma_step_9_10_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_step_9_10_within_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_b_com(), crate::storage::examples::s_b_com(), crate::storage::examples::host(crate::storage::examples::s_b_com()), false)",
+        "witness": "step_9_domain_attribute(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_b_com()) == Some(crate::storage::examples::s_b_com()) && step_10_domain(crate::storage::examples::host(crate::storage::examples::s_a_com()), crate::storage::examples::s_b_com()) == Some((crate::storage::examples::host(crate::storage::examples::s_b_com()), false)) && cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_b_com())) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::host(crate::storage::examples::s_a_com()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "store-step10-ip-address-is-host-name",
+      "file": "src/storage/spec.rs",
+      "find": "            !request_host_canonical.is_ip_address,",
+      "replace": "            true,",
+      "expect": "killed",
+      "reason": "An IP address domain-matches its dotted suffixes: 1.2.3.4 may set Domain=3.4, so lemma_step_9_10_within_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_step_9_10_within_root(crate::storage::examples::rules(), crate::storage::examples::ip(crate::storage::examples::s_ip()), crate::storage::examples::s_3_4(), crate::storage::examples::s_3_4(), crate::storage::examples::ip(crate::storage::examples::s_3_4()), false)",
+        "witness": "step_9_domain_attribute(crate::storage::examples::rules(), crate::storage::examples::ip(crate::storage::examples::s_ip()), crate::storage::examples::s_3_4()) == Some(crate::storage::examples::s_3_4()) && step_10_domain(crate::storage::examples::ip(crate::storage::examples::s_ip()), crate::storage::examples::s_3_4()) == Some((crate::storage::examples::ip(crate::storage::examples::s_3_4()), false)) && cookie_root(crate::storage::examples::rules(), crate::storage::examples::ip(crate::storage::examples::s_3_4())) != cookie_root(crate::storage::examples::rules(), crate::storage::examples::ip(crate::storage::examples::s_ip()))"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "store-cross-site-non-http-allowed",
+      "file": "src/storage/spec.rs",
+      "find": "    if is_non_http(ctx) && !is_same_site_request(rules, ctx) {\n        false",
+      "replace": "    if is_non_http(ctx) && !is_same_site_request(rules, ctx) {\n        true",
+      "expect": "killed",
+      "reason": "Step 18.1 continues instead of aborting: lemma_step_18_non_http_cross_site is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::isolation::lemma_step_18_non_http_cross_site(crate::storage::examples::rules(), crate::storage::examples::cross_site_call())",
+        "witness": "step_18_continues(crate::storage::examples::rules(), crate::storage::examples::cross_site_call()) && is_non_http(crate::storage::examples::cross_site_call()) && !is_same_site_request(crate::storage::examples::rules(), crate::storage::examples::cross_site_call())"
+      },
+      "module": "storage::isolation"
+    },
+    {
+      "id": "insert-keeps-old-cookie",
+      "file": "src/storage/spec.rs",
+      "find": "        Some(i) => jar.remove(i),",
+      "replace": "        Some(i) => jar,",
+      "expect": "killed",
+      "reason": "The old-cookie is not removed: example_insert_a_cookie is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_insert_a_cookie()",
+        "witness": "insert_a_cookie(crate::storage::examples::jar_with_old(), crate::storage::examples::cookie_new_a()) == seq![crate::storage::examples::jar_with_old()[0], crate::storage::examples::jar_with_old()[1], crate::storage::examples::cookie_new_a()]"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "old-cookie-ignores-host-only-flag",
+      "file": "src/storage/spec.rs",
+      "find": "a.name == b.name && a.domain == b.domain && a.host_only_flag == b.host_only_flag && a.path == b.path",
+      "replace": "a.name == b.name && a.domain == b.domain && a.path == b.path",
+      "expect": "killed",
+      "reason": "A host-only and a domain cookie are the same cookie: example_insert_a_cookie is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_insert_a_cookie()",
+        "witness": "find_old_cookie(crate::storage::examples::jar_with_old(), crate::storage::examples::cookie(crate::storage::examples::s_a(), crate::storage::examples::s_2(), crate::storage::examples::host(crate::storage::examples::s_a_com()), false, crate::storage::examples::p_root(), 7)) == Some(0int)"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "eviction-victim-ignores-root",
+      "file": "src/storage/spec.rs",
+      "find": "        if cookie_root_of(rules, cookie) != root {",
+      "replace": "        if false {",
+      "expect": "killed",
+      "reason": "The cookie evicted for a.com's excess may be one of b.com's (eviction global, not per cookie root): lemma_victim_from_in_root is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::lemmas::lemma_victim_from_in_root(crate::storage::examples::rules(), crate::storage::examples::jar_two_roots(), crate::storage::examples::host(crate::storage::examples::s_a_com()), 2)",
+        "witness": "victim_from(crate::storage::examples::rules(), crate::storage::examples::jar_two_roots(), crate::storage::examples::host(crate::storage::examples::s_a_com()), 2) == Some(0int) && cookie_root_of(crate::storage::examples::rules(), crate::storage::examples::jar_two_roots()[0]) != crate::storage::examples::host(crate::storage::examples::s_a_com())"
+      },
+      "module": "storage::lemmas"
+    },
+    {
+      "id": "eviction-secure-cookies-first",
+      "file": "src/storage/spec.rs",
+      "find": "    if !cookie.secure_only_flag { 0 } else { 1 }",
+      "replace": "    if !cookie.secure_only_flag { 1 } else { 0 }",
+      "expect": "killed",
+      "reason": "Secure-only cookies are removed first: example_eviction_order is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_eviction_order()",
+        "witness": "victim_from(crate::storage::examples::rules(), crate::storage::examples::jar_secure_first(), crate::storage::examples::host(crate::storage::examples::s_a_com()), 2) == Some(0int)"
+      },
+      "module": "storage::examples"
+    },
+    {
+      "id": "eviction-latest-access-first",
+      "file": "src/storage/spec.rs",
+      "find": "a.last_access_time < b.last_access_time)",
+      "replace": "a.last_access_time > b.last_access_time)",
+      "expect": "killed",
+      "reason": "The latest last-access-time is removed first: example_eviction_order is false.",
+      "certificate": {
+        "file": "src/storage/certificates.rs",
+        "lemma": "crate::storage::examples::example_eviction_order()",
+        "witness": "victim_from(crate::storage::examples::rules(), crate::storage::examples::jar_access_order(), crate::storage::examples::host(crate::storage::examples::s_a_com()), 2) == Some(0int)"
+      },
+      "module": "storage::examples"
     }
   ]
 }

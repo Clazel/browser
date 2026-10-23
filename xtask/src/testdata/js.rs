@@ -12,6 +12,7 @@ pub struct Node {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lit {
+    Bool(bool),
     Num(u64),
     /// A string as JavaScript sees it: UTF-16 code units.
     Str(Vec<u16>),
@@ -20,6 +21,16 @@ pub enum Lit {
 }
 
 impl Node {
+    pub fn boolean(&self) -> Result<bool, String> {
+        match &self.lit {
+            Lit::Bool(b) => Ok(*b),
+            other => Err(format!(
+                "line {}: expected a boolean, found {other:?}",
+                self.line
+            )),
+        }
+    }
+
     pub fn num(&self) -> Result<u64, String> {
         match &self.lit {
             Lit::Num(n) => Ok(*n),
@@ -110,11 +121,11 @@ impl Parser {
         self.line
     }
 
-    fn peek(&self) -> Option<char> {
+    pub fn peek(&self) -> Option<char> {
         self.chars.get(self.pos).copied()
     }
 
-    fn bump(&mut self) -> Option<char> {
+    pub fn bump(&mut self) -> Option<char> {
         let c = self.peek()?;
         self.pos = self.pos.saturating_add(1);
         if c == '\n' {
@@ -123,7 +134,7 @@ impl Parser {
         Some(c)
     }
 
-    fn err<T>(&self, what: &str) -> Result<T, String> {
+    pub fn err<T>(&self, what: &str) -> Result<T, String> {
         Err(format!(
             "line {}: {what}, found {:?}",
             self.line,
@@ -158,7 +169,7 @@ impl Parser {
         }
     }
 
-    fn rest_starts_with(&self, s: &str) -> bool {
+    pub fn rest_starts_with(&self, s: &str) -> bool {
         s.chars()
             .enumerate()
             .all(|(i, c)| self.chars.get(self.pos.saturating_add(i)) == Some(&c))
@@ -213,6 +224,18 @@ impl Parser {
                 Lit::Str(self.string_body(q)?)
             }
             Some(c) if c.is_ascii_digit() => Lit::Num(self.number()?),
+            Some('t') if self.rest_starts_with("true") => {
+                for _ in 0..4 {
+                    self.bump();
+                }
+                Lit::Bool(true)
+            }
+            Some('f') if self.rest_starts_with("false") => {
+                for _ in 0..5 {
+                    self.bump();
+                }
+                Lit::Bool(false)
+            }
             _ => return self.err("expected a literal"),
         };
         Ok(Node { line, lit })
