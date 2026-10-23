@@ -7,6 +7,7 @@
 pub mod content_length;
 pub mod contract;
 pub mod examples;
+pub mod independent;
 pub mod lemmas;
 pub mod list;
 pub mod params;
