@@ -49,9 +49,19 @@ pub open spec fn is_field_value_ensures(s: Seq<u8>, output: bool) -> bool {
     output == is_field_value(s)
 }
 
-/// Contract for `is_ows`, `is_rws` and `is_bws` (§5.6.3).
-pub open spec fn whitespace_ensures(s: Seq<u8>, output: (bool, bool, bool)) -> bool {
-    output == (is_ows(s), is_rws(s), is_bws(s))
+/// Contract for `is_ows(&[u8]) -> bool` (§5.6.3).
+pub open spec fn is_ows_ensures(s: Seq<u8>, output: bool) -> bool {
+    output == is_ows(s)
+}
+
+/// Contract for `is_rws(&[u8]) -> bool` (§5.6.3).
+pub open spec fn is_rws_ensures(s: Seq<u8>, output: bool) -> bool {
+    output == is_rws(s)
+}
+
+/// Contract for `is_bws(&[u8]) -> bool` (§5.6.3).
+pub open spec fn is_bws_ensures(s: Seq<u8>, output: bool) -> bool {
+    output == is_bws(s)
 }
 
 /// Contract for `field_values_named(&[FieldLine], &[u8]) -> Vec<Vec<u8>>`
