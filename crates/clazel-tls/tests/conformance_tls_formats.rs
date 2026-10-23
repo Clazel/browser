@@ -29,10 +29,14 @@ use clazel_tls::encode::{
     write_server_hello,
 };
 use clazel_tls::extension::{
-    cookie, key_share_ch, key_share_hrr, key_share_sh, named_groups, server_name_ch,
+    cookie, key_share_ch, key_share_hrr, key_share_sh, named_groups, read_exts, server_name_ch,
     signature_schemes, supported_versions_ch, supported_versions_sh,
 };
-use clazel_tls::handshake::{is_hello_retry_request, parse_handshake};
+use clazel_tls::handshake::{
+    is_hello_retry_request, parse_handshake, read_certificate, read_certificate_request,
+    read_client_hello, read_encrypted_extensions, read_new_session_ticket, read_server_hello,
+};
+use clazel_tls::reader::Cur;
 use clazel_tls::reassemble::{Event, Reassembler};
 use clazel_tls::record::{
     Aead, Frame, ReadOut, additional_data, decrypt_record, encrypt_record, open_inner_plaintext,
@@ -1019,4 +1023,666 @@ fn nonce_matches_the_standard() {
     }
     assert_eq!(nonce, expect);
     assert_eq!(per_record_nonce(&IV, 0), IV);
+}
+
+// ---------------------------------------------------------------------------
+// Differential test against rustls's message codec.
+//
+// rustls 0.23.46, with default features off (no cryptography provider is
+// built), exposes `rustls::internal::msgs`: `MessagePayload::new` (which reads
+// one handshake message, an alert or a change_cipher_spec and returns an
+// error where the message is malformed), the message fragmenter, and the
+// numeric enums. Its handshake message types are not public, so the
+// comparison is of what each side accepts, of the bytes each side puts in
+// records, and of the numbers.
+// ---------------------------------------------------------------------------
+
+use rustls::internal::msgs::base::Payload;
+use rustls::internal::msgs::enums::ExtensionType;
+use rustls::internal::msgs::fragmenter::MessageFragmenter;
+use rustls::internal::msgs::message::{MessagePayload, PlainMessage};
+use rustls::{AlertDescription, ContentType, HandshakeType, ProtocolVersion};
+
+/// A small deterministic generator (xorshift), so failures reproduce.
+struct Rng(u64);
+
+impl Rng {
+    fn next(&mut self) -> u64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        self.0
+    }
+
+    fn below(&mut self, n: usize) -> usize {
+        usize::try_from(
+            self.next()
+                .checked_rem(u64::try_from(n).unwrap_or(1))
+                .unwrap_or(0),
+        )
+        .unwrap_or(0)
+    }
+
+    fn byte(&mut self) -> u8 {
+        u8::try_from(self.next() & 0xFF).unwrap_or(0)
+    }
+}
+
+fn print_suite(name: &str, pass: usize, xfail: usize, fail: usize, total: usize) {
+    println!(
+        "clazel-conformance: suite=\"{name}\" pass={pass} xfail={xfail} fail={fail} total={total}"
+    );
+}
+
+/// The numbers RFC 8446 gives, as rustls spells them: content types,
+/// handshake types, alert descriptions and the extension types of the
+/// section 4.2 table.
+#[test]
+fn rustls_enum_numbers() {
+    let mut checks: Vec<(&str, bool)> = Vec::new();
+    let mut add = |name: &'static str, ours: u64, theirs: u64| checks.push((name, ours == theirs));
+    add(
+        "change_cipher_spec",
+        20,
+        u64::from(u8::from(ContentType::ChangeCipherSpec)),
+    );
+    add("alert", 21, u64::from(u8::from(ContentType::Alert)));
+    add("handshake", 22, u64::from(u8::from(ContentType::Handshake)));
+    add(
+        "application_data",
+        23,
+        u64::from(u8::from(ContentType::ApplicationData)),
+    );
+    add(
+        "client_hello",
+        1,
+        u64::from(u8::from(HandshakeType::ClientHello)),
+    );
+    add(
+        "server_hello",
+        2,
+        u64::from(u8::from(HandshakeType::ServerHello)),
+    );
+    add(
+        "new_session_ticket",
+        4,
+        u64::from(u8::from(HandshakeType::NewSessionTicket)),
+    );
+    add(
+        "end_of_early_data",
+        5,
+        u64::from(u8::from(HandshakeType::EndOfEarlyData)),
+    );
+    add(
+        "encrypted_extensions",
+        8,
+        u64::from(u8::from(HandshakeType::EncryptedExtensions)),
+    );
+    add(
+        "certificate",
+        11,
+        u64::from(u8::from(HandshakeType::Certificate)),
+    );
+    add(
+        "certificate_request",
+        13,
+        u64::from(u8::from(HandshakeType::CertificateRequest)),
+    );
+    add(
+        "certificate_verify",
+        15,
+        u64::from(u8::from(HandshakeType::CertificateVerify)),
+    );
+    add("finished", 20, u64::from(u8::from(HandshakeType::Finished)));
+    add(
+        "key_update",
+        24,
+        u64::from(u8::from(HandshakeType::KeyUpdate)),
+    );
+    let alerts: [(&str, u8, AlertDescription); 27] = [
+        ("close_notify", 0, AlertDescription::CloseNotify),
+        (
+            "unexpected_message",
+            10,
+            AlertDescription::UnexpectedMessage,
+        ),
+        ("bad_record_mac", 20, AlertDescription::BadRecordMac),
+        ("record_overflow", 22, AlertDescription::RecordOverflow),
+        ("handshake_failure", 40, AlertDescription::HandshakeFailure),
+        ("bad_certificate", 42, AlertDescription::BadCertificate),
+        (
+            "unsupported_certificate",
+            43,
+            AlertDescription::UnsupportedCertificate,
+        ),
+        (
+            "certificate_revoked",
+            44,
+            AlertDescription::CertificateRevoked,
+        ),
+        (
+            "certificate_expired",
+            45,
+            AlertDescription::CertificateExpired,
+        ),
+        (
+            "certificate_unknown",
+            46,
+            AlertDescription::CertificateUnknown,
+        ),
+        ("illegal_parameter", 47, AlertDescription::IllegalParameter),
+        ("unknown_ca", 48, AlertDescription::UnknownCA),
+        ("access_denied", 49, AlertDescription::AccessDenied),
+        ("decode_error", 50, AlertDescription::DecodeError),
+        ("decrypt_error", 51, AlertDescription::DecryptError),
+        ("protocol_version", 70, AlertDescription::ProtocolVersion),
+        (
+            "insufficient_security",
+            71,
+            AlertDescription::InsufficientSecurity,
+        ),
+        ("internal_error", 80, AlertDescription::InternalError),
+        (
+            "inappropriate_fallback",
+            86,
+            AlertDescription::InappropriateFallback,
+        ),
+        ("user_canceled", 90, AlertDescription::UserCanceled),
+        ("missing_extension", 109, AlertDescription::MissingExtension),
+        (
+            "unsupported_extension",
+            110,
+            AlertDescription::UnsupportedExtension,
+        ),
+        ("unrecognized_name", 112, AlertDescription::UnrecognisedName),
+        (
+            "bad_certificate_status_response",
+            113,
+            AlertDescription::BadCertificateStatusResponse,
+        ),
+        (
+            "unknown_psk_identity",
+            115,
+            AlertDescription::UnknownPSKIdentity,
+        ),
+        (
+            "certificate_required",
+            116,
+            AlertDescription::CertificateRequired,
+        ),
+        (
+            "no_application_protocol",
+            120,
+            AlertDescription::NoApplicationProtocol,
+        ),
+    ];
+    for (name, ours, theirs) in alerts {
+        checks.push((name, ours == u8::from(theirs)));
+    }
+    // The alert each error kind maps to is a defined alert of RFC 8446
+    // section 6.2: rustls names it too.
+    for k in [
+        ErrKind::Decode,
+        ErrKind::RecordOverflow,
+        ErrKind::UnexpectedContentType,
+        ErrKind::UnexpectedHandshakeType,
+        ErrKind::ZeroLengthFragment,
+        ErrKind::Interleaved,
+        ErrKind::AllZeroInnerPlaintext,
+        ErrKind::BadChangeCipherSpec,
+        ErrKind::BadLegacyRecordVersion,
+        ErrKind::HandshakeTooLarge,
+        ErrKind::DuplicateExtension,
+        ErrKind::ExtensionNotAllowed,
+        ErrKind::InvalidEnum,
+        ErrKind::NonEmptyContext,
+        ErrKind::MissingExtension,
+        ErrKind::BadRecordMac,
+    ] {
+        let named = !matches!(
+            AlertDescription::from(alert_number(k)),
+            AlertDescription::Unknown(_)
+        );
+        checks.push(("the alert of an error kind is a named alert", named));
+    }
+    let ext: [(u16, ExtensionType); 22] = [
+        (0, ExtensionType::ServerName),
+        (1, ExtensionType::MaxFragmentLength),
+        (5, ExtensionType::StatusRequest),
+        (10, ExtensionType::EllipticCurves),
+        (13, ExtensionType::SignatureAlgorithms),
+        (14, ExtensionType::UseSRTP),
+        (15, ExtensionType::Heartbeat),
+        (16, ExtensionType::ALProtocolNegotiation),
+        (18, ExtensionType::SCT),
+        (19, ExtensionType::ClientCertificateType),
+        (20, ExtensionType::ServerCertificateType),
+        (21, ExtensionType::Padding),
+        (41, ExtensionType::PreSharedKey),
+        (42, ExtensionType::EarlyData),
+        (43, ExtensionType::SupportedVersions),
+        (44, ExtensionType::Cookie),
+        (45, ExtensionType::PSKKeyExchangeModes),
+        (47, ExtensionType::CertificateAuthorities),
+        (48, ExtensionType::OIDFilters),
+        (49, ExtensionType::PostHandshakeAuth),
+        (50, ExtensionType::SignatureAlgorithmsCert),
+        (51, ExtensionType::KeyShare),
+    ];
+    for (ours, theirs) in ext {
+        checks.push(("extension type", ours == u16::from(theirs)));
+    }
+    let failed: Vec<&str> = checks
+        .iter()
+        .filter(|(_, ok)| !ok)
+        .map(|(n, _)| *n)
+        .collect();
+    print_suite(
+        "rustls enum numbers (content, handshake, alert, extension types)",
+        checks.len().saturating_sub(failed.len()),
+        0,
+        failed.len(),
+        checks.len(),
+    );
+    assert!(
+        failed.is_empty(),
+        "numbers that differ from rustls: {failed:?}"
+    );
+}
+
+/// One message of a flight at the front of `bytes`, as a reassembler would
+/// cut it (rustls's `MessagePayload::new` reads one handshake message and
+/// leaves what follows).
+fn first_message(bytes: &[u8]) -> Option<&[u8]> {
+    let len = usize::try_from(u32::from_be_bytes([
+        0,
+        *bytes.get(1)?,
+        *bytes.get(2)?,
+        *bytes.get(3)?,
+    ]))
+    .ok()?;
+    bytes.get(..len.checked_add(4)?)
+}
+
+fn rustls_accepts_handshake(msg: &[u8]) -> bool {
+    MessagePayload::new(ContentType::Handshake, ProtocolVersion::TLSv1_3, msg).is_ok()
+}
+
+/// Mutate `msg` in one of several ways, never touching its first byte (the
+/// message type: a message read as another type is a question about what each
+/// reader does with bytes that are not that message, which the type-specific
+/// rules above do not answer).
+fn mutate(msg: &[u8], r: &mut Rng) -> Vec<u8> {
+    let mut m = msg.to_vec();
+    let body_len = m.len().saturating_sub(1);
+    match r.below(6) {
+        0 if body_len > 0 => {
+            let i = r.below(body_len).saturating_add(1);
+            if let Some(b) = m.get_mut(i) {
+                *b = r.byte();
+            }
+        }
+        1 if body_len > 0 => m.truncate(r.below(body_len).saturating_add(1)),
+        2 => m.push(r.byte()),
+        3 if m.len() > 4 => {
+            // Change one of the three length bytes.
+            let i = r.below(3).saturating_add(1);
+            if let Some(b) = m.get_mut(i) {
+                *b = r.byte();
+            }
+        }
+        4 if body_len > 0 => {
+            let i = r.below(body_len).saturating_add(1);
+            m.remove(i);
+        }
+        _ => {
+            let i = r.below(m.len()).max(1).min(m.len());
+            m.insert(i, r.byte());
+        }
+    }
+    m
+}
+
+/// How the two readers compare on one handshake message.
+#[derive(Debug, PartialEq, Eq)]
+enum Verdict {
+    /// Both accept or both reject.
+    Agree,
+    /// We reject for a rule about meaning rather than syntax, which rustls
+    /// applies after parsing (or not at all), or for the data of an extension
+    /// that rustls keeps opaque in that message.
+    OursStricter,
+    /// rustls rejects an extension of a ServerHello or HelloRetryRequest that
+    /// was not offered, which RFC 8446 section 4.2 leaves to the handshake
+    /// (`unsupported_extension`, phase-3.md item 3.5e); we only apply the
+    /// table, which allows a type that is not one of its rows.
+    RustlsStricter,
+    /// A difference nobody listed.
+    Unexplained(String),
+}
+
+fn hex_of(b: &[u8]) -> String {
+    b.iter()
+        .map(|x| format!("{x:02x}"))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn compare_handshake(msg: &[u8]) -> Verdict {
+    // Cut one message like the reassembler would; shorter than its length
+    // field says is rejected by both.
+    let Some(one) = first_message(msg) else {
+        let theirs = rustls_accepts_handshake(msg);
+        let ours = parse_handshake(msg, HASH_LEN).is_ok();
+        return if !theirs && !ours {
+            Verdict::Agree
+        } else {
+            Verdict::Unexplained(format!(
+                "short input: ours {ours} theirs {theirs}: {}",
+                hex_of(msg)
+            ))
+        };
+    };
+    let ours = parse_handshake(one, HASH_LEN);
+    let theirs = rustls_accepts_handshake(one);
+    match (ours, theirs) {
+        (Ok(_), true) | (Err(_), false) => Verdict::Agree,
+        // Rules about meaning rather than syntax, which rustls checks in its
+        // state machine (or in the extension's own typed reader) and not
+        // when it reads the message: duplicates, extensions in the wrong
+        // message, a missing supported_versions, a non-empty certificate
+        // context, an invalid enum, and a message type it does not know
+        // (rustls keeps an unknown type as `Unknown`).
+        (
+            Err(
+                ErrKind::DuplicateExtension
+                | ErrKind::ExtensionNotAllowed
+                | ErrKind::MissingExtension
+                | ErrKind::NonEmptyContext
+                | ErrKind::InvalidEnum
+                | ErrKind::UnexpectedHandshakeType,
+            ),
+            true,
+        ) => Verdict::OursStricter,
+        // `decode_error` where the message's own structure reads: the data of
+        // an extension that this crate reads as its type says (a malformed
+        // `supported_groups` in EncryptedExtensions, an unknown `name_type`
+        // in `server_name`) while rustls keeps the data opaque; or a
+        // Finished of another length than the hash's, which rustls does not
+        // know when it parses.
+        (Err(ErrKind::Decode), true)
+            if structure_parses(one)
+                || relaxed_structure_parses(one)
+                || one.first() == Some(&20) =>
+        {
+            Verdict::OursStricter
+        }
+        (Err(k), true) => Verdict::Unexplained(format!(
+            "we say {k:?}, rustls accepts, type {}, len {}: {}",
+            one.first().copied().unwrap_or(0),
+            one.len(),
+            hex_of(one)
+        )),
+        (Ok(HsMsg::ServerHello(sh)), false) if has_unoffered_type(&sh) => Verdict::RustlsStricter,
+        (Ok(m), false) if has_opaque_extension(&m) => Verdict::RustlsStricter,
+        (Ok(_), false) => {
+            Verdict::Unexplained(format!("we accept, rustls rejects: {}", hex_of(one)))
+        }
+    }
+}
+
+/// Whether the message has an extension whose data this crate keeps opaque
+/// (every type but `server_name`, `supported_groups`, `signature_algorithms`,
+/// `signature_algorithms_cert`, `supported_versions`, `cookie` and
+/// `key_share`): rustls reads the data of many of them (`renegotiation_info`,
+/// `session_ticket`, `ec_point_formats`, ALPN, `record_size_limit`,
+/// `early_data` ...), so a mutation in one is a rejection only it makes.
+fn has_opaque_extension(m: &HsMsg<'_>) -> bool {
+    let opaque = |es: &[Extension<'_>]| {
+        es.iter()
+            .any(|e| !matches!(e.etype, 0 | 10 | 13 | 50 | 43 | 44 | 51))
+    };
+    match m {
+        HsMsg::ClientHello(c) => opaque(&c.extensions),
+        HsMsg::ServerHello(c) => opaque(&c.extensions),
+        HsMsg::EncryptedExtensions(es) => opaque(es),
+        HsMsg::CertificateRequest(c) => opaque(&c.extensions),
+        HsMsg::NewSessionTicket(c) => opaque(&c.extensions),
+        HsMsg::Certificate(c) => c.entries.iter().any(|e| opaque(&e.extensions)),
+        _ => false,
+    }
+}
+
+/// Whether the message reads if the floors of RFC 8446 Appendix B on its
+/// extension block were zero: `ClientHello` `extensions<8..2^16-1>`,
+/// `ServerHello` `extensions<6..2^16-1>`, `CertificateRequest`
+/// `extensions<2..2^16-1>`, and the extension block's presence in a
+/// ClientHello and ServerHello. rustls enforces none of them.
+fn relaxed_structure_parses(one: &[u8]) -> bool {
+    let body = one.get(4..).unwrap_or(&[]);
+    let mut c = Cur::new(body);
+    let ok = match one.first() {
+        Some(1) => {
+            c.u16().is_some()
+                && c.fixed(32).is_some()
+                && c.vec(0, 32).is_some()
+                && c.vec(2, 65534).is_some()
+                && c.vec(1, 255).is_some()
+        }
+        Some(2) => {
+            c.u16().is_some()
+                && c.fixed(32).is_some()
+                && c.vec(0, 32).is_some()
+                && c.u16().is_some()
+                && c.u8().is_some()
+        }
+        Some(13) => c.vec(0, 255).is_some(),
+        _ => false,
+    };
+    // RFC 8446 section 4.1.2 lets a server receive a ClientHello with no
+    // extension block at all (an earlier version's); the Appendix B grammar
+    // this crate follows has one, and so does a ServerHello.
+    let may_omit = matches!(one.first(), Some(1 | 2)) && c.is_empty();
+    ok && (may_omit || (read_exts(&mut c, 0, 65535).is_some() && c.is_empty()))
+}
+
+/// Whether the message's own structure (not the bodies of its extensions)
+/// reads.
+fn structure_parses(one: &[u8]) -> bool {
+    let body = one.get(4..).unwrap_or(&[]);
+    match one.first() {
+        Some(1) => read_client_hello(body).is_some(),
+        Some(2) => read_server_hello(body).is_some(),
+        Some(4) => read_new_session_ticket(body).is_some(),
+        Some(8) => read_encrypted_extensions(body).is_some(),
+        Some(11) => read_certificate(body).is_some(),
+        Some(13) => read_certificate_request(body).is_some(),
+        _ => false,
+    }
+}
+
+/// Whether a ServerHello or HelloRetryRequest has an extension of a type that
+/// can only be answered if it was offered and that RFC 8446 does not define
+/// for it (neither `supported_versions`, `key_share`, `pre_shared_key` nor, in
+/// a HelloRetryRequest, `cookie`).
+fn has_unoffered_type(sh: &clazel_tls::types::ServerHello<'_>) -> bool {
+    let hrr = is_hello_retry_request(sh);
+    sh.extensions
+        .iter()
+        .any(|e| !matches!(e.etype, 43 | 51) && !(hrr && e.etype == 44) && !(!hrr && e.etype == 41))
+}
+
+#[test]
+fn rustls_handshake_acceptance() {
+    let originals: Vec<Vec<u8>> = MESSAGES.iter().map(|m| hex(m.hex)).collect();
+    let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
+    let mut cases: Vec<Vec<u8>> = originals.clone();
+    for o in &originals {
+        for _ in 0..400 {
+            cases.push(mutate(o, &mut rng));
+        }
+    }
+    let (mut agree, mut stricter, mut unexplained) = (0usize, 0usize, Vec::new());
+    for c in &cases {
+        match compare_handshake(c) {
+            Verdict::Agree => agree = agree.saturating_add(1),
+            Verdict::OursStricter | Verdict::RustlsStricter => {
+                stricter = stricter.saturating_add(1)
+            }
+            Verdict::Unexplained(why) => unexplained.push(why),
+        }
+    }
+    print_suite(
+        "rustls handshake message acceptance (RFC 8448 messages and 400 mutations each)",
+        agree,
+        stricter,
+        unexplained.len(),
+        cases.len(),
+    );
+    for u in &unexplained {
+        println!("UNEXPLAINED {}", u);
+    }
+    assert!(
+        unexplained.is_empty(),
+        "{} unexplained differences, first: {:?}",
+        unexplained.len(),
+        unexplained.first()
+    );
+}
+
+/// Every two-byte payload is an alert for both; the lengths either side of
+/// it are for neither; every one-byte change_cipher_spec payload is
+/// accepted by both only when it is 0x01.
+#[test]
+fn rustls_alerts_and_change_cipher_spec() {
+    let mut total = 0usize;
+    let mut bad: Vec<String> = Vec::new();
+    for level in 0..=255u8 {
+        for desc in 0..=255u8 {
+            total = total.saturating_add(1);
+            let ours = read_alert(&[level, desc]).is_some();
+            let theirs =
+                MessagePayload::new(ContentType::Alert, ProtocolVersion::TLSv1_3, &[level, desc])
+                    .is_ok();
+            if !(ours && theirs) {
+                bad.push(format!("alert {level} {desc}"));
+            }
+        }
+    }
+    for payload in [&[][..], &[2][..], &[2, 40, 0][..], &[2, 40, 2, 40][..]] {
+        total = total.saturating_add(1);
+        let ours = read_alert(payload).is_some();
+        let theirs =
+            MessagePayload::new(ContentType::Alert, ProtocolVersion::TLSv1_3, payload).is_ok();
+        if ours || theirs {
+            bad.push(format!(
+                "alert payload {payload:?}: ours {ours} theirs {theirs}"
+            ));
+        }
+    }
+    for b in 0..=255u8 {
+        total = total.saturating_add(1);
+        let ours = matches!(
+            read_record(&[20, 3, 3, 0, 1, b], false),
+            ReadOut::Done(Frame::Ccs, _)
+        );
+        let theirs = MessagePayload::new(
+            ContentType::ChangeCipherSpec,
+            ProtocolVersion::TLSv1_3,
+            &[b],
+        )
+        .is_ok();
+        if ours != theirs || ours != (b == 1) {
+            bad.push(format!(
+                "change_cipher_spec {b}: ours {ours} theirs {theirs}"
+            ));
+        }
+    }
+    print_suite(
+        "rustls alerts (all 65536 two-byte payloads) and change_cipher_spec",
+        total.saturating_sub(bad.len()),
+        0,
+        bad.len(),
+        total,
+    );
+    assert!(bad.is_empty(), "{:?}", bad.first());
+}
+
+/// rustls cuts the RFC 8448 handshake payloads into records of several
+/// maximum sizes; we read each record, find the header rustls wrote is the
+/// one we write, and reassemble the messages.
+#[test]
+fn rustls_fragmenter() {
+    let flights: Vec<Vec<u8>> = RECORDS
+        .iter()
+        .filter(|r| r.step.contains("handshake record"))
+        .map(|r| hex(r.payload))
+        .collect();
+    let mut cases = 0usize;
+    let mut bad: Vec<String> = Vec::new();
+    for payload in &flights {
+        for max in [32usize, 33, 64, 100, 517, 4096, 16389] {
+            cases = cases.saturating_add(1);
+            let mut fragmenter = MessageFragmenter::default();
+            if fragmenter.set_max_fragment_size(Some(max)).is_err() {
+                bad.push(format!("rustls refuses a maximum of {max}"));
+                continue;
+            }
+            let plain = PlainMessage {
+                typ: ContentType::Handshake,
+                version: ProtocolVersion::TLSv1_2,
+                payload: Payload::Owned(payload.clone()),
+            };
+            let mut st = Reassembler::new();
+            let mut got: Vec<Vec<u8>> = Vec::new();
+            let mut ok = true;
+            for frag in fragmenter.fragment_message(&plain) {
+                let body = frag.payload.to_vec();
+                let mut record = vec![u8::from(frag.typ)];
+                record.extend(u16::from(frag.version).to_be_bytes());
+                record.extend(u16::try_from(body.len()).unwrap_or(0).to_be_bytes());
+                record.extend(&body);
+                match read_record(&record, false) {
+                    ReadOut::Done(Frame::Plain(22, f), []) if f == body.as_slice() => {}
+                    other => {
+                        bad.push(format!(
+                            "size {max}: a record from rustls reads as {other:?}"
+                        ));
+                        ok = false;
+                        break;
+                    }
+                }
+                let mut ours = Vec::new();
+                write_plaintext(&mut ours, 22, 0x0303, &body);
+                if ours != record || record.len() > max {
+                    bad.push(format!(
+                        "size {max}: header bytes differ or the record is over the size"
+                    ));
+                    ok = false;
+                    break;
+                }
+                match st.feed_record(22, &body) {
+                    Ok(Event::Messages(ms)) => got.extend(ms),
+                    other => {
+                        bad.push(format!("size {max}: reassembly gave {other:?}"));
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            if ok
+                && (got != split_messages(payload).unwrap_or_default() || !st.at_message_boundary())
+            {
+                bad.push(format!("size {max}: other messages out"));
+            }
+        }
+    }
+    print_suite(
+        "rustls fragmenter (RFC 8448 payloads, 7 sizes)",
+        cases.saturating_sub(bad.len()),
+        0,
+        bad.len(),
+        cases,
+    );
+    assert!(bad.is_empty(), "{:?}", bad.first());
 }

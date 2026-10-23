@@ -9,6 +9,13 @@ description = "TLS 1.3 (RFC 8446) record layer and handshake message formats: th
 [dependencies]
 vstd = "=0.0.0-2026-10-04-0306"
 
+# Test-only reference engine for the differential test in
+# tests/conformance_tls_formats.rs (class `test` in docs/DEPENDENCIES.md:
+# never shipped). Default features are off, so no cryptography provider is
+# built; only the message codec of `rustls::internal::msgs` is used.
+[dev-dependencies]
+rustls = { version = "=0.23.46", default-features = false }
+
 # Verification tier (docs/VERIFICATION.md). `tier` is what is proven about
 # the shipped code today; `target-tier` is what the policy requires. This
 # crate stays at tier 0 until the key schedule and handshake state machine
