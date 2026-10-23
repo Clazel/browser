@@ -1,5 +1,5 @@
-//! Contracts the executable kernel (item 2.12, not yet written) must be
-//! proven to meet. Each exec function's `ensures` clause is exactly one of
+//! Contracts the executable kernel (item 2.12, in [`crate::exec`]) is proven
+//! to meet. Each exec function's `ensures` clause is exactly one of
 //! these predicates, so reviewing these (and [`super::spec`]) is enough to
 //! know what the implementation guarantees.
 //!
@@ -43,21 +43,42 @@ pub open spec fn psl() -> Seq<clazel_psl::spec::Rule> {
     clazel_psl::table::psl_rules()
 }
 
-/// Precondition of `step(&State, &Event) -> (State, Vec<Output>)`: the state
-/// is well formed (`kernel_wf`); its jar and time are in the range of the
-/// exec cookie functions; the next id fits a `u64` with room for one more;
-/// and a `Tick` carries a time in that range. (The id in `FromRenderer` and
-/// the tab in `NavigateTab` are `u64`s, so they fit.)
+/// Every URL `resolve` returns is a string of Unicode scalar values (the
+/// serialization of a parsed URL always is). The `Commit` of a URL sends it
+/// UTF-8 encoded, and the Encoding Standard's encoder is only defined on
+/// scalar values, so the exec `step` needs this of the URL functions it is
+/// given. (Added by item 2.12; the spec's `commit_frame` is unchanged. It
+/// is a condition on the instantiation, which item 2.13 proves of the real
+/// parser, so the isolation theorems still hold for every `UrlFns`.)
+pub open spec fn urls_resolve_scalar(urls: UrlFns) -> bool {
+    forall|base: Seq<u32>, input: Seq<u32>|
+        match #[trigger] (urls.resolve)(base, input) {
+            Some(u) => clazel_encoding::utf8::spec::all_scalar_values(u),
+            None => true,
+        }
+}
+
+/// Precondition of `step(StateRecord, &EventRecord) -> (StateRecord,
+/// Vec<OutputRecord>)`: the state is well formed (`kernel_wf`); its jar and
+/// time are in the range of the exec cookie functions; the next id fits a
+/// `u64` with room for one more; a `Tick` carries a time in that range; and
+/// the URLs of an `OpenTab` or `NavigateTab` (and those `resolve` returns,
+/// [`urls_resolve_scalar`]) are strings of Unicode scalar values, which a
+/// `Commit` must UTF-8 encode. (The id in `FromRenderer` and the tab in
+/// `NavigateTab` are `u64`s, so they fit.)
 pub open spec fn step_requires(urls: UrlFns, s: State, e: Event) -> bool {
     &&& super::invariant::kernel_wf(psl(), urls, s)
     &&& clazel_cookie::storage::contract::jar_in_range(s.jar)
     &&& clazel_cookie::set_cookie::contract::now_in_range(s.now)
     &&& s.next_id < 0xFFFF_FFFF_FFFF_FFFFnat
     &&& (e is Tick ==> clazel_cookie::set_cookie::contract::now_in_range(e->Tick_time))
+    &&& urls_resolve_scalar(urls)
+    &&& (e is OpenTab ==> clazel_encoding::utf8::spec::all_scalar_values(e->OpenTab_url))
+    &&& (e is NavigateTab ==> clazel_encoding::utf8::spec::all_scalar_values(e->NavigateTab_url))
 }
 
-/// Contract for `step(&State, &Event) -> (State, Vec<Output>)`: the state
-/// and outputs of the spec's `step`.
+/// Contract for `step(StateRecord, &EventRecord) -> (StateRecord,
+/// Vec<OutputRecord>)`: the state and outputs of the spec's `step`.
 pub open spec fn step_ensures(urls: UrlFns, s: State, e: Event, output: (State, Seq<Output>)) -> bool {
     output == step(psl(), urls, s, e)
 }
