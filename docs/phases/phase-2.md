@@ -586,9 +586,12 @@ represent, and fails otherwise. The exceptions are stated in the file: a
 four-digit year below 100 is a two-digit year to the cookie-date algorithm;
 RFC 850's two-digit year is read by the algorithm's fixed pivot (70 to 99 is
 19xx, 0 to 69 is 20xx), where RFC 9110 reads it relative to the current
-time; second 60 and years below 1601 fail. **Not done:** no WPT `cookies/`
-data is vendored (every test there sets and reads back a cookie, so it is
-2.9); no differential engine for dates. Nine certified mutations.
+time; second 60 and years below 1601 fail. WPT `cookies/` and the `http-state` parser corpus are vendored with 2.9, whose
+storage model reads the primitives' output, and run these functions on every
+row (the `Expires`, `Max-Age`, `Path` and `Domain` rows exercise the date,
+host and path code); there is no differential engine for dates. Nine
+certified mutations. **Tier 2 with 2.9**, when the crate's whole tier
+evidence exists.
 
 ### 2.8 Set-Cookie parsing (M)
 
@@ -629,10 +632,10 @@ order. The grammar is ambiguous in four places (white space before a `;`,
 named against extension productions, name case, quoted values), and the
 file lists how each is read. `Max-Age` keeps its digits as written in the
 transcription, a representation change made after reading the spec so the
-1024-octet limit is stated on the string. **Not done:** no Set-Cookie
-conformance data (the `http-state` parser corpus and WPT
-`cookies/` need the storage model of 2.9); the `Cookie`-side and storage
-steps of §5.7 are 2.9.
+1024-octet limit is stated on the string. Set-Cookie conformance
+data is item 2.9's, since the storage model reads the parser's output: WPT
+`cookies/` and the `http-state` parser corpus run this parser on every row.
+**Tier 2 with 2.9.**
 
 ### 2.9 Cookie storage and retrieval (L)
 
@@ -704,36 +707,103 @@ current drafts), where the two RFCs agree. Conformance:
 - Differential against `cookie_store` (a `test` row, with its own
   dependencies) on random cookie strings and random set and get sequences.
 
-**As built (spec and contracts only; no implementation or exec proofs yet,
-`clazel-cookie` stays at tier 0):** `crates/clazel-cookie/src/storage/`.
-`spec.rs` transcribes §5.2 (same-site requests, over `clazel-origin`'s "same
-site"), §5.7 (`create_a_cookie` is steps 1 to 23.3, `insert_a_cookie` is
-23.4 and 24, `store_a_cookie` adds the eviction) and §5.8.3
-(`retrieval_cookie_list`, `retrieve_cookie_string`, `jar_after_retrieval`),
-with the jar a `Seq<Cookie>`, time an argument, the request URL a
-`RequestUrl` (scheme, canonical host, path) and the request context an
-abstract `RequestContext` (`Http` or `NonHttp`). Its header lists every
-modelling choice, including the two isolation decisions above: the boundary
-is `cookie_root` over a canonical host, and eviction is `evict_over_limit`,
-per root, 180 cookies (`max_cookies_per_root`), with no global limit; expired
-cookies are evicted globally (`evict_expired`), which depends only on time.
-`contract.rs` has `evict_expired`, `store_a_cookie`,
-`store_a_set_cookie_string` and `retrieve_a_cookie_string` over the
-generated PSL tables. One erratum (§5.7 step 10 uses a variable bound only in
-step 9). `lemmas.rs` proves what does not need `lemma_root_of_suffix`:
-`lemma_store_frame_of_new_root` (storing changes only the new cookie's
-root, besides expiry) and `lemma_retrieve_frame_of_root`, with the filter
-lemmas under them. **Statements 2.9 will prove**, recorded in the header of
-`spec.rs` (they need `clazel-psl`'s `lemma_root_of_suffix`, item 2.4):
-`lemma_store_within_root` (the created cookie's domain has the request host's
-root), `lemma_retrieve_within_root` (every retrieved cookie has the host's
-root, from any jar, which is why step 3's public-suffix condition is read as
-part of the second alternative), `lemma_store_frame` and
-`lemma_retrieve_frame` (the plan's forms, from the two proven lemmas and
-those), and `lemma_store_bounds` (storage keeps every root at 180 or fewer
-and keys unique). **Not done:** `exec.rs`, the proofs against the contracts,
-`independent.rs`, the WPT, http-state and `cookie_store` evidence, and
-mutations (a spec-only item has none to certify yet).
+**As built (done at tier 2; `clazel-cookie` is at tier 2):**
+`crates/clazel-cookie/src/storage/`. `spec.rs` transcribes §5.2 (same-site
+requests, over `clazel-origin`'s "same site"), §5.7 (`create_a_cookie` is
+steps 1 to 23.3, `insert_a_cookie` is 23.4 and 24, `store_a_cookie` adds the
+eviction) and §5.8.3 (`retrieval_cookie_list`, `retrieve_cookie_string`,
+`jar_after_retrieval`), with the jar a `Seq<Cookie>`, time an argument, the
+request URL a `RequestUrl` (scheme, canonical host, path) and the request
+context an abstract `RequestContext` (`Http` or `NonHttp`). Its header lists
+every modelling choice, including the two isolation decisions above: the
+boundary is `cookie_root` over a canonical host, and eviction is
+`evict_over_limit`, per root, 180 cookies (`max_cookies_per_root`), with no
+global limit; expired cookies are evicted globally (`evict_expired`), which
+depends only on time. `contract.rs` has `evict_expired`, `store_a_cookie`,
+`store_a_set_cookie_string` and `retrieve_a_cookie_string` over the generated
+PSL tables. One erratum (§5.7 step 10 uses a variable bound only in step 9).
+**Implementation:** `exec.rs`, with record types viewed as the spec's
+(`CookieRecord`, `RequestUrlRecord`, `RequestContextRecord`, a jar is a
+`Vec<CookieRecord>`) and the four contract functions
+(`evict_expired_exec`, `store_a_cookie_exec`,
+`store_a_set_cookie_string_exec`, `retrieve_a_cookie_string_exec`), each
+proven equal to its contract, with the steps of §5.7 as separate proven
+functions (`create_a_cookie_exec`, `insert_a_cookie_exec`,
+`evict_over_limit_exec`) and the retrieval's filter, stable insertion sort
+and serialization. The per-root eviction computes a cookie root (a scan of
+the Public Suffix List) only for a jar of more than 180 cookies, since a
+smaller one has no root over the limit (`lemma_small_jar_within_limit`); the
+rest of retrieval and storage costs a scan only for `same_site` and the public
+suffix tests. **Isolation lemmas** (`isolation.rs`), proven from
+`clazel-psl`'s `lemma_domain_match_same_root`, with a bridge between its
+`domain_match_u32` over code points and this crate's `domain_matches` over
+octets (`lemma_domain_matches_bridge`: for a host name, `domain_matches(h,
+true, c) <==> domain_match_u32(widen(h), widen(c))`, from `widen` being
+injective and commuting with `subrange`): `lemma_store_within_root` (the
+created cookie's domain has the request host's root, from
+`lemma_step_9_10_within_root` for steps 9 and 10), `lemma_store_frame`
+(storing for host `h` leaves `cookies_of_root` of every other root as in
+`evict_expired(jar)`), `lemma_retrieve_within_root`, `lemma_retrieve_frame`
+and `lemma_store_bounds` (every root stays at 180 or fewer and the keys stay
+unique). **Two statements recorded in `spec.rs`'s header were false as
+written and are proven in a corrected form**: `lemma_retrieve_within_root` and
+`lemma_retrieve_frame` said "from any jar", but a cookie whose domain is the
+empty string, with host-only-flag false, is not a public suffix and
+"domain-matches" every host ending in "." (the empty string is a suffix of
+it and the character before it is "."), and the cookie roots of "" and "a."
+differ (`example_empty_domain_breaks_retrieve_within_root` proves it). They
+now take `cookie_domain_nonempty` (for the jar, `jar_domains_nonempty`), an
+invariant of every jar the algorithms make
+(`lemma_store_preserves_domains_nonempty`, given a request host that is not
+empty, which a canonicalized host never is); 2.10's state invariant must
+include it. Neither the spec nor the contracts changed; only the recorded
+statements in the header, in comments. **Independent:**
+`independent.rs` transcribes RFC 6265 §5.3 and §5.4 (a separate session that
+did not read `spec.rs`; the RFC's text was fetched exactly), and
+`independent_equivalence.rs` proves it equal to the spec on a stated class:
+storage (`create_a_cookie` and `insert_a_cookie` against `store_cookie_6265`)
+for cookies with no SameSite attribute, in a same-site context, with no name
+prefix (`__Secure-`, `__Host-`), no secure-overwrite situation (the Secure
+attribute only on a secure request, and no Secure cookie of the same name in
+the jar), no rejected string (both name and value empty, a CTL octet, over
+4096 octets, a Domain over 1024 or outside CHAR, a Path over 1024), a request
+to a host name (not an IP address), and a jar in which every cookie of the
+received name has the new cookie's host-only-flag; retrieval (§5.8.3 and the
+sort and serialization) for a host name in a same-site context, a jar of
+named cookies with host-name domains that, if not host-only, are not public
+suffixes. The session-cookie expiry is `u64::MAX` in the spec and `i64::MAX`
+in the transcription, and the two agree up to it. **Mutations:**
+`mutations.json` has 43, all `killed` with a certificate (24 added here),
+covering the isolation choices (public-suffix check dropped in step 9 and in
+retrieval; domain-match without the "." boundary, reversed, for an IP
+address, dropped; HttpOnly for a "non-HTTP" retrieval; per-root eviction made
+global), secure and path checks, cross-site "non-HTTP" calls in storage and
+retrieval, the order of the cookie-list, the cookie-string's separator and
+nameless cookies, step 5, the expiry boundary, the old-cookie of step 23 and
+its key. `compute_only` cannot evaluate `create_a_cookie` (it calls
+quantifiers, `contains_http_only_attribute`, `contains_secure_attribute` and
+`secure_cookie_would_be_overlaid`), nor a `filter` or `map_values` (closures),
+so the mutations are certified against the pieces that can be evaluated
+(`examples.rs`) and against lemmas over steps 9 and 10, `cookie_is_retrieved`,
+`step_18_continues` and `victim_from`; **a mutation of the other steps of
+`create_a_cookie` (steps 2 to 8, 11 to 23.3) or of `evict_over_limit`'s
+trigger has no certificate, so none is listed**, and the exec proofs and the
+conformance suites are what cover them. Rewriting those three functions as
+recursions, as `clazel-psl` did, would let them be certified. **Conformance:**
+WPT `cookies/` (nine pages, 178 cases: 177 pass, 1 expected failure for a line
+feed that the HTTP layer would end; the rest of the directory is listed in
+`SOURCE.md` with why not), `http-state`'s parser corpus (222 rows: 195 pass,
+27 expected failures, each with its reason: nameless cookies, which RFC
+6265bis allows and RFC 6265 ignored; NUL and CR inside a header value, which
+the HTTP layer handles; a percent-encoded path; and an empty Domain
+attribute, which draft 22 no longer ignores), and a differential against
+`cookie_store` 0.21.1 on 3000 random set and get sequences (all agree, in the
+class its header states). The deliberate differences between RFC 6265 and the
+draft that the suites expose are the ones the independent transcription's class
+excludes. The `cookie_store` dependency set is `test` rows in
+`docs/DEPENDENCIES.md`; because `cargo metadata` lists a weak `serde?/alloc`
+feature of `time` as an edge to `serde_derive` and `proc-macro2`, the
+dependency checker now accepts a `proof` package below a dev-only edge.
 
 ### 2.10 Kernel state machine: spec and contracts (L)
 
@@ -1043,9 +1113,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.4 Public Suffix List | done at tier 2: `lemma_root_of_suffix`, proven table well-formedness, the independent transcription proven equal, 23 mutations all certified |
 | 2.5 Origins and sites | done at tier 2 (RFC 6454 transcription proven equal on the stated class), 31 mutations killed (with 2.6) |
 | 2.6 Origin of a URL | done at tier 2 with 2.5: proven `url_origin_exec`, WPT origin rows 414/414 and rust-url differential, mutations killed (counted with 2.5; none for blob steps 1 and 2) |
-| 2.7 Cookie primitives | partial: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
-| 2.8 Set-Cookie parsing | partial: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; no Set-Cookie conformance data |
-| 2.9 Cookie storage and retrieval | spec and contracts done; implementation and proofs not started |
+| 2.7 Cookie primitives | done at tier 2 with 2.9: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
+| 2.8 Set-Cookie parsing | done at tier 2 with 2.9: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; Set-Cookie conformance through 2.9's WPT and http-state suites |
+| 2.9 Cookie storage and retrieval | done at tier 2: exec proven against the contracts, isolation lemmas proven (two recorded statements corrected, see above), RFC 6265 transcription proven equal on a stated class, 43 mutations killed, WPT cookies/ 177/178 (1 xfail), http-state parser 195/222 (27 xfail), cookie_store differential 3000/3000 |
 | 2.10 Kernel spec | not started |
 | 2.11 Isolation theorems | not started |
 | 2.12 Kernel implementation | not started |
