@@ -1407,4 +1407,40 @@ pub proof fn lemma_expect_set_equiv(b: Seq<u8>, i: nat, end: nat)
     lemma_expect_constructed_equiv(b, i, end, 17);
 }
 
+
+/// The value the standard gives the contents (§8.3.3, "a two's complement
+/// binary number": the octets' number, less 256^n if bit 8 of the first is
+/// set) and the value the Guide gives them (§5.7, base 256 two's complement,
+/// most significant digit first) are the same number, for every contents.
+pub proof fn lemma_integer_value_equiv(c: Seq<u8>)
+    ensures
+        integer_value(c) == k_integer_value(c),
+    decreases c.len(),
+{
+    if c.len() == 1 {
+        lemma_k_single(c);
+        assert(c =~= seq![c[0]]);
+        super::lemmas_typed::lemma_be_value_single(c[0]);
+        assert(pow256(1) == 256 * pow256(0));
+        assert(pow256(0) == 1);
+    } else if c.len() >= 2 {
+        let d = c.drop_last();
+        let last = c.last();
+        assert(c =~= d.push(last));
+        lemma_integer_value_equiv(d);
+        lemma_k_value_push(d, last);
+        assert(d[0] == c[0]);
+        assert(be_value(c) == be_value(d) * 256 + last as nat);
+        assert(pow256(c.len()) == 256 * pow256(d.len()));
+        if c[0] >= 128 {
+            assert(integer_value(c) == (be_value(d) as int - pow256(d.len()) as int) * 256 + last as int) by (nonlinear_arith)
+                requires
+                    integer_value(c) == be_value(c) as int - pow256(c.len()) as int,
+                    be_value(c) == be_value(d) * 256 + last as nat,
+                    pow256(c.len()) == 256 * pow256(d.len()),
+            ;
+        }
+    }
+}
+
 } // verus!
