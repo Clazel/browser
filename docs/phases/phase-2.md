@@ -1520,7 +1520,78 @@ the README table.
 - **The README line count of the host shell** that this item promises is not
   measured by `cargo xtask report` today; adding it is part of this item.
 
-**As built:** *(to be filled in when the item is done)*
+**As built:** `crates/clazel` (the host shell, a library `Host` and a binary)
+and `crates/clazel-renderer` (library and binary), both Tier 0 with std and
+workspace crates only (no new third-party package, so `Cargo.lock` gained two
+workspace rows and DEPENDENCIES.md none).
+
+- **Host** (`crates/clazel/src/lib.rs` and `main.rs`, 281 lines by `wc -l`;
+  the README footnote reports the number and `cargo xtask report` fails over
+  300). `Host::new(command)` starts renderers with `command(id)`;
+  `open_tab` and `navigate_tab` are the user's `OpenTab` and `NavigateTab`
+  (a `Tick` with the wall clock, in seconds since 1601, goes before every
+  event); `pump` and `run` handle what the renderers' sockets report.
+  Per renderer: `UnixStream::pair`, the child end given to the process as
+  both stdin and stdout (so the renderer needs no `unsafe` to get a
+  socket), stderr piped, and one reader thread per socket that reads whole
+  frames and sends `(id, frame)`, with the id the socket was created for.
+  A frame announcing more than `MAX_FRAME` is refused from its first 4
+  bytes (`payload_length`), and a closed socket ends the thread; both make
+  the host reap the process and feed the kernel `RendererExited`. Outputs of
+  `step_real` are carried out in order. Events from a renderer the host no
+  longer has (killed, or replaced by a navigation) are dropped. The host
+  stops calling `step` if `next_id` reaches `u64::MAX`. A write to a socket
+  times out after 5 s. Every frame the host carries is printed decoded
+  (`renderer 0 -> document.cookie = "a=1"`, `renderer 0 <- result "a=1"`),
+  and so is each exit with the process's status and stderr; `Host::log`
+  keeps the lines. `clazel URL SCRIPT` opens one tab and runs it. 2.16's
+  `demo` subcommand is not built.
+- **Where results are printed.** The renderer prints nothing: the host sees
+  every request and reply on the socket, which is the one channel the kernel
+  also reads, so it prints the results. (A renderer-to-host result channel
+  would be a message the schema does not have and the kernel would treat as
+  malformed.)
+- **Renderer.** `sandbox::enter` is the first call in `main`, before a byte
+  is read; any `Err` prints `clazel-renderer: sandbox layer \`<name>\`
+  failed: ...` and exits 71, which the host reports with the stderr text.
+  macOS: `sandbox_init_profile(&seatbelt::renderer_profile())`. Linux:
+  `set_no_new_privs`, `unshare` (the five namespaces of
+  `namespaces::RENDERER`), Landlock, seccomp last, with the BPF program
+  mapped to `clazel_sys::linux::SockFilter`. Landlock tries the filesystem
+  rights of ABI 5, 3, 2, 1 in turn and moves on only on `EINVAL`; any other
+  error (Landlock disabled, `ENOSYS`) fails closed. `clazel-sys` is
+  unchanged. No thread is started.
+- **Script format.** UTF-8 lines: `cookie-get`, `cookie-set <string>`,
+  `storage-get|storage-remove <key>`, `storage-set <key> <value>`,
+  `storage-clear`, `storage-key <n>`, `storage-length`; blank lines and
+  `#` comments ignored. The decoder (`script.rs`) uses no indexing and no
+  unchecked arithmetic. A bad line exits 64 naming the line. Because the
+  schema has no reply to a cookie write, `removeItem` or `clear`, and
+  answers `setItem` only with an `Error`, the stub sends a `StorageLength`
+  after each `setItem` as a barrier so that replies cannot be mistaken for
+  each other.
+- **Tested.** Renderer: 3 script tests, 3 protocol tests over in-memory
+  streams, and `tests/sandbox.rs` (a harness-less test that re-runs itself
+  as a child, enters the real sandbox, and checks that `open` and a TCP
+  `connect` fail): on this Mac, `sandboxed=true`. Host (`tests/host.rs`,
+  7 tests, all ignored under Miri): oversized frame, closed socket and a
+  kernel-only message each end in `RendererExited` or `Kill` and the kernel
+  forgets the tab (a later navigation spawns nothing); two stubs show that
+  replies go only to the sender (a frame has no id); a same-origin
+  navigation commits to the same renderer and a cross-origin one is
+  `Kill`, `Spawn`, `Commit`; the real sandboxed renderer runs a cookie and
+  `localStorage` script end to end on macOS arm64, and a bad script is
+  reported with its stderr.
+- **Limits.** The Linux path (`sandbox.rs`, namespaces, Landlock fallback,
+  seccomp) was written on a Mac and has not been compiled or run: CI on
+  Linux is its first test. The Linux tests accept a renderer that fails
+  closed with a sandbox-layer message (a container may refuse `unshare` or
+  Landlock) but never a renderer that runs unsandboxed. There is no
+  `pivot_root` to an empty root (`clazel-sys` has no such call): the
+  filesystem is denied by Landlock, not hidden. The Seatbelt profile worked
+  unchanged for this script. The README table has no rows for the two crates
+  until `cargo xtask report --write` is run where Verus and Kani are
+  installed.
 
 
 ### 2.16 Exit demo and adversarial tests (M) — after 2.15
@@ -1581,9 +1652,10 @@ Done:
                                                                          ─> 2.12 kernel exec
                                                                          ─> 2.13 real URL functions
 2.14 sandbox policies
+2.15 host shell + renderer (its README table rows wait for a machine with Verus and Kani)
 
 Left:
-2.15 host shell + renderer (needs 2.0, 2.12, 2.13, 2.14: all done) ─> 2.16 exit demo
+2.16 exit demo (needs 2.15: done)
 ```
 
 Nothing waits on Phase 1: every item of it is merged.
@@ -1607,8 +1679,8 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.12 Kernel implementation | done at tier 2: `step_exec` proven to meet 2.10's contract for any `UrlFnsExec`, the storage-length cast discharged, one contract precondition added (scalar-valued URLs), the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived), WPT cookies/ 11/11 (set and get) and 166/167 (1 xfail, read from the HTTP-built jar), WPT webstorage/ 24/24, cookie_store differential 3000/3000 |
 | 2.13 Navigation with the real URL parser | done, `clazel-kernel` stays at tier 2: `RealUrls` proven equal to `urls::real_urls()` (the real parser, serializers, `url_origin_exec`), `urls_resolve_scalar` proven by a scalar guard on `resolve` (that the guard is vacuous is not proven; 2896/2896 inputs never trigger it), `step_real` for the host shell, the 2.11 theorems restated for the real parser, 16 of 16 mutations certified kills, WPT `urltestdata.json` navigation 336/336 and `origin_of`/`path_of` 560/560 through the kernel |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
-| 2.15 Host shell and renderer stub | not started; ready (2.0, 2.12, 2.13 and 2.14 are done) |
-| 2.16 Exit demo and adversarial tests | not started; waits on 2.15 |
+| 2.15 Host shell and renderer stub | built, Tier 0: `clazel` (281 lines) and `clazel-renderer`, the sandbox entered first on macOS (Seatbelt; the test shows `open` and `connect` denied) and a script run end to end through real processes; the Linux path is written but not yet compiled or run; the README table rows are not yet generated (no Verus or Kani here); CI's full run has not happened |
+| 2.16 Exit demo and adversarial tests | not started; ready (2.15 is built) |
 
 ## Risks
 
