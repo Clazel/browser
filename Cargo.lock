@@ -48,6 +48,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-dns"
+version = "0.0.0"
+dependencies = [
+ "clazel-url",
+ "vstd",
+]
+
+[[package]]
 name = "clazel-encoding"
 version = "0.0.0"
 dependencies = [

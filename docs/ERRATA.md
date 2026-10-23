@@ -149,3 +149,26 @@ it evidently means. Each entry records what we specified instead.
   fails; steps 9 and 10 then use the result. See `create_a_cookie` and
   `step_9_domain_attribute` in `crates/clazel-cookie/src/storage/spec.rs`.
 - **Reported upstream:** not yet.
+
+## RFC 1035 §4.1.4: "a prior occurance" does not rule out a loop
+
+- **Spec:** RFC 1035 (November 1987), §4.1.4 "Message compression",
+  <https://www.rfc-editor.org/rfc/rfc1035#section-4.1.4>
+- **Text:** "an entire domain name or a list of labels at the end of a domain
+  name is replaced with a pointer to a prior occurance of the same name."
+  Phase 3's plan (item 3.4) reads this as "the pointer must point to a lower
+  offset than its own".
+- **Problem:** a lower offset is not enough. A label at offset 0 followed by
+  a pointer at offset 2 to offset 0 points to a lower offset, yet reading
+  the name from offset 0 reaches the pointer again, and a decoder that
+  checks only the offset never stops. The text also does not say whether
+  the "prior occurance" may overlap the pointer.
+- **We specify:** the evident intent: the target is a name that has already
+  occurred, so the octets read from a pointer's target must end at or before
+  the pointer itself (and a pointer found there is held to the same rule
+  against its own offset). A target at or above the pointer is an error as
+  well. Every message an encoder produces satisfies this, because it
+  compresses a name only against names that ended earlier. This gives the
+  decoder a lexicographic `decreases` (the limit, then the distance to it).
+  See `read_name` in `crates/clazel-dns/src/spec.rs`.
+- **Reported upstream:** not yet.
