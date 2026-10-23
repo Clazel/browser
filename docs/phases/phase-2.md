@@ -367,7 +367,101 @@ messages and frames. The schema is ours, so it has no second transcription;
 evidence is its round-trip and canonicity lemmas and the end-to-end tests
 in 2.16.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (`clazel-kernel` is at `tier = 2`):** `crates/clazel-kernel/src/exec/`,
+with the contract in `src/contract.rs`.
+
+- **The exec state** (`exec::records`): `StateRecord { renderers:
+  Vec<RendererRecord { id: u64, tab: u64, url: Vec<u32>, lock: ParsedOrigin }>,
+  jar: Vec<CookieRecord>, storage: Vec<StorageBucket { origin: ParsedOrigin,
+  entries: Vec<StorageEntryRecord { key, value }> }>, next_id: u64, now: u64 }`,
+  with a `view` to 2.10's `State`: `renderers` and `jar` map their records'
+  views, `next_id` and `now` widen, and `storage` is `Map::new(origins of the
+  buckets, entries of the bucket of each)` (`storage_view`). Because a `Map`
+  has one entry per origin and a vector can repeat one, the exec state has one
+  invariant of its own, `exec_wf`: the buckets' origins are distinct and each
+  bucket is non-empty. `init_record` has it and `step_exec` keeps it. Events and
+  outputs are `EventRecord` and `OutputRecord` with views to `Event` and
+  `Output`. `step_exec<U: UrlFnsExec>(urls: &U, s: StateRecord, e: &EventRecord)
+  -> (StateRecord, Vec<OutputRecord>)` requires `step_requires(urls.urls(),
+  s@, e@)` and `s.exec_wf()`, and ensures `step_ensures` (equality with the spec
+  `step` on the views), `exec_wf`, `jar_in_range` and `now_in_range` of the
+  result, and `next_id` grown by at most one. It takes the state by value, so
+  no state is copied. Each helper (`handle_message_exec`,
+  `navigate_tab_exec`, `storage_call_exec`, `set_item_exec`,
+  `reply_frame_exec`, `lock_of_url_exec`, ...) is proven equal to the spec function
+  of the same name, so the proof is a chain of those equalities, and the
+  lookups are loops with invariants (no recursion that a renderer could make
+  deep).
+- **The URL functions** are passed as a trait, `exec::urls::UrlFnsExec`: `spec
+  fn urls(&self) -> UrlFns` and three exec methods (`origin_of`, `path_of`,
+  `resolve`), each with the single `ensures` that its result's view equals the
+  spec function of `urls()`. `step_exec` is generic over it, so the proof holds
+  for any implementation and never unfolds a URL parser. Item 2.13 implements
+  the trait with the real parser and has to prove `urls_resolve_scalar` of it
+  (below).
+- **One contract change** (committed on its own, before the code, as CLAUDE.md
+  rule 3 asks): the exec `step` UTF-8 encodes the committed URL with
+  `clazel-encoding`'s `encode`, which the Encoding Standard defines on
+  Unicode scalar values only, and `commit_frame` of a URL with a surrogate has
+  no meaning. So `step_requires` gained `urls_resolve_scalar(urls)` (every URL
+  `resolve` returns is scalar-valued, true of a serialized URL) and
+  scalar-valued `url`s in `OpenTab` and `NavigateTab`. `spec.rs`, `invariant.rs`
+  and every theorem are unchanged; the new conditions are on the instantiation,
+  which the theorems already quantify over, so they hold for the shipped kernel
+  without change. The doc comments of `contract.rs` say the exec types and the
+  host's obligation (`next_id` below `u64::MAX`).
+- **The `u64` cast of a storage length** is exact in the exec `step` because a
+  bucket is a `Vec`, whose length is a `usize`, and `usize as u64` is exact
+  (verified as part of `read_reply_exec`). For the spec alone,
+  `lemma_storage_length_exact` proves it from `kernel_wf`: a map with unique
+  keys within the 5 MiB quota has at most `max_storage_size() + 1` entries (each
+  entry but one, the empty key, holds an octet). The quota arithmetic of
+  `setItem` is `u64` with the bound proven (`entries_size_exec`,
+  `lemma_quota_push`, `lemma_quota_update`).
+- **`independent.rs`:** 2.11's transcription (the HTML Standard's `document.cookie`
+  getter and setter and the Web Storage methods, proven equal to the spec in
+  `independent_equivalence.rs` on a stated class: a top-level document with the
+  URL the kernel builds and an ASCII scheme; the storage side for any state)
+  covers what the tier check asks for, which is that the file exists and its
+  equivalence is proven. It does not cover the kernel's own policy (locks,
+  navigation, error replies, frames), which no standard defines, so there is
+  nothing to transcribe; exec = spec (this item) and spec = independent
+  transcription (2.11) chain on the stated class.
+- **Mutations:** the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived). 2.12 added no function to `spec.rs`, so it
+  added no mutation: `urls_resolve_scalar` is a hypothesis of the exec
+  contract (dropping it only breaks the exec proofs, which is an incidental
+  kill and no coverage), and the helper specs of `exec::storage` and
+  `exec::step` (`set_item_map`, `read_reply`, ...) are proven equal to the
+  spec's by the exec proofs and carry no theorem to violate.
+- **Conformance** (`tests/conformance_*.rs`, every one through the exec kernel as
+  frames from fake renderers, so through the IPC codec): WPT `cookies/` reused
+  from `clazel-cookie`'s generated table (`include!`, no copy): its 11
+  `domCookieTest` cases set and read through the kernel 11/11, and its 167
+  `httpCookieTest` cases, whose cookies arrive as `Set-Cookie` headers the
+  kernel cannot receive, are read through the kernel from the jar the HTTP
+  path of `clazel-cookie` builds, 166 pass and 1 is the same expected failure
+  as in 2.9 (a line feed in a header value); WPT `webstorage/` 24/24, from six
+  vendored files (`tests/data/wpt-webstorage/`, the pinned WPT commit, a converter
+  `xtask/src/testdata/wpt_webstorage.rs`; `SOURCE.md` lists what was not
+  vendored or converted and why: JavaScript property semantics, events,
+  `sessionStorage`, windows and partitioning, object and lone-surrogate
+  arguments, the quota loop); a differential against `cookie_store` on 3000 random
+  multi-renderer `document.cookie` traces of 24 operations (open, navigate by
+  the renderer's `Navigate` or the user's `NavigateTab`, set, get, exit), 3000/3000.
+  `tests/behaviour.rs` holds hand-written checks (malformed frames, unknown
+  ids, opaque origins, the quota, public-suffix hosts, bad navigations): they
+  are not conformance tests and print no suite line. The URL functions of the
+  tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
+  `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
+  serializer; they are not 2.13's instantiation (nothing proves they equal
+  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
+  reads the system clock on every parse and read, which Miri's isolation
+  refuses, so the reference cannot run (the kernel is run under Miri by the
+  other suites).
+- **Verification:** 266 Verus obligations verify for the crate
+  (`cargo xtask verify --changed`).
+
 
 ### 2.4 Public Suffix List (L)
 
@@ -839,8 +933,8 @@ The URL-to-origin function is a **parameter** of the spec (`spec_fn(Seq<u32>)
 the kernel proofs do not unfold the URL parser's. 2.13 instantiates it with
 the real parser.
 
-**As built (spec and contracts done; the implementation is 2.12, so
-`clazel-kernel` is at `tier = 0`):** `crates/clazel-kernel/src/`.
+**As built (spec and contracts done; the implementation is 2.12, which took
+`clazel-kernel` to `tier = 2`; 2.12 added scalar-valued URLs to `step_requires`):** `crates/clazel-kernel/src/`.
 `spec.rs` has the state (`State`: `renderers: Seq<Renderer>` with id, tab,
 committed URL as code points and lock; `jar: Seq<Cookie>`; `storage:
 Map<Origin, Seq<StorageEntry>>`; `next_id`; `now`), `Event` (`FromRenderer
@@ -1009,8 +1103,8 @@ equal; and Quark's definitions of tab non-interference and cookie
 confidentiality and integrity (2012 paper, §4), restated for this state
 model and proven to follow from the theorems above.
 
-**As built (theorems proven; `clazel-kernel` stays at `tier = 0` until the
-executable kernel, 2.12):** `crates/clazel-kernel/src/`. `statements.rs` and
+**As built (theorems proven; `clazel-kernel` stayed at `tier = 0` until the
+executable kernel, 2.12, took it to tier 2):** `crates/clazel-kernel/src/`. `statements.rs` and
 `noninterference.rs` hold the statements as predicates (committed before the
 proofs); `theorems.rs`, `lock.rs`, `cookie_theorems.rs` and `ni_theorem.rs` the
 proofs; `projection.rs`, `retrieval_projection.rs` and `store_projection.rs`
@@ -1150,7 +1244,101 @@ frames from fake renderers, so through the codec as well. Differential
 against `cookie_store` on random multi-renderer traces, comparing each
 renderer's document.cookie results.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (`clazel-kernel` is at `tier = 2`):** `crates/clazel-kernel/src/exec/`,
+with the contract in `src/contract.rs`.
+
+- **The exec state** (`exec::records`): `StateRecord { renderers:
+  Vec<RendererRecord { id: u64, tab: u64, url: Vec<u32>, lock: ParsedOrigin }>,
+  jar: Vec<CookieRecord>, storage: Vec<StorageBucket { origin: ParsedOrigin,
+  entries: Vec<StorageEntryRecord { key, value }> }>, next_id: u64, now: u64 }`,
+  with a `view` to 2.10's `State`: `renderers` and `jar` map their records'
+  views, `next_id` and `now` widen, and `storage` is `Map::new(origins of the
+  buckets, entries of the bucket of each)` (`storage_view`). Because a `Map`
+  has one entry per origin and a vector can repeat one, the exec state has one
+  invariant of its own, `exec_wf`: the buckets' origins are distinct and each
+  bucket is non-empty. `init_record` has it and `step_exec` keeps it. Events and
+  outputs are `EventRecord` and `OutputRecord` with views to `Event` and
+  `Output`. `step_exec<U: UrlFnsExec>(urls: &U, s: StateRecord, e: &EventRecord)
+  -> (StateRecord, Vec<OutputRecord>)` requires `step_requires(urls.urls(),
+  s@, e@)` and `s.exec_wf()`, and ensures `step_ensures` (equality with the spec
+  `step` on the views), `exec_wf`, `jar_in_range` and `now_in_range` of the
+  result, and `next_id` grown by at most one. It takes the state by value, so
+  no state is copied. Each helper (`handle_message_exec`,
+  `navigate_tab_exec`, `storage_call_exec`, `set_item_exec`,
+  `reply_frame_exec`, `lock_of_url_exec`, ...) is proven equal to the spec function
+  of the same name, so the proof is a chain of those equalities, and the
+  lookups are loops with invariants (no recursion that a renderer could make
+  deep).
+- **The URL functions** are passed as a trait, `exec::urls::UrlFnsExec`: `spec
+  fn urls(&self) -> UrlFns` and three exec methods (`origin_of`, `path_of`,
+  `resolve`), each with the single `ensures` that its result's view equals the
+  spec function of `urls()`. `step_exec` is generic over it, so the proof holds
+  for any implementation and never unfolds a URL parser. Item 2.13 implements
+  the trait with the real parser and has to prove `urls_resolve_scalar` of it
+  (below).
+- **One contract change** (committed on its own, before the code, as CLAUDE.md
+  rule 3 asks): the exec `step` UTF-8 encodes the committed URL with
+  `clazel-encoding`'s `encode`, which the Encoding Standard defines on
+  Unicode scalar values only, and `commit_frame` of a URL with a surrogate has
+  no meaning. So `step_requires` gained `urls_resolve_scalar(urls)` (every URL
+  `resolve` returns is scalar-valued, true of a serialized URL) and
+  scalar-valued `url`s in `OpenTab` and `NavigateTab`. `spec.rs`, `invariant.rs`
+  and every theorem are unchanged; the new conditions are on the instantiation,
+  which the theorems already quantify over, so they hold for the shipped kernel
+  without change. The doc comments of `contract.rs` say the exec types and the
+  host's obligation (`next_id` below `u64::MAX`).
+- **The `u64` cast of a storage length** is exact in the exec `step` because a
+  bucket is a `Vec`, whose length is a `usize`, and `usize as u64` is exact
+  (verified as part of `read_reply_exec`). For the spec alone,
+  `lemma_storage_length_exact` proves it from `kernel_wf`: a map with unique
+  keys within the 5 MiB quota has at most `max_storage_size() + 1` entries (each
+  entry but one, the empty key, holds an octet). The quota arithmetic of
+  `setItem` is `u64` with the bound proven (`entries_size_exec`,
+  `lemma_quota_push`, `lemma_quota_update`).
+- **`independent.rs`:** 2.11's transcription (the HTML Standard's `document.cookie`
+  getter and setter and the Web Storage methods, proven equal to the spec in
+  `independent_equivalence.rs` on a stated class: a top-level document with the
+  URL the kernel builds and an ASCII scheme; the storage side for any state)
+  covers what the tier check asks for, which is that the file exists and its
+  equivalence is proven. It does not cover the kernel's own policy (locks,
+  navigation, error replies, frames), which no standard defines, so there is
+  nothing to transcribe; exec = spec (this item) and spec = independent
+  transcription (2.11) chain on the stated class.
+- **Mutations:** the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived). 2.12 added no function to `spec.rs`, so it
+  added no mutation: `urls_resolve_scalar` is a hypothesis of the exec
+  contract (dropping it only breaks the exec proofs, which is an incidental
+  kill and no coverage), and the helper specs of `exec::storage` and
+  `exec::step` (`set_item_map`, `read_reply`, ...) are proven equal to the
+  spec's by the exec proofs and carry no theorem to violate.
+- **Conformance** (`tests/conformance_*.rs`, every one through the exec kernel as
+  frames from fake renderers, so through the IPC codec): WPT `cookies/` reused
+  from `clazel-cookie`'s generated table (`include!`, no copy): its 11
+  `domCookieTest` cases set and read through the kernel 11/11, and its 167
+  `httpCookieTest` cases, whose cookies arrive as `Set-Cookie` headers the
+  kernel cannot receive, are read through the kernel from the jar the HTTP
+  path of `clazel-cookie` builds, 166 pass and 1 is the same expected failure
+  as in 2.9 (a line feed in a header value); WPT `webstorage/` 24/24, from six
+  vendored files (`tests/data/wpt-webstorage/`, the pinned WPT commit, a converter
+  `xtask/src/testdata/wpt_webstorage.rs`; `SOURCE.md` lists what was not
+  vendored or converted and why: JavaScript property semantics, events,
+  `sessionStorage`, windows and partitioning, object and lone-surrogate
+  arguments, the quota loop); a differential against `cookie_store` on 3000 random
+  multi-renderer `document.cookie` traces of 24 operations (open, navigate by
+  the renderer's `Navigate` or the user's `NavigateTab`, set, get, exit), 3000/3000.
+  `tests/behaviour.rs` holds hand-written checks (malformed frames, unknown
+  ids, opaque origins, the quota, public-suffix hosts, bad navigations): they
+  are not conformance tests and print no suite line. The URL functions of the
+  tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
+  `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
+  serializer; they are not 2.13's instantiation (nothing proves they equal
+  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
+  reads the system clock on every parse and read, which Miri's isolation
+  refuses, so the reference cannot run (the kernel is run under Miri by the
+  other suites).
+- **Verification:** 266 Verus obligations verify for the crate
+  (`cargo xtask verify --changed`).
+
 
 ### 2.13 Navigation with the real URL parser (S)
 
@@ -1269,7 +1457,101 @@ localStorage operations, printing each result.
 Both are Tier 0. Keep the host shell under 300 lines; its line count is in
 the README table.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (`clazel-kernel` is at `tier = 2`):** `crates/clazel-kernel/src/exec/`,
+with the contract in `src/contract.rs`.
+
+- **The exec state** (`exec::records`): `StateRecord { renderers:
+  Vec<RendererRecord { id: u64, tab: u64, url: Vec<u32>, lock: ParsedOrigin }>,
+  jar: Vec<CookieRecord>, storage: Vec<StorageBucket { origin: ParsedOrigin,
+  entries: Vec<StorageEntryRecord { key, value }> }>, next_id: u64, now: u64 }`,
+  with a `view` to 2.10's `State`: `renderers` and `jar` map their records'
+  views, `next_id` and `now` widen, and `storage` is `Map::new(origins of the
+  buckets, entries of the bucket of each)` (`storage_view`). Because a `Map`
+  has one entry per origin and a vector can repeat one, the exec state has one
+  invariant of its own, `exec_wf`: the buckets' origins are distinct and each
+  bucket is non-empty. `init_record` has it and `step_exec` keeps it. Events and
+  outputs are `EventRecord` and `OutputRecord` with views to `Event` and
+  `Output`. `step_exec<U: UrlFnsExec>(urls: &U, s: StateRecord, e: &EventRecord)
+  -> (StateRecord, Vec<OutputRecord>)` requires `step_requires(urls.urls(),
+  s@, e@)` and `s.exec_wf()`, and ensures `step_ensures` (equality with the spec
+  `step` on the views), `exec_wf`, `jar_in_range` and `now_in_range` of the
+  result, and `next_id` grown by at most one. It takes the state by value, so
+  no state is copied. Each helper (`handle_message_exec`,
+  `navigate_tab_exec`, `storage_call_exec`, `set_item_exec`,
+  `reply_frame_exec`, `lock_of_url_exec`, ...) is proven equal to the spec function
+  of the same name, so the proof is a chain of those equalities, and the
+  lookups are loops with invariants (no recursion that a renderer could make
+  deep).
+- **The URL functions** are passed as a trait, `exec::urls::UrlFnsExec`: `spec
+  fn urls(&self) -> UrlFns` and three exec methods (`origin_of`, `path_of`,
+  `resolve`), each with the single `ensures` that its result's view equals the
+  spec function of `urls()`. `step_exec` is generic over it, so the proof holds
+  for any implementation and never unfolds a URL parser. Item 2.13 implements
+  the trait with the real parser and has to prove `urls_resolve_scalar` of it
+  (below).
+- **One contract change** (committed on its own, before the code, as CLAUDE.md
+  rule 3 asks): the exec `step` UTF-8 encodes the committed URL with
+  `clazel-encoding`'s `encode`, which the Encoding Standard defines on
+  Unicode scalar values only, and `commit_frame` of a URL with a surrogate has
+  no meaning. So `step_requires` gained `urls_resolve_scalar(urls)` (every URL
+  `resolve` returns is scalar-valued, true of a serialized URL) and
+  scalar-valued `url`s in `OpenTab` and `NavigateTab`. `spec.rs`, `invariant.rs`
+  and every theorem are unchanged; the new conditions are on the instantiation,
+  which the theorems already quantify over, so they hold for the shipped kernel
+  without change. The doc comments of `contract.rs` say the exec types and the
+  host's obligation (`next_id` below `u64::MAX`).
+- **The `u64` cast of a storage length** is exact in the exec `step` because a
+  bucket is a `Vec`, whose length is a `usize`, and `usize as u64` is exact
+  (verified as part of `read_reply_exec`). For the spec alone,
+  `lemma_storage_length_exact` proves it from `kernel_wf`: a map with unique
+  keys within the 5 MiB quota has at most `max_storage_size() + 1` entries (each
+  entry but one, the empty key, holds an octet). The quota arithmetic of
+  `setItem` is `u64` with the bound proven (`entries_size_exec`,
+  `lemma_quota_push`, `lemma_quota_update`).
+- **`independent.rs`:** 2.11's transcription (the HTML Standard's `document.cookie`
+  getter and setter and the Web Storage methods, proven equal to the spec in
+  `independent_equivalence.rs` on a stated class: a top-level document with the
+  URL the kernel builds and an ASCII scheme; the storage side for any state)
+  covers what the tier check asks for, which is that the file exists and its
+  equivalence is proven. It does not cover the kernel's own policy (locks,
+  navigation, error replies, frames), which no standard defines, so there is
+  nothing to transcribe; exec = spec (this item) and spec = independent
+  transcription (2.11) chain on the stated class.
+- **Mutations:** the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived). 2.12 added no function to `spec.rs`, so it
+  added no mutation: `urls_resolve_scalar` is a hypothesis of the exec
+  contract (dropping it only breaks the exec proofs, which is an incidental
+  kill and no coverage), and the helper specs of `exec::storage` and
+  `exec::step` (`set_item_map`, `read_reply`, ...) are proven equal to the
+  spec's by the exec proofs and carry no theorem to violate.
+- **Conformance** (`tests/conformance_*.rs`, every one through the exec kernel as
+  frames from fake renderers, so through the IPC codec): WPT `cookies/` reused
+  from `clazel-cookie`'s generated table (`include!`, no copy): its 11
+  `domCookieTest` cases set and read through the kernel 11/11, and its 167
+  `httpCookieTest` cases, whose cookies arrive as `Set-Cookie` headers the
+  kernel cannot receive, are read through the kernel from the jar the HTTP
+  path of `clazel-cookie` builds, 166 pass and 1 is the same expected failure
+  as in 2.9 (a line feed in a header value); WPT `webstorage/` 24/24, from six
+  vendored files (`tests/data/wpt-webstorage/`, the pinned WPT commit, a converter
+  `xtask/src/testdata/wpt_webstorage.rs`; `SOURCE.md` lists what was not
+  vendored or converted and why: JavaScript property semantics, events,
+  `sessionStorage`, windows and partitioning, object and lone-surrogate
+  arguments, the quota loop); a differential against `cookie_store` on 3000 random
+  multi-renderer `document.cookie` traces of 24 operations (open, navigate by
+  the renderer's `Navigate` or the user's `NavigateTab`, set, get, exit), 3000/3000.
+  `tests/behaviour.rs` holds hand-written checks (malformed frames, unknown
+  ids, opaque origins, the quota, public-suffix hosts, bad navigations): they
+  are not conformance tests and print no suite line. The URL functions of the
+  tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
+  `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
+  serializer; they are not 2.13's instantiation (nothing proves they equal
+  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
+  reads the system clock on every parse and read, which Miri's isolation
+  refuses, so the reference cannot run (the kernel is run under Miri by the
+  other suites).
+- **Verification:** 266 Verus obligations verify for the crate
+  (`cargo xtask verify --changed`).
+
 
 ### 2.16 Exit demo and adversarial tests (M) — waits on 2.13 and 2.0 (via 2.15)
 
@@ -1288,7 +1570,101 @@ the README table.
   with seccomp, kill the process). These run on both platforms in `verify`.
 - WPT `cookies/` document.cookie cases end to end through real processes.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (`clazel-kernel` is at `tier = 2`):** `crates/clazel-kernel/src/exec/`,
+with the contract in `src/contract.rs`.
+
+- **The exec state** (`exec::records`): `StateRecord { renderers:
+  Vec<RendererRecord { id: u64, tab: u64, url: Vec<u32>, lock: ParsedOrigin }>,
+  jar: Vec<CookieRecord>, storage: Vec<StorageBucket { origin: ParsedOrigin,
+  entries: Vec<StorageEntryRecord { key, value }> }>, next_id: u64, now: u64 }`,
+  with a `view` to 2.10's `State`: `renderers` and `jar` map their records'
+  views, `next_id` and `now` widen, and `storage` is `Map::new(origins of the
+  buckets, entries of the bucket of each)` (`storage_view`). Because a `Map`
+  has one entry per origin and a vector can repeat one, the exec state has one
+  invariant of its own, `exec_wf`: the buckets' origins are distinct and each
+  bucket is non-empty. `init_record` has it and `step_exec` keeps it. Events and
+  outputs are `EventRecord` and `OutputRecord` with views to `Event` and
+  `Output`. `step_exec<U: UrlFnsExec>(urls: &U, s: StateRecord, e: &EventRecord)
+  -> (StateRecord, Vec<OutputRecord>)` requires `step_requires(urls.urls(),
+  s@, e@)` and `s.exec_wf()`, and ensures `step_ensures` (equality with the spec
+  `step` on the views), `exec_wf`, `jar_in_range` and `now_in_range` of the
+  result, and `next_id` grown by at most one. It takes the state by value, so
+  no state is copied. Each helper (`handle_message_exec`,
+  `navigate_tab_exec`, `storage_call_exec`, `set_item_exec`,
+  `reply_frame_exec`, `lock_of_url_exec`, ...) is proven equal to the spec function
+  of the same name, so the proof is a chain of those equalities, and the
+  lookups are loops with invariants (no recursion that a renderer could make
+  deep).
+- **The URL functions** are passed as a trait, `exec::urls::UrlFnsExec`: `spec
+  fn urls(&self) -> UrlFns` and three exec methods (`origin_of`, `path_of`,
+  `resolve`), each with the single `ensures` that its result's view equals the
+  spec function of `urls()`. `step_exec` is generic over it, so the proof holds
+  for any implementation and never unfolds a URL parser. Item 2.13 implements
+  the trait with the real parser and has to prove `urls_resolve_scalar` of it
+  (below).
+- **One contract change** (committed on its own, before the code, as CLAUDE.md
+  rule 3 asks): the exec `step` UTF-8 encodes the committed URL with
+  `clazel-encoding`'s `encode`, which the Encoding Standard defines on
+  Unicode scalar values only, and `commit_frame` of a URL with a surrogate has
+  no meaning. So `step_requires` gained `urls_resolve_scalar(urls)` (every URL
+  `resolve` returns is scalar-valued, true of a serialized URL) and
+  scalar-valued `url`s in `OpenTab` and `NavigateTab`. `spec.rs`, `invariant.rs`
+  and every theorem are unchanged; the new conditions are on the instantiation,
+  which the theorems already quantify over, so they hold for the shipped kernel
+  without change. The doc comments of `contract.rs` say the exec types and the
+  host's obligation (`next_id` below `u64::MAX`).
+- **The `u64` cast of a storage length** is exact in the exec `step` because a
+  bucket is a `Vec`, whose length is a `usize`, and `usize as u64` is exact
+  (verified as part of `read_reply_exec`). For the spec alone,
+  `lemma_storage_length_exact` proves it from `kernel_wf`: a map with unique
+  keys within the 5 MiB quota has at most `max_storage_size() + 1` entries (each
+  entry but one, the empty key, holds an octet). The quota arithmetic of
+  `setItem` is `u64` with the bound proven (`entries_size_exec`,
+  `lemma_quota_push`, `lemma_quota_update`).
+- **`independent.rs`:** 2.11's transcription (the HTML Standard's `document.cookie`
+  getter and setter and the Web Storage methods, proven equal to the spec in
+  `independent_equivalence.rs` on a stated class: a top-level document with the
+  URL the kernel builds and an ASCII scheme; the storage side for any state)
+  covers what the tier check asks for, which is that the file exists and its
+  equivalence is proven. It does not cover the kernel's own policy (locks,
+  navigation, error replies, frames), which no standard defines, so there is
+  nothing to transcribe; exec = spec (this item) and spec = independent
+  transcription (2.11) chain on the stated class.
+- **Mutations:** the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived). 2.12 added no function to `spec.rs`, so it
+  added no mutation: `urls_resolve_scalar` is a hypothesis of the exec
+  contract (dropping it only breaks the exec proofs, which is an incidental
+  kill and no coverage), and the helper specs of `exec::storage` and
+  `exec::step` (`set_item_map`, `read_reply`, ...) are proven equal to the
+  spec's by the exec proofs and carry no theorem to violate.
+- **Conformance** (`tests/conformance_*.rs`, every one through the exec kernel as
+  frames from fake renderers, so through the IPC codec): WPT `cookies/` reused
+  from `clazel-cookie`'s generated table (`include!`, no copy): its 11
+  `domCookieTest` cases set and read through the kernel 11/11, and its 167
+  `httpCookieTest` cases, whose cookies arrive as `Set-Cookie` headers the
+  kernel cannot receive, are read through the kernel from the jar the HTTP
+  path of `clazel-cookie` builds, 166 pass and 1 is the same expected failure
+  as in 2.9 (a line feed in a header value); WPT `webstorage/` 24/24, from six
+  vendored files (`tests/data/wpt-webstorage/`, the pinned WPT commit, a converter
+  `xtask/src/testdata/wpt_webstorage.rs`; `SOURCE.md` lists what was not
+  vendored or converted and why: JavaScript property semantics, events,
+  `sessionStorage`, windows and partitioning, object and lone-surrogate
+  arguments, the quota loop); a differential against `cookie_store` on 3000 random
+  multi-renderer `document.cookie` traces of 24 operations (open, navigate by
+  the renderer's `Navigate` or the user's `NavigateTab`, set, get, exit), 3000/3000.
+  `tests/behaviour.rs` holds hand-written checks (malformed frames, unknown
+  ids, opaque origins, the quota, public-suffix hosts, bad navigations): they
+  are not conformance tests and print no suite line. The URL functions of the
+  tests are `tests/support/mod.rs`'s **test-only** `TestUrls` over
+  `clazel-url`'s proven parser, `clazel-origin`'s `url_origin_exec` and the URL
+  serializer; they are not 2.13's instantiation (nothing proves they equal
+  `UrlFns`). Under Miri the cookies and webstorage suites run every 4th, 89th and 6th
+  case; the differential is `#[cfg_attr(miri, ignore)]` because `cookie_store`
+  reads the system clock on every parse and read, which Miri's isolation
+  refuses, so the reference cannot run (the kernel is run under Miri by the
+  other suites).
+- **Verification:** 266 Verus obligations verify for the crate
+  (`cargo xtask verify --changed`).
+
 
 ## Order of work
 
@@ -1323,9 +1699,9 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.7 Cookie primitives | done at tier 2 with 2.9: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
 | 2.8 Set-Cookie parsing | done at tier 2 with 2.9: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; Set-Cookie conformance through 2.9's WPT and http-state suites |
 | 2.9 Cookie storage and retrieval | done at tier 2: exec proven against the contracts, isolation lemmas proven (two recorded statements corrected, see above), RFC 6265 transcription proven equal on a stated class, 43 mutations killed, WPT cookies/ 177/178 (1 xfail), http-state parser 195/222 (27 xfail), cookie_store differential 3000/3000 |
-| 2.10 Kernel spec | spec and contracts done; implementation is 2.12. `kernel_wf` and `step` preserving it are proven; `clazel-kernel` stays at tier 0 until 2.11 and 2.12 |
-| 2.11 Isolation theorems | done at tier 0 (the executable kernel is 2.12): six theorems and four unwinding lemmas proven for every `UrlFns`; the plan's integrity and noninterference statements corrected (retrieval step 5; user opens tabs only), each with a Verus counterexample, and public-suffix hosts made cookie-averse so the noninterference theorem has one hypothesis; independent HTML transcription proven equal; Quark restated; 9 kernel mutations killed |
-| 2.12 Kernel implementation | not started |
+| 2.10 Kernel spec | spec and contracts done; the implementation is 2.12 (done). `kernel_wf` and `step` preserving it are proven |
+| 2.11 Isolation theorems | done (the executable kernel is 2.12, which took `clazel-kernel` to tier 2): six theorems and four unwinding lemmas proven for every `UrlFns`; the plan's integrity and noninterference statements corrected (retrieval step 5; user opens tabs only), each with a Verus counterexample, and public-suffix hosts made cookie-averse so the noninterference theorem has one hypothesis; independent HTML transcription proven equal; Quark restated; 9 kernel mutations killed |
+| 2.12 Kernel implementation | done at tier 2: `step_exec` proven to meet 2.10's contract for any `UrlFnsExec`, the storage-length cast discharged, one contract precondition added (scalar-valued URLs), the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived), WPT cookies/ 11/11 (set and get) and 166/167 (1 xfail, read from the HTTP-built jar), WPT webstorage/ 24/24, cookie_store differential 3000/3000 |
 | 2.13 Navigation with the real URL parser | not started |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
 | 2.15 Host shell and renderer stub | not started; 2.0 is done, so it waits only on 2.12 |
