@@ -162,14 +162,18 @@ pub open spec fn step_consistency_statement(rules: Seq<clazel_psl::spec::Rule>, 
     rel(rules, urls, d, step(rules, urls, s1, e).0, step(rules, urls, s2, e).0)
 }
 
-/// An event of a renderer of another domain, that is not a `Navigate`.
+/// An event of a renderer of another domain that has no declassified part:
+/// anything but a `Navigate` whose URL decodes and resolves (a `Navigate`
+/// that does not is answered with an error to the sender and changes nothing,
+/// like a message that is not a `Navigate`).
 pub open spec fn other_domain_local(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, e: Event) -> bool {
     &&& e is FromRenderer
     &&& event_domain(rules, s1, e) matches Some(d2) && d2 != d
-    &&& !(decode_renderer_frame(e->FromRenderer_bytes) matches Some(clazel_ipc::message::spec::Message::Navigate { .. }))
+    &&& declassified(urls, s1, e) is None
 }
 
-/// `lemma_local_respect`: such an event leaves the state related to the
+/// `lemma_local_respect` (the plan's "not a `Navigate`", widened to "no
+/// declassified part"): such an event leaves the state related to the
 /// unchanged other one, and sends nothing to `d`.
 pub open spec fn local_respect_statement(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, s1: State, s2: State, e: Event) -> bool {
     let (s1b, out1) = step(rules, urls, s1, e);
