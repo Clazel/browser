@@ -70,8 +70,11 @@ pub open spec fn two_to(m: nat) -> nat {
 /// The hash functions this verifier accepts (§9.2 Note 1 lists more).
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum HashId {
+    /// SHA-256 (`hLen` = 32).
     Sha256,
+    /// SHA-384 (`hLen` = 48).
     Sha384,
+    /// SHA-512 (`hLen` = 64).
     Sha512,
 }
 

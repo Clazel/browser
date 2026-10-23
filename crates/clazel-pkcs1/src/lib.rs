@@ -14,7 +14,11 @@
 //! - [`bignum`]: little-endian `u64` limbs with a `nat` spec, and the
 //!   arithmetic the verification needs.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`lemmas`]: facts proven about the spec itself.
+//! - [`verify`]: the executable `verify` and `encode_message`.
 
 pub mod bignum;
 pub mod contract;
+pub mod lemmas;
 pub mod spec;
+pub mod verify;
