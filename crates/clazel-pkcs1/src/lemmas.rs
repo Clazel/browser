@@ -17,11 +17,84 @@ verus! {
 // Powers of 256.
 // ---------------------------------------------------------------------
 
+/// `pow256` is `vstd`'s `pow(256, m)`.
+pub proof fn lemma_pow256_is_pow(m: nat)
+    ensures
+        pow256(m) == vstd::arithmetic::power::pow(256, m) as nat,
+    decreases m,
+{
+    use vstd::arithmetic::power::*;
+    if m == 0 {
+        lemma_pow0(256);
+    } else if m % 2 == 0 {
+        lemma_pow256_is_pow(m / 2);
+        lemma_pow_adds(256, m / 2, m / 2);
+        lemma_pow_positive(256, m / 2);
+        lemma_pow_positive(256, m);
+        assert(m == m / 2 + m / 2);
+    } else {
+        lemma_pow256_is_pow((m - 1) as nat);
+        lemma_pow_adds(256, (m - 1) as nat, 1);
+        lemma_pow1(256);
+        lemma_pow_positive(256, (m - 1) as nat);
+        lemma_pow_positive(256, m);
+    }
+}
+
+/// `two_to` is `vstd`'s `pow2`.
+pub proof fn lemma_two_to_is_pow2(m: nat)
+    ensures
+        two_to(m) == vstd::arithmetic::power2::pow2(m),
+    decreases m,
+{
+    use vstd::arithmetic::power2::*;
+    lemma2_to64();
+    if m == 0 {
+    } else if m % 2 == 0 {
+        lemma_two_to_is_pow2(m / 2);
+        lemma_pow2_adds(m / 2, m / 2);
+        assert(m == m / 2 + m / 2);
+    } else {
+        lemma_two_to_is_pow2((m - 1) as nat);
+        lemma_pow2_unfold(m);
+    }
+}
+
+/// `2^(m + 1) = 2 * 2^m`.
+pub proof fn lemma_two_to_succ(m: nat)
+    ensures
+        two_to(m + 1) == 2 * two_to(m),
+{
+    lemma_two_to_is_pow2(m);
+    lemma_two_to_is_pow2(m + 1);
+    vstd::arithmetic::power2::lemma_pow2_unfold(m + 1);
+}
+
+/// `2^m > 0`.
+pub proof fn lemma_two_to_pos(m: nat)
+    ensures
+        two_to(m) > 0,
+{
+    lemma_two_to_is_pow2(m);
+    vstd::arithmetic::power2::lemma_pow2_pos(m);
+}
+
+/// `2^64`.
+pub proof fn lemma_two_to_64()
+    ensures
+        two_to(64) == 0x1_0000_0000_0000_0000nat,
+{
+    lemma_two_to_is_pow2(64);
+    vstd::arithmetic::power2::lemma2_to64();
+}
+
 /// `256^(m + 1) = 256 * 256^m`.
 pub proof fn lemma_pow256_succ(m: nat)
     ensures
         pow256(m + 1) == 256 * pow256(m),
 {
+    lemma_pow256_is_pow(m);
+    lemma_pow256_is_pow(m + 1);
     vstd::arithmetic::power::lemma_pow_adds(256, m, 1);
     vstd::arithmetic::power::lemma_pow1(256);
     vstd::arithmetic::power::lemma_pow_positive(256, m);
@@ -33,7 +106,6 @@ pub proof fn lemma_pow256_zero()
     ensures
         pow256(0) == 1,
 {
-    reveal_with_fuel(vstd::arithmetic::power::pow, 1);
 }
 
 /// `256^m > 0`.
@@ -75,22 +147,17 @@ pub proof fn lemma_pow256_limb(l: nat)
         lemma_pow256_zero();
     } else {
         lemma_pow256_limb((l - 1) as nat);
-        // 256^(8 l) = 256^(8 (l-1)) * 256^8, and 256^8 = 2^64.
-        vstd::arithmetic::power::lemma_pow_adds(256, (8 * (l - 1)) as nat, 8);
-        vstd::arithmetic::power::lemma_pow_positive(256, (8 * (l - 1)) as nat);
-        vstd::arithmetic::power::lemma_pow_positive(256, 8);
-        vstd::arithmetic::power::lemma_pow_positive(256, 8 * l);
-        lemma_pow256_zero();
-        lemma_pow256_succ(0);
-        lemma_pow256_succ(1);
-        lemma_pow256_succ(2);
-        lemma_pow256_succ(3);
-        lemma_pow256_succ(4);
-        lemma_pow256_succ(5);
-        lemma_pow256_succ(6);
-        lemma_pow256_succ(7);
-        assert(pow256(8) == crate::bignum::spec::base());
-        assert(8 * l == 8 * (l - 1) + 8);
+        // 256^(8 l) = 256^8 * 256^(8 (l-1)), and 256^8 = 2^64.
+        let b = (8 * (l - 1)) as nat;
+        assert(8 * l == b + 8);
+        lemma_pow256_succ(b);
+        lemma_pow256_succ(b + 1);
+        lemma_pow256_succ(b + 2);
+        lemma_pow256_succ(b + 3);
+        lemma_pow256_succ(b + 4);
+        lemma_pow256_succ(b + 5);
+        lemma_pow256_succ(b + 6);
+        lemma_pow256_succ(b + 7);
     }
 }
 
@@ -101,14 +168,19 @@ pub proof fn lemma_pow256_two_to(m: nat)
     decreases m,
 {
     if m == 0 {
-        lemma_pow256_zero();
-        vstd::arithmetic::power2::lemma2_to64();
     } else {
         lemma_pow256_two_to((m - 1) as nat);
         lemma_pow256_succ((m - 1) as nat);
-        vstd::arithmetic::power2::lemma_pow2_adds((8 * (m - 1)) as nat, 8);
-        vstd::arithmetic::power2::lemma2_to64();
-        assert(8 * m == 8 * (m - 1) + 8);
+        let b = (8 * (m - 1)) as nat;
+        assert(8 * m == b + 8);
+        lemma_two_to_succ(b);
+        lemma_two_to_succ(b + 1);
+        lemma_two_to_succ(b + 2);
+        lemma_two_to_succ(b + 3);
+        lemma_two_to_succ(b + 4);
+        lemma_two_to_succ(b + 5);
+        lemma_two_to_succ(b + 6);
+        lemma_two_to_succ(b + 7);
     }
 }
 
@@ -399,10 +471,7 @@ proof fn lemma_range_constants()
     lemma_pow256_succ(255);
     lemma_pow256_two_to(1024);
     lemma_pow256_two_to(256);
-    lemma_pow256_two_to(255);
-    vstd::arithmetic::power2::lemma_pow2_adds(2047, 1);
-    vstd::arithmetic::power2::lemma_pow2_adds(2040, 7);
-    vstd::arithmetic::power2::lemma2_to64();
+    lemma_two_to_succ(2047);
     lemma_pow256_pos(255);
 }
 

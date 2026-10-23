@@ -281,10 +281,9 @@ pub proof fn lemma_p2_is_two_to(m: nat)
     decreases m,
 {
     if m == 0 {
-        vstd::arithmetic::power2::lemma2_to64();
     } else {
         lemma_p2_is_two_to((m - 1) as nat);
-        vstd::arithmetic::power2::lemma_pow2_unfold(m);
+        crate::lemmas::lemma_two_to_succ((m - 1) as nat);
     }
 }
 
@@ -612,7 +611,7 @@ pub proof fn lemma_independent_equals_spec(
     lemma_p2_is_two_to(64);
     lemma_digest_len_is_hash_len(h);
     assert(exponent_in_range(e) == (3 <= e && e < p2(64))) by {
-        vstd::arithmetic::power2::lemma2_to64();
+        crate::lemmas::lemma_two_to_64();
     }
     if modulus_in_range(n) && exponent_in_range(e) && digest.len() == hash_len(h) {
         crate::lemmas::lemma_modulus_gt_one(n);

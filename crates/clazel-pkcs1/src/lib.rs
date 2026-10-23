@@ -21,6 +21,7 @@
 
 pub mod bignum;
 pub mod contract;
+pub mod examples;
 pub mod independent;
 pub mod lemmas;
 pub mod spec;

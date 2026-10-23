@@ -189,7 +189,7 @@ pub fn verify(n: &[u8], e: u64, digest: &[u8], hash: HashId, signature: &[u8]) -
         proof {
             crate::lemmas::lemma_os2ip_leading_zeros(n@, n@.len());
             assert(n@.skip(n@.len() as int) =~= Seq::<u8>::empty());
-            vstd::arithmetic::power2::lemma_pow2_pos(2047);
+            crate::lemmas::lemma_two_to_pos(2047);
         }
         return false;
     }

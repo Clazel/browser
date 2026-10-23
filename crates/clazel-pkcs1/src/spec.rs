@@ -53,14 +53,33 @@ use vstd::prelude::*;
 
 verus! {
 
-/// `256^m`, with `vstd`'s `pow`.
-pub open spec fn pow256(m: nat) -> nat {
-    vstd::arithmetic::power::pow(256, m) as nat
+/// `256^m`, by repeated squaring (so that evaluating it takes
+/// `O(log m)` steps, which `examples.rs` needs for 2048-bit moduli).
+/// `lemmas::lemma_pow256_is_pow` proves it equals `vstd`'s `pow(256, m)`.
+pub open spec fn pow256(m: nat) -> nat
+    decreases m,
+{
+    if m == 0 {
+        1
+    } else if m % 2 == 0 {
+        pow256(m / 2) * pow256(m / 2)
+    } else {
+        256 * pow256((m - 1) as nat)
+    }
 }
 
-/// `2^m`, with `vstd`'s `pow2`.
-pub open spec fn two_to(m: nat) -> nat {
-    vstd::arithmetic::power2::pow2(m)
+/// `2^m`, by repeated squaring; `lemmas::lemma_two_to_is_pow2` proves it
+/// equals `vstd`'s `pow2`.
+pub open spec fn two_to(m: nat) -> nat
+    decreases m,
+{
+    if m == 0 {
+        1
+    } else if m % 2 == 0 {
+        two_to(m / 2) * two_to(m / 2)
+    } else {
+        2 * two_to((m - 1) as nat)
+    }
 }
 
 // ---------------------------------------------------------------------
@@ -264,7 +283,9 @@ pub open spec fn exponent_in_range(e: nat) -> bool {
 
 /// §8.2.2 RSASSA-PKCS1-V1_5-VERIFY ((n, e), M, S): `true` is "valid
 /// signature". `digest` is the hash of M (header); `n` is the modulus and
-/// `e` the public exponent; `signature` is the octet string S.
+/// `e` the public exponent; `signature` is the octet string S. The
+/// domain restrictions of the header, then the steps of the RFC
+/// ([`rsassa_pkcs1_v1_5_verify_steps`]).
 pub open spec fn rsassa_pkcs1_v1_5_verify(
     n: nat,
     e: nat,
@@ -276,54 +297,68 @@ pub open spec fn rsassa_pkcs1_v1_5_verify(
     if !modulus_in_range(n) || !exponent_in_range(e) {
         false
     } else {
-        // k is the length in octets of the RSA modulus n.
-        let k = octet_len(n);
-        // 1. "If the length of the signature S is not k octets, output
-        //    'invalid signature' and stop."
-        if signature.len() != k {
-            false
-        } else {
-            // 2.(a) "Convert the signature S to an integer signature
-            //        representative s: s = OS2IP (S)."
-            let s = os2ip(signature);
-            // 2.(b) "Apply the RSAVP1 verification primitive to the RSA
-            //        public key (n, e) and the signature representative s
-            //        to produce an integer message representative m:
-            //        m = RSAVP1 ((n, e), s)."
-            // 2.(c) "If RSAVP1 outputs 'signature representative out of
-            //        range', output 'invalid signature' and stop."
-            match rsavp1(n, e, s) {
-                None => false,
-                Some(m) => {
-                    // 2.(d) "Convert the message representative m to an
-                    //        encoded message EM' of length k octets:
-                    //        EM' = I2OSP (m, k)." "If I2OSP outputs
-                    //        'integer too large', output 'invalid
-                    //        signature' and stop."
-                    match i2osp(m, k) {
-                        None => false,
-                        Some(em_prime) => {
-                            // 3. "Apply the EMSA-PKCS1-v1_5 encoding
-                            //    operation to the message M to produce a
-                            //    second encoded message EM of length k
-                            //    octets: EM = EMSA-PKCS1-V1_5-ENCODE (M, k).
-                            //    If the encoding operation outputs
-                            //    'message too long' or 'intended encoded
-                            //    message length too short', output
-                            //    'invalid signature' and stop."
-                            match emsa_pkcs1_v1_5_encode(digest, k, h) {
-                                None => false,
-                                // 4. "Compare the encoded message EM and
-                                //    the second encoded message EM'. If
-                                //    they are the same, output 'valid
-                                //    signature'; otherwise, output
-                                //    'invalid signature'."
-                                Some(em) => em == em_prime,
-                            }
-                        },
-                    }
-                },
-            }
+        rsassa_pkcs1_v1_5_verify_steps(n, e, digest, h, signature)
+    }
+}
+
+/// The steps of §8.2.2, for any modulus and exponent (the restrictions
+/// of the header are in [`rsassa_pkcs1_v1_5_verify`]). Separate so that
+/// each step can be exercised on a small key in the evaluated examples
+/// (`examples.rs`).
+pub open spec fn rsassa_pkcs1_v1_5_verify_steps(
+    n: nat,
+    e: nat,
+    digest: Seq<u8>,
+    h: HashId,
+    signature: Seq<u8>,
+) -> bool {
+    // k is the length in octets of the RSA modulus n.
+    let k = octet_len(n);
+    // 1. "If the length of the signature S is not k octets, output
+    //    'invalid signature' and stop."
+    if signature.len() != k {
+        false
+    } else {
+        // 2.(a) "Convert the signature S to an integer signature
+        //        representative s: s = OS2IP (S)."
+        let s = os2ip(signature);
+        // 2.(b) "Apply the RSAVP1 verification primitive to the RSA
+        //        public key (n, e) and the signature representative s
+        //        to produce an integer message representative m:
+        //        m = RSAVP1 ((n, e), s)."
+        // 2.(c) "If RSAVP1 outputs 'signature representative out of
+        //        range', output 'invalid signature' and stop."
+        match rsavp1(n, e, s) {
+            None => false,
+            Some(m) => {
+                // 2.(d) "Convert the message representative m to an
+                //        encoded message EM' of length k octets:
+                //        EM' = I2OSP (m, k)." "If I2OSP outputs
+                //        'integer too large', output 'invalid
+                //        signature' and stop."
+                match i2osp(m, k) {
+                    None => false,
+                    Some(em_prime) => {
+                        // 3. "Apply the EMSA-PKCS1-v1_5 encoding
+                        //    operation to the message M to produce a
+                        //    second encoded message EM of length k
+                        //    octets: EM = EMSA-PKCS1-V1_5-ENCODE (M, k).
+                        //    If the encoding operation outputs
+                        //    'message too long' or 'intended encoded
+                        //    message length too short', output
+                        //    'invalid signature' and stop."
+                        match emsa_pkcs1_v1_5_encode(digest, k, h) {
+                            None => false,
+                            // 4. "Compare the encoded message EM and
+                            //    the second encoded message EM'. If
+                            //    they are the same, output 'valid
+                            //    signature'; otherwise, output
+                            //    'invalid signature'."
+                            Some(em) => em == em_prime,
+                        }
+                    },
+                }
+            },
         }
     }
 }
