@@ -70,9 +70,9 @@ pub open spec fn domain_of_renderer(rules: Seq<clazel_psl::spec::Rule>, r: Rende
     domain_of_lock(rules, r.lock)
 }
 
-/// The renderers of `s` in domain `d`, in order.
-pub open spec fn renderers_of_domain(rules: Seq<clazel_psl::spec::Rule>, s: State, d: Domain) -> Seq<Renderer> {
-    s.renderers.filter(|r: Renderer| domain_of_renderer(rules, r) == d)
+/// The renderers of `s` in domain `d`.
+pub open spec fn renderers_of_domain(rules: Seq<clazel_psl::spec::Rule>, s: State, d: Domain) -> Set<Renderer> {
+    s.renderers.to_set().filter(|r: Renderer| domain_of_renderer(rules, r) == d)
 }
 
 /// The storage maps of `s` for the tuple origins in domain `d`.
@@ -93,10 +93,16 @@ pub open spec fn cookies_of_domain(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<
 }
 
 /// What domain `d` can observe of the state.
+///
+/// Changed by item 2.11 from the 2.10 definition, each for a reason the
+/// proof found: the renderers are a *set* (the table's order is not
+/// observable: every lookup is by id or tab, which are unique), and the
+/// cookies are the *live* ones (cookies not yet evicted but expired are
+/// invisible, and another domain's cookie call evicts them).
 pub struct Observation {
     /// The records of its renderers.
-    pub renderers: Seq<Renderer>,
-    /// The cookies under its root.
+    pub renderers: Set<Renderer>,
+    /// The unexpired cookies under its root.
     pub cookies: Seq<clazel_cookie::storage::spec::Cookie>,
     /// The storage maps of its origins.
     pub storage: Map<clazel_origin::spec::Origin, Seq<StorageEntry>>,
@@ -108,7 +114,7 @@ pub struct Observation {
 pub open spec fn obs(rules: Seq<clazel_psl::spec::Rule>, s: State, d: Domain) -> Observation {
     Observation {
         renderers: renderers_of_domain(rules, s, d),
-        cookies: cookies_of_domain(rules, s.jar, d),
+        cookies: cookies_of_domain(rules, clazel_cookie::storage::spec::evict_expired(s.jar, s.now), d),
         storage: storage_of_domain(rules, s, d),
         now: s.now,
     }

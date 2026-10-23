@@ -18,6 +18,7 @@ pub mod domain;
 pub mod independent;
 pub mod invariant;
 pub mod lock;
+pub mod noninterference;
 pub mod spec;
 pub mod statements;
 pub mod theorems;
