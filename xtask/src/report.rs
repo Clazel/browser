@@ -21,6 +21,28 @@ pub const BEGIN: &str =
 pub const END: &str = "<!-- END STATUS -->";
 pub const README: &str = "README.md";
 
+/// The host shell's source (phase-2.md item 2.15) and the line limit the plan
+/// sets it.
+pub const HOST_SHELL_DIR: &str = "crates/clazel/src";
+pub const HOST_SHELL_LIMIT: usize = 300;
+
+/// Lines (newline characters, as `wc -l` counts) in the Rust files under `dir`,
+/// or `None` if there is no such directory.
+pub fn host_shell_lines(dir: &Path) -> Option<Result<usize, String>> {
+    if !dir.is_dir() {
+        return None;
+    }
+    let count = || -> Result<usize, String> {
+        let mut total = 0usize;
+        for f in workspace::rust_files(dir)? {
+            let text = std::fs::read_to_string(&f).map_err(|e| format!("{}: {e}", f.display()))?;
+            total = total.saturating_add(text.matches('\n').count());
+        }
+        Ok(total)
+    };
+    Some(count())
+}
+
 /// Lines inside `verus!`, by kind, as counted by Verus's `line_count`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Lines {
@@ -217,6 +239,14 @@ pub fn render_with(table: &Table, carried: &Rows) -> String {
          [docs/SYS-AUDITS.md](docs/SYS-AUDITS.md)."
             .to_owned(),
     );
+    if let Some(Ok(n)) = host_shell_lines(Path::new(HOST_SHELL_DIR)) {
+        out.push(format!(
+            "⁶ The host shell (`{HOST_SHELL_DIR}`, item 2.15) is {n} lines, counted as `wc -l` \
+             counts them over its Rust files; the plan's limit is {HOST_SHELL_LIMIT}. The \
+             command line and the demo (`crates/clazel/cli`, item 2.16) are not counted: \
+             they only call the shell's public functions."
+        ));
+    }
     out.push(END.to_owned());
     out.join("\n")
 }
