@@ -6,6 +6,7 @@
 
 pub mod content_length;
 pub mod contract;
+pub mod examples;
 pub mod lemmas;
 pub mod list;
 pub mod params;
@@ -14,4 +15,6 @@ pub mod section;
 pub mod spec;
 pub mod string;
 pub mod termination;
+#[cfg(test)]
+mod tests;
 pub mod types;

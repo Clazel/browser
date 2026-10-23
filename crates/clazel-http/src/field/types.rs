@@ -9,6 +9,7 @@ use vstd::prelude::*;
 verus! {
 
 /// A field line (§5.2), viewed as [`FieldLine`].
+#[derive(Debug, PartialEq, Eq)]
 pub struct FieldLineBuf {
     /// The field name.
     pub name: Vec<u8>,
@@ -25,6 +26,7 @@ impl View for FieldLineBuf {
 }
 
 /// A parameter (§5.6.6), viewed as [`Parameter`].
+#[derive(Debug, PartialEq, Eq)]
 pub struct ParameterBuf {
     /// The parameter name, as received.
     pub name: Vec<u8>,
@@ -41,6 +43,7 @@ impl View for ParameterBuf {
 }
 
 /// A transfer coding (§10.1.4), viewed as [`TransferCoding`].
+#[derive(Debug, PartialEq, Eq)]
 pub struct TransferCodingBuf {
     /// The coding's name, as received.
     pub name: Vec<u8>,
