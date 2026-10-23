@@ -1,5 +1,5 @@
-//! A second transcription of the message format, from RFC 883 "Domain Names
-//! - Implementation and Specification" (Mockapetris, November 1983,
+//! A second transcription of the message format, from RFC 883, "Domain
+//! Names: Implementation and Specification" (Mockapetris, November 1983,
 //! <https://www.rfc-editor.org/rfc/rfc883>), §4 "Messages": "Header section
 //! format", "Question section format", "Resource record format" and "Domain
 //! name representation and compression", with RFC 1035 where RFC 883 is

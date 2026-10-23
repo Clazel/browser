@@ -178,11 +178,13 @@ pub proof fn lemma_dotted_limits()
     ensures
         dotted_to_wire(fill(97, 63)) == Some(seq![63u8] + fill(97, 63) + seq![0u8]),
         dotted_to_wire(fill(97, 64)) is None,
+        dotted_to_wire(fill(97, 64) + seq![46u8, 97]) is None,
         dotted_to_wire(dotted_name(61)) == Some(max_name(61)),
         dotted_to_wire(dotted_name(62)) is None,
 {
     assert(dotted_to_wire(fill(97, 63)) == Some(seq![63u8] + fill(97, 63) + seq![0u8])) by (compute_only);
     assert(dotted_to_wire(fill(97, 64)) is None) by (compute_only);
+    assert(dotted_to_wire(fill(97, 64) + seq![46u8, 97]) is None) by (compute_only);
     assert(dotted_to_wire(dotted_name(61)) == Some(max_name(61))) by (compute_only);
     assert(dotted_to_wire(dotted_name(62)) is None) by (compute_only);
 }
@@ -748,6 +750,335 @@ pub proof fn lemma_tcp_and_udp_limits()
     assert(tcp_message_len(seq![0u8]) is None) by (compute_only);
     assert(tcp_message_len(seq![1u8, 44] + fill(1, 300)) == Some(300nat)) by (compute_only);
     assert(decode_udp(fill(0, 513)) is None) by (compute_only);
+}
+
+// ---------------------------------------------------------------------------
+// More rules, one example each: the cases that tell one rule from its
+// neighbours.
+// ---------------------------------------------------------------------------
+
+/// §4.1.4: "(The 10 and 01 combinations are reserved for future use.)" A
+/// length octet of 0x40 to 0x7F or 0x80 to 0xBF is not a label, even when
+/// that many octets follow.
+pub proof fn lemma_reserved_prefixes()
+    ensures
+        decode_name(seq![0x80u8] + fill(97, 128) + seq![0u8], 0) is None,
+        decode_name(seq![0x40u8] + fill(97, 64) + seq![0u8], 0) is None,
+        decode_name(seq![0x7Fu8] + fill(97, 127) + seq![0u8], 0) is None,
+        decode_name(seq![0xBFu8] + fill(97, 191) + seq![0u8], 0) is None,
+{
+    assert(decode_name(seq![0x80u8] + fill(97, 128) + seq![0u8], 0) is None) by (compute_only);
+    assert(decode_name(seq![0x40u8] + fill(97, 64) + seq![0u8], 0) is None) by (compute_only);
+    assert(decode_name(seq![0x7Fu8] + fill(97, 127) + seq![0u8], 0) is None) by (compute_only);
+    assert(decode_name(seq![0xBFu8] + fill(97, 191) + seq![0u8], 0) is None) by (compute_only);
+}
+
+/// §4.1.4: the pointer's OFFSET is 14 bits: a pointer 0xC1 0x00 at offset
+/// 270 points to offset 256, where the name "a" is.
+pub proof fn lemma_pointer_offset_bits()
+    ensures
+        decode_name(fill(0, 256) + seq![1u8, 97, 0] + fill(0, 11) + seq![0xC1u8, 0x00], 270) == Some((seq![1u8, 97, 0], 272nat)),
+        // 0xC1 0x2C is offset 300, which is not before the pointer.
+        decode_name(fill(0, 256) + seq![1u8, 97, 0] + fill(0, 11) + seq![0xC1u8, 0x2C], 270) is None,
+{
+    assert(decode_name(fill(0, 256) + seq![1u8, 97, 0] + fill(0, 11) + seq![0xC1u8, 0x00], 270) == Some((seq![1u8, 97, 0], 272nat)))
+        by (compute_only);
+    assert(decode_name(fill(0, 256) + seq![1u8, 97, 0] + fill(0, 11) + seq![0xC1u8, 0x2C], 270) is None) by (compute_only);
+}
+
+/// §2.3.3: names compare equal up to the case of ASCII letters, and only
+/// of those: `@` and `` ` `` (just outside A to Z and a to z) are not
+/// letters, `[` and `{` neither; and lengths must agree.
+pub proof fn lemma_case_folding()
+    ensures
+        bytes_eq_ci(seq![65u8], seq![97u8]),
+        bytes_eq_ci(seq![97u8], seq![65u8]),
+        bytes_eq_ci(seq![90u8], seq![122u8]),
+        bytes_eq_ci(seq![1u8, 69, 88, 97, 77, 112, 76, 69, 0], seq![1u8, 101, 120, 65, 109, 80, 108, 101, 0]),
+        !bytes_eq_ci(seq![64u8], seq![96u8]),
+        !bytes_eq_ci(seq![91u8], seq![123u8]),
+        !bytes_eq_ci(seq![65u8], seq![98u8]),
+        !bytes_eq_ci(seq![97u8, 98u8], seq![97u8, 99u8]),
+        !bytes_eq_ci(seq![97u8], seq![97u8, 98u8]),
+        !bytes_eq_ci(seq![97u8, 98u8], seq![97u8]),
+        bytes_eq_ci(seq![], seq![]),
+{
+    assert(bytes_eq_ci(seq![65u8], seq![97u8])) by (compute_only);
+    assert(bytes_eq_ci(seq![97u8], seq![65u8])) by (compute_only);
+    assert(bytes_eq_ci(seq![90u8], seq![122u8])) by (compute_only);
+    assert(bytes_eq_ci(seq![1u8, 69, 88, 97, 77, 112, 76, 69, 0], seq![1u8, 101, 120, 65, 109, 80, 108, 101, 0])) by (compute_only);
+    assert(!bytes_eq_ci(seq![64u8], seq![96u8])) by (compute_only);
+    assert(!bytes_eq_ci(seq![91u8], seq![123u8])) by (compute_only);
+    assert(!bytes_eq_ci(seq![65u8], seq![98u8])) by (compute_only);
+    assert(!bytes_eq_ci(seq![97u8, 98u8], seq![97u8, 99u8])) by (compute_only);
+    assert(!bytes_eq_ci(seq![97u8], seq![97u8, 98u8])) by (compute_only);
+    assert(!bytes_eq_ci(seq![97u8, 98u8], seq![97u8])) by (compute_only);
+    assert(bytes_eq_ci(seq![], seq![])) by (compute_only);
+}
+
+/// A reply for the question "a" AAAA IN with one AAAA answer whose owner is
+/// a pointer to the question's name (RFC 3596 §2.2: "A 128 bit IPv6 address
+/// is encoded in the data portion of an AAAA resource record in network byte
+/// order"), and one for the question "a" A IN with a CNAME answer whose
+/// RDATA is the label `b` followed by a pointer to "a" (§4.1.4: the length of
+/// the compressed name is the RDLENGTH, 4).
+pub proof fn lemma_reply_aaaa_and_cname()
+    ensures
+        decode_message(
+            seq![
+                0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7,
+                8, 9, 10, 11, 12, 13, 14, 15, 16,
+            ],
+        ) == Some(reply(na(), 28, false, 0, seq![aaaa_rr(na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![])),
+        decode_message(
+            seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 5, 0, 1, 0, 0, 1, 44, 0, 4, 1, 98, 0xC0, 12],
+        ) == Some(reply(na(), 1, false, 0, seq![cname_rr(na(), seq![1u8, 98, 1, 97, 0])], seq![], seq![])),
+{
+    assert(decode_message(
+        seq![
+            0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8,
+            9, 10, 11, 12, 13, 14, 15, 16,
+        ],
+    ) == Some(reply(na(), 28, false, 0, seq![aaaa_rr(na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))) by (compute_only);
+    assert(decode_message(
+        seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 5, 0, 1, 0, 0, 1, 44, 0, 4, 1, 98, 0xC0, 12],
+    ) == Some(reply(na(), 1, false, 0, seq![cname_rr(na(), seq![1u8, 98, 1, 97, 0])], seq![], seq![]))) by (compute_only);
+}
+
+/// One answer, two authority and three additional records, each an A record
+/// with its own address and a TTL of 60: the sections are read in that order
+/// with the counts the header gives, and kept apart.
+pub proof fn lemma_three_sections()
+    ensures
+        decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) == Some(Message {
+                header: reply_header(false, 0, 0, 1, 2, 3),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],
+                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],
+                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],
+            }),
+{
+    assert(decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) == Some(Message {
+                header: reply_header(false, 0, 0, 1, 2, 3),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],
+                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],
+                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],
+            })) by (compute_only);
+}
+
+/// A, AAAA and CNAME are interpreted only in class IN: in class 3 (CH) the
+/// RDATA is kept as octets, whatever its length.
+pub proof fn lemma_other_classes_opaque()
+    ensures
+        decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+            Message {
+                header: reply_header(false, 0, 0, 1, 0, 0),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+                authority: seq![],
+                additional: seq![],
+            },
+        ),
+        decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 28, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+            Message {
+                header: reply_header(false, 0, 0, 1, 0, 0),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 28, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+                authority: seq![],
+                additional: seq![],
+            },
+        ),
+        decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+            Message {
+                header: reply_header(false, 0, 0, 1, 0, 0),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 5, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+                authority: seq![],
+                additional: seq![],
+            },
+        ),
+{
+    assert(decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+        Message {
+            header: reply_header(false, 0, 0, 1, 0, 0),
+            questions: seq![],
+            answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+            authority: seq![],
+            additional: seq![],
+        },
+    )) by (compute_only);
+    assert(decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 28, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+        Message {
+            header: reply_header(false, 0, 0, 1, 0, 0),
+            questions: seq![],
+            answers: seq![Rr { name: seq![0u8], rtype: 28, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+            authority: seq![],
+            additional: seq![],
+        },
+    )) by (compute_only);
+    assert(decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 1, 44, 0, 1, 9]) == Some(
+        Message {
+            header: reply_header(false, 0, 0, 1, 0, 0),
+            questions: seq![],
+            answers: seq![Rr { name: seq![0u8], rtype: 5, rclass: 3, ttl: 300, rdata: Rdata::Opaque(seq![9u8]) }],
+            authority: seq![],
+            additional: seq![],
+        },
+    )) by (compute_only);
+}
+
+/// A message whose RDATA is `n` octets of 7, in a record of unknown type 16
+/// with the root as owner: 23 octets and `n`.
+pub open spec fn big_message(n: nat) -> Seq<u8> {
+    seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 16, 0, 1, 0, 0, 1, 44, (n / 256) as u8, (n % 256) as u8] + fill(7, n)
+}
+
+/// §2.3.4: "UDP messages 512 octets or less": a datagram of 512 octets is
+/// decoded, one of 513 is not, though the same 513 octets are a message
+/// over TCP (§4.2.2).
+pub proof fn lemma_udp_limit()
+    ensures
+        big_message(489).len() == 512,
+        big_message(490).len() == 513,
+        decode_udp(big_message(489)) == Some(
+            Message {
+                header: reply_header(false, 0, 0, 1, 0, 0),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 16, rclass: 1, ttl: 300, rdata: Rdata::Opaque(fill(7, 489)) }],
+                authority: seq![],
+                additional: seq![],
+            },
+        ),
+        decode_udp(big_message(490)) is None,
+        decode_message(big_message(490)) == Some(
+            Message {
+                header: reply_header(false, 0, 0, 1, 0, 0),
+                questions: seq![],
+                answers: seq![Rr { name: seq![0u8], rtype: 16, rclass: 1, ttl: 300, rdata: Rdata::Opaque(fill(7, 490)) }],
+                authority: seq![],
+                additional: seq![],
+            },
+        ),
+{
+    assert(big_message(489).len() == 512) by (compute_only);
+    assert(big_message(490).len() == 513) by (compute_only);
+    assert(decode_udp(big_message(489)) == Some(
+        Message {
+            header: reply_header(false, 0, 0, 1, 0, 0),
+            questions: seq![],
+            answers: seq![Rr { name: seq![0u8], rtype: 16, rclass: 1, ttl: 300, rdata: Rdata::Opaque(fill(7, 489)) }],
+            authority: seq![],
+            additional: seq![],
+        },
+    )) by (compute_only);
+    assert(decode_udp(big_message(490)) is None) by (compute_only);
+    assert(decode_message(big_message(490)) == Some(
+        Message {
+            header: reply_header(false, 0, 0, 1, 0, 0),
+            questions: seq![],
+            answers: seq![Rr { name: seq![0u8], rtype: 16, rclass: 1, ttl: 300, rdata: Rdata::Opaque(fill(7, 490)) }],
+            authority: seq![],
+            additional: seq![],
+        },
+    )) by (compute_only);
+}
+
+/// An address record is an address only if its type and class say so, and
+/// a CNAME only likewise: a record of type 1 in class 3, or of type 2 with
+/// an A address, or the like, gives nothing, even if its data looks like
+/// an address.
+pub proof fn lemma_answer_record_kinds()
+    ensures
+        answer_addresses(
+            query_a(),
+            reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 1, rclass: 3, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        answer_addresses(
+            query_a(),
+            reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 2, rclass: 1, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        answer_addresses(
+            query_aaaa(),
+            reply(na(), 28, false, 0, seq![Rr { name: na(), rtype: 28, rclass: 3, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        answer_addresses(
+            query_aaaa(),
+            reply(na(), 28, false, 0, seq![Rr { name: na(), rtype: 1, rclass: 1, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        answer_addresses(
+            query_a(),
+            reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 5, rclass: 3, ttl: 1, rdata: Rdata::Cname(nb()) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        answer_addresses(
+            query_a(),
+            reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 16, rclass: 1, ttl: 1, rdata: Rdata::Cname(nb()) }], seq![], seq![]),
+        ) == Some(Resolution { addresses: seq![], redirect: None }),
+        // A CNAME owned by another name is not on the chain.
+        answer_addresses(query_a(), reply(na(), 1, false, 0, seq![cname_rr(nb(), nc()), a_rr(na(), 1)], seq![], seq![]))
+            == Some(Resolution { addresses: seq![Addr::V4(1)], redirect: None }),
+        // The first CNAME for a name is the one followed.
+        answer_addresses(query_a(), reply(na(), 1, false, 0, seq![cname_rr(na(), nb()), cname_rr(na(), nc()), a_rr(nb(), 2), a_rr(nc(), 3)], seq![], seq![]))
+            == Some(Resolution { addresses: seq![Addr::V4(2)], redirect: None }),
+{
+    assert(answer_addresses(
+        query_a(),
+        reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 1, rclass: 3, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_a(),
+        reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 2, rclass: 1, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_aaaa(),
+        reply(na(), 28, false, 0, seq![Rr { name: na(), rtype: 28, rclass: 3, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_aaaa(),
+        reply(na(), 28, false, 0, seq![Rr { name: na(), rtype: 1, rclass: 1, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_a(),
+        reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 5, rclass: 3, ttl: 1, rdata: Rdata::Cname(nb()) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_a(),
+        reply(na(), 1, false, 0, seq![Rr { name: na(), rtype: 16, rclass: 1, ttl: 1, rdata: Rdata::Cname(nb()) }], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![], redirect: None })) by (compute_only);
+    assert(answer_addresses(query_a(), reply(na(), 1, false, 0, seq![cname_rr(nb(), nc()), a_rr(na(), 1)], seq![], seq![]))
+        == Some(Resolution { addresses: seq![Addr::V4(1)], redirect: None })) by (compute_only);
+    assert(answer_addresses(
+        query_a(),
+        reply(na(), 1, false, 0, seq![cname_rr(na(), nb()), cname_rr(na(), nc()), a_rr(nb(), 2), a_rr(nc(), 3)], seq![], seq![]),
+    ) == Some(Resolution { addresses: seq![Addr::V4(2)], redirect: None })) by (compute_only);
+}
+
+/// §2.3.4 and §4.2.2: the limits and the codes, as numbers: labels 63,
+/// names 255, UDP messages 512, TCP messages 65535 (the largest value of the
+/// two octet length field: a message that long cannot be built here, which
+/// is why this is a statement about the constant), and the TYPE and CLASS
+/// values of §3.2.2, §3.2.4 and RFC 3596 §2.1.
+pub proof fn lemma_limits_and_codes()
+    ensures
+        MAX_LABEL == 63,
+        MAX_NAME == 255,
+        MAX_UDP == 512,
+        MAX_TCP == 65535,
+        TYPE_A == 1,
+        TYPE_CNAME == 5,
+        TYPE_AAAA == 28,
+        CLASS_IN == 1,
+        tcp_frame(fill(1, 535)) is Some,
+{
+    assert(MAX_LABEL == 63);
+    assert(MAX_NAME == 255);
+    assert(MAX_UDP == 512);
+    assert(MAX_TCP == 65535);
+    assert(TYPE_A == 1);
+    assert(TYPE_CNAME == 5);
+    assert(TYPE_AAAA == 28);
+    assert(CLASS_IN == 1);
+    assert(tcp_frame(fill(1, 535)) is Some) by (compute_only);
 }
 
 } // verus!

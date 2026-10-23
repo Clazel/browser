@@ -123,6 +123,17 @@ impl View for Resolved {
     }
 }
 
+impl Msg {
+    /// Whether the message was truncated (§4.1.1 TC): the reply did not fit
+    /// the channel, and the query is to be repeated over TCP (RFC 7766 §8).
+    pub fn tc(&self) -> (r: bool)
+        ensures
+            r == self@.header.tc,
+    {
+        self.header.tc
+    }
+}
+
 /// The spec view of a sequence of questions.
 pub open spec fn quest_views(s: Seq<Quest>) -> Seq<Question> {
     s.map_values(|q: Quest| q@)
