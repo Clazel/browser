@@ -52,23 +52,7 @@
 //!   `CookieGet` is a function of the domain's own cookies.
 
 #[allow(unused_imports)]
-use super::cookie_theorems::*;
-#[allow(unused_imports)]
-use super::domain::*;
-#[allow(unused_imports)]
-use super::invariant::*;
-#[allow(unused_imports)]
-use super::ni_theorem::*;
-#[allow(unused_imports)]
-use super::noninterference::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::statements::*;
-#[allow(unused_imports)]
-use super::theorems::*;
-#[allow(unused_imports)]
-use super::unwind_base::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -78,30 +62,30 @@ verus! {
 /// the initial state in which the observer's own events and the navigations
 /// of the others are the same (the same purge for `d`), whatever the other
 /// domains do otherwise, send the same bytes to the renderers of `d`.
-pub proof fn quark_tab_non_interference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, t1: Seq<Event>, t2: Seq<Event>)
+pub proof fn quark_tab_non_interference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t1: Seq<Event>, t2: Seq<Event>)
     requires
-        user_tabs_open(rules, urls, init_state(), t1),
-        ps_free_run(rules, urls, init_state(), t1),
-        user_tabs_open(rules, urls, init_state(), t2),
-        ps_free_run(rules, urls, init_state(), t2),
-        purge(rules, urls, d, t1) == purge(rules, urls, d, t2),
+        crate::noninterference::user_tabs_open(rules, urls, init_state(), t1),
+        crate::noninterference::ps_free_run(rules, urls, init_state(), t1),
+        crate::noninterference::user_tabs_open(rules, urls, init_state(), t2),
+        crate::noninterference::ps_free_run(rules, urls, init_state(), t2),
+        crate::domain::purge(rules, urls, d, t1) == crate::domain::purge(rules, urls, d, t2),
     ensures
-        run_outputs_for(rules, urls, d, init_state(), t1) == run_outputs_for(rules, urls, d, init_state(), t2),
+        crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t1) == crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t2),
 {
-    theorem_cookie_noninterference(rules, urls, d, t1);
-    theorem_cookie_noninterference(rules, urls, d, t2);
+    crate::ni_theorem::theorem_cookie_noninterference(rules, urls, d, t1);
+    crate::ni_theorem::theorem_cookie_noninterference(rules, urls, d, t2);
 }
 
 /// ... in particular as if every other domain did not exist (Quark's
 /// corollary): the run of `t` and the run of its purge agree for `d`.
-pub proof fn quark_tab_non_interference_alone(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: Domain, t: Seq<Event>)
+pub proof fn quark_tab_non_interference_alone(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t: Seq<Event>)
     requires
-        user_tabs_open(rules, urls, init_state(), t),
-        ps_free_run(rules, urls, init_state(), t),
+        crate::noninterference::user_tabs_open(rules, urls, init_state(), t),
+        crate::noninterference::ps_free_run(rules, urls, init_state(), t),
     ensures
-        run_outputs_for(rules, urls, d, init_state(), t) == run_outputs_for(rules, urls, d, init_state(), purge(rules, urls, d, t)),
+        crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t) == crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t)),
 {
-    theorem_cookie_noninterference(rules, urls, d, t);
+    crate::ni_theorem::theorem_cookie_noninterference(rules, urls, d, t);
 }
 
 // ---------------------------------------------------------------------
@@ -137,7 +121,7 @@ pub proof fn lemma_store_elements(
             clazel_cookie::storage::isolation::lemma_evict_over_limit_props(rules, e, clazel_cookie::storage::spec::cookie_root_of(rules, new));
             assert(e.contains(c));
             assert(ins.contains(c));
-            lemma_insert_contains(live, new, c);
+            crate::unwind_base::lemma_insert_contains(live, new, c);
         }
     }
 }
@@ -163,8 +147,8 @@ pub proof fn quark_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
     ensures
         quark_cookie_integrity_statement(rules, urls, s, e),
 {
-    theorem_cookie_integrity(rules, urls, s, e);
-    lemma_reachable_wf(rules, urls, s);
+    crate::cookie_theorems::theorem_cookie_integrity(rules, urls, s, e);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
     let s1 = step(rules, urls, s, e).0;
     let any_root = clazel_cookie::matching::spec::CanonicalHost { name: seq![], is_ip_address: false };
     assert forall|c: clazel_cookie::storage::spec::Cookie| s1.jar.contains(c) implies (s.jar.contains(c) || (exists|c0: clazel_cookie::storage::spec::Cookie| s.jar.contains(c0) && c == clazel_cookie::storage::spec::with_last_access_time(c0, s.now))
@@ -177,13 +161,13 @@ pub proof fn quark_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
                 clazel_cookie::storage::isolation::lemma_evict_expired_props(rules, s.jar, now, any_root);
             },
             Event::FromRenderer { id, bytes } => {
-                lemma_find_by_id(s.renderers, id, 0);
+                crate::invariant::lemma_find_by_id(s.renderers, id, 0);
                 if let Some(i) = find_by_id(s.renderers, id, 0) {
                     let r = s.renderers[i];
                     match decode_renderer_frame(bytes) {
                         Some(clazel_ipc::message::spec::Message::CookieSet { cookie_string }) => {
                             if !cookie_averse(r.lock) {
-                                lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
+                                crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
                                 let url = request_url_of(urls, r);
                                 assert(url.host == lock_host(r.lock));
                                 lemma_store_elements(rules, s.jar, cookie_string, url, document_context(r.lock), s.now, lock_host(r.lock)->Some_0, c);
@@ -244,13 +228,13 @@ pub proof fn quark_cookie_confidentiality(rules: Seq<clazel_psl::spec::Rule>, ur
     ensures
         quark_cookie_confidentiality_statement(rules, urls, s, id, bytes),
 {
-    theorem_cookie_confidentiality(rules, urls, s, id, bytes);
-    lemma_reachable_wf(rules, urls, s);
-    lemma_find_by_id(s.renderers, id, 0);
+    crate::cookie_theorems::theorem_cookie_confidentiality(rules, urls, s, id, bytes);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         let r = s.renderers[i];
         if decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::CookieGet) && !cookie_averse(r.lock) {
-            lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
+            crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
             let live = clazel_cookie::storage::spec::evict_expired(s.jar, s.now);
             let list = clazel_cookie::storage::spec::retrieval_cookie_list(rules, live, request_url_of(urls, r), document_context(r.lock));
             let host = lock_host(r.lock)->Some_0;

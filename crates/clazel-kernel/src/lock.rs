@@ -2,13 +2,7 @@
 //! the origin of its committed URL, and only navigation sets it.
 
 #[allow(unused_imports)]
-use super::invariant::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::statements::*;
-#[allow(unused_imports)]
-use super::theorems::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -19,9 +13,9 @@ pub proof fn theorem_lock_is_committed_origin_state(rules: Seq<clazel_psl::spec:
     requires
         reachable(rules, urls, s),
     ensures
-        lock_is_committed_origin_statement(urls, s),
+        crate::statements::lock_is_committed_origin_statement(urls, s),
 {
-    lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
     assert forall|i: int| 0 <= i < s.renderers.len() implies (lock_of_url(urls, (#[trigger] s.renderers[i]).url, s.renderers[i].id) == Some(s.renderers[i].lock)
         && match (urls.origin_of)(s.renderers[i].url) {
         Some(o) => match o {
@@ -38,7 +32,7 @@ pub proof fn theorem_lock_is_committed_origin_state(rules: Seq<clazel_psl::spec:
 /// Distinct positions of a well-formed table have distinct ids.
 pub proof fn lemma_ids_distinct(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, a: int, b: int)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= a < rs.len(),
         0 <= b < rs.len(),
         rs[a].id == rs[b].id,
@@ -55,7 +49,7 @@ pub proof fn lemma_ids_distinct(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, a
 /// Locks of surviving ids after a removal.
 pub proof fn lemma_stable_remove(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= i < rs.len(),
     ensures
         forall|a: int, b: int|
@@ -78,7 +72,7 @@ pub proof fn lemma_stable_remove(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, 
 /// id and lock, or has a fresh id.
 pub proof fn lemma_stable_update(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int, r: Renderer)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= i < rs.len(),
         (r.id == rs[i].id && r.lock == rs[i].lock) || r.id == next_id,
     ensures
@@ -106,7 +100,7 @@ pub proof fn lemma_stable_update(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, 
 /// survives.
 pub proof fn lemma_navigate_tab_stable(urls: UrlFns, s: State, tab: nat, url: Seq<u32>, script: Seq<u8>)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
     ensures
         ({
             let s1 = navigate_tab(urls, s, tab, url, script).0;
@@ -115,7 +109,7 @@ pub proof fn lemma_navigate_tab_stable(urls: UrlFns, s: State, tab: nat, url: Se
                     == s1.renderers[b].lock
         }),
 {
-    lemma_find_by_tab(s.renderers, tab, 0);
+    crate::invariant::lemma_find_by_tab(s.renderers, tab, 0);
     if let Some(i) = find_by_tab(s.renderers, tab, 0) {
         if let Some(lock) = lock_of_url(urls, url, s.next_id) {
             let old = s.renderers[i];
@@ -141,19 +135,19 @@ pub proof fn lemma_storage_call_frame(s: State, r: Renderer, m: clazel_ipc::mess
 /// How `step` changes the renderer table.
 pub proof fn lemma_step_renderers_shape(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, e: Event)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
     ensures
         ({
             let s1 = step(rules, urls, s, e).0;
-            navigation_event(e) || s1.renderers == s.renderers || exists|i: int| 0 <= i < s.renderers.len() && s1.renderers == s.renderers.remove(i)
+            crate::statements::navigation_event(e) || s1.renderers == s.renderers || exists|i: int| 0 <= i < s.renderers.len() && s1.renderers == s.renderers.remove(i)
         }),
 {
     match e {
         Event::RendererExited { id } => {
-            lemma_find_by_id(s.renderers, id, 0);
+            crate::invariant::lemma_find_by_id(s.renderers, id, 0);
         },
         Event::FromRenderer { id, bytes } => {
-            lemma_find_by_id(s.renderers, id, 0);
+            crate::invariant::lemma_find_by_id(s.renderers, id, 0);
             if let Some(i) = find_by_id(s.renderers, id, 0) {
                 let r = s.renderers[i];
                 match decode_renderer_frame(bytes) {
@@ -173,7 +167,7 @@ pub proof fn lemma_step_renderers_shape(rules: Seq<clazel_psl::spec::Rule>, urls
 /// Same renderers: every surviving id has its lock.
 pub proof fn lemma_stable_same(urls: UrlFns, rs: Seq<Renderer>, next_id: nat)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
     ensures
         forall|a: int, b: int| 0 <= a < rs.len() && 0 <= b < rs.len() && (#[trigger] rs[a]).id == (#[trigger] rs[b]).id ==> rs[a].lock == rs[b].lock,
 {
@@ -187,9 +181,9 @@ pub proof fn theorem_lock_set_only_by_navigation(rules: Seq<clazel_psl::spec::Ru
     requires
         reachable(rules, urls, s),
     ensures
-        lock_set_only_by_navigation_statement(rules, urls, s, e),
+        crate::statements::lock_set_only_by_navigation_statement(rules, urls, s, e),
 {
-    lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
     lemma_step_renderers_shape(rules, urls, s, e);
     let s1 = step(rules, urls, s, e).0;
     lemma_stable_same(urls, s.renderers, s.next_id);
@@ -197,7 +191,7 @@ pub proof fn theorem_lock_set_only_by_navigation(rules: Seq<clazel_psl::spec::Ru
         assert forall|j: int| 0 <= j < s1.renderers.len() implies s.renderers.contains(#[trigger] s1.renderers[j]) by {
             assert(s.renderers[j] == s1.renderers[j]);
         }
-    } else if !navigation_event(e) {
+    } else if !crate::statements::navigation_event(e) {
         let k = choose|k: int| 0 <= k < s.renderers.len() && s1.renderers == s.renderers.remove(k);
         lemma_stable_remove(urls, s.renderers, s.next_id, k);
     } else {
@@ -222,7 +216,7 @@ pub proof fn theorem_lock_set_only_by_navigation(rules: Seq<clazel_psl::spec::Ru
                 lemma_navigate_tab_stable(urls, s, tab, url, script);
             },
             Event::FromRenderer { id, bytes } => {
-                lemma_find_by_id(s.renderers, id, 0);
+                crate::invariant::lemma_find_by_id(s.renderers, id, 0);
                 if let Some(i) = find_by_id(s.renderers, id, 0) {
                     let r = s.renderers[i];
                     if let Some(clazel_ipc::message::spec::Message::Navigate { url }) = decode_renderer_frame(bytes) {
@@ -248,11 +242,11 @@ pub proof fn theorem_lock_is_committed_origin(rules: Seq<clazel_psl::spec::Rule>
     requires
         reachable(rules, urls, s),
     ensures
-        lock_is_committed_origin_statement(urls, s),
-        forall|e: Event| #[trigger] lock_set_only_by_navigation_statement(rules, urls, s, e),
+        crate::statements::lock_is_committed_origin_statement(urls, s),
+        forall|e: Event| #[trigger] crate::statements::lock_set_only_by_navigation_statement(rules, urls, s, e),
 {
     theorem_lock_is_committed_origin_state(rules, urls, s);
-    assert forall|e: Event| #[trigger] lock_set_only_by_navigation_statement(rules, urls, s, e) by {
+    assert forall|e: Event| #[trigger] crate::statements::lock_set_only_by_navigation_statement(rules, urls, s, e) by {
         theorem_lock_set_only_by_navigation(rules, urls, s, e);
     }
 }

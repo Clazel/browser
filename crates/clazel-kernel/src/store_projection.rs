@@ -5,10 +5,6 @@
 //! §5.7 step 16 reads cookies of other roots: see `counterexamples.rs`.)
 
 #[allow(unused_imports)]
-use super::noninterference::*;
-#[allow(unused_imports)]
-use super::projection::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -58,7 +54,7 @@ pub proof fn lemma_overlay_filter(
 )
     requires
         clazel_cookie::storage::isolation::jar_domains_nonempty(x),
-        jar_no_public_suffix(rules, x),
+        crate::noninterference::jar_no_public_suffix(rules, x),
         dom.name.len() > 0,
         dom.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, dom.name),
         clazel_cookie::storage::spec::cookie_root(rules, dom) == root,
@@ -99,7 +95,7 @@ pub proof fn lemma_filter_contains<A>(s: Seq<A>, p: spec_fn(A) -> bool, i: int)
     ensures
         s.filter(p).contains(s[i]),
 {
-    lemma_filter_remove_at(s, i, p);
+    crate::projection::lemma_filter_remove_at(s, i, p);
     let k = s.subrange(0, i).filter(p).len() as int;
     assert(s.filter(p)[k] == s[i]);
 }
@@ -173,7 +169,7 @@ pub proof fn lemma_insert_filter(jar: Seq<clazel_cookie::storage::spec::Cookie>,
         },
         Some(i) => {
             assert(p(jar[i]));
-            lemma_filter_remove_at(jar, i, p);
+            crate::projection::lemma_filter_remove_at(jar, i, p);
             let k = jar.subrange(0, i).filter(p).len() as int;
             lemma_find_old_before(jar, new, 0, i);
             let pre = jar.subrange(0, i);
@@ -263,7 +259,7 @@ pub proof fn lemma_victim_filter(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<cl
                     let kj = jar.subrange(0, j).filter(p).len() as int;
                     assert(clazel_cookie::storage::spec::victim_from(rules, f, root, f.len()) == Some(kj));
                     // f[kj] is jar[j].
-                    lemma_filter_remove_at(pre, j, p);
+                    crate::projection::lemma_filter_remove_at(pre, j, p);
                     assert(pre.subrange(0, j) =~= jar.subrange(0, j));
                     assert(f[kj] == jar[j]);
                     assert(f2[kj] == jar[j]);
@@ -294,7 +290,7 @@ pub proof fn lemma_evict_over_limit_filter(rules: Seq<clazel_psl::spec::Rule>, j
         lemma_victim_filter(rules, jar, root, jar.len());
         let j = clazel_cookie::storage::spec::victim_from(rules, jar, root, jar.len())->Some_0;
         jar.remove_ensures(j);
-        lemma_filter_remove_at(jar, j, p);
+        crate::projection::lemma_filter_remove_at(jar, j, p);
         let k = jar.subrange(0, j).filter(p).len() as int;
         lemma_evict_over_limit_filter(rules, jar.remove(j), root);
         assert(clazel_cookie::storage::spec::victim_from(rules, f, root, f.len()) == Some(k));
@@ -327,7 +323,7 @@ pub proof fn lemma_old_cookie_filter(jar: Seq<clazel_cookie::storage::spec::Cook
         },
         Some(i) => {
             assert(p(jar[i]));
-            lemma_filter_remove_at(jar, i, p);
+            crate::projection::lemma_filter_remove_at(jar, i, p);
             let k = jar.subrange(0, i).filter(p).len() as int;
             lemma_find_old_before(jar, new, 0, i);
             let pre = jar.subrange(0, i);
@@ -365,7 +361,7 @@ pub proof fn lemma_create_filter(
         host.name.len() > 0,
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
         clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
-        jar_no_public_suffix(rules, jar),
+        crate::noninterference::jar_no_public_suffix(rules, jar),
     ensures
         clazel_cookie::storage::spec::create_a_cookie(rules, jar, url, ctx, received, now) == clazel_cookie::storage::spec::create_a_cookie(rules, jar.filter(clazel_cookie::storage::spec::in_root(rules, root)), url, ctx, received, now),
 {
@@ -402,10 +398,10 @@ pub proof fn lemma_create_filter(
 pub proof fn lemma_live_jar_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<clazel_cookie::storage::spec::Cookie>, now: int)
     requires
         clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
-        jar_no_public_suffix(rules, jar),
+        crate::noninterference::jar_no_public_suffix(rules, jar),
     ensures
         clazel_cookie::storage::isolation::jar_domains_nonempty(clazel_cookie::storage::spec::evict_expired(jar, now)),
-        jar_no_public_suffix(rules, clazel_cookie::storage::spec::evict_expired(jar, now)),
+        crate::noninterference::jar_no_public_suffix(rules, clazel_cookie::storage::spec::evict_expired(jar, now)),
 {
     let live = clazel_cookie::storage::spec::evict_expired(jar, now);
     assert forall|i: int| 0 <= i < live.len() implies clazel_cookie::storage::isolation::cookie_domain_nonempty(#[trigger] live[i]) && (live[i].domain.is_ip_address
@@ -430,7 +426,7 @@ pub proof fn lemma_store_cookie_live_root(
         clazel_cookie::storage::spec::cookie_root_of(rules, new) == root,
         clazel_cookie::storage::spec::cookies_of_root(rules, la, root) == clazel_cookie::storage::spec::cookies_of_root(rules, lb, root),
     ensures
-        live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == live_root(
+        crate::projection::live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == crate::projection::live_root(
             rules,
             clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(lb, new), now), root),
             now,
@@ -455,7 +451,7 @@ pub proof fn lemma_store_cookie_live_root_one(rules: Seq<clazel_psl::spec::Rule>
     requires
         clazel_cookie::storage::spec::cookie_root_of(rules, new) == root,
     ensures
-        live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == clazel_cookie::storage::spec::evict_over_limit(
+        crate::projection::live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == clazel_cookie::storage::spec::evict_over_limit(
             rules,
             clazel_cookie::storage::spec::insert_a_cookie(la.filter(clazel_cookie::storage::spec::in_root(rules, root)), new).filter(clazel_cookie::storage::spec::not_expired(now)),
             root,
@@ -498,11 +494,11 @@ pub proof fn lemma_store_agree(
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
         clazel_cookie::storage::isolation::jar_domains_nonempty(ja),
         clazel_cookie::storage::isolation::jar_domains_nonempty(jb),
-        jar_no_public_suffix(rules, ja),
-        jar_no_public_suffix(rules, jb),
-        live_root(rules, ja, now, root) == live_root(rules, jb, now, root),
+        crate::noninterference::jar_no_public_suffix(rules, ja),
+        crate::noninterference::jar_no_public_suffix(rules, jb),
+        crate::projection::live_root(rules, ja, now, root) == crate::projection::live_root(rules, jb, now, root),
     ensures
-        live_root(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, ja, s, url, ctx, now), now, root) == live_root(
+        crate::projection::live_root(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, ja, s, url, ctx, now), now, root) == crate::projection::live_root(
             rules,
             clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jb, s, url, ctx, now),
             now,
@@ -514,8 +510,8 @@ pub proof fn lemma_store_agree(
     let p = clazel_cookie::storage::spec::in_root(rules, root);
     match clazel_cookie::set_cookie::spec::parse_a_set_cookie_string(s, url.path, now) {
         None => {
-            lemma_live_root_evict(rules, ja, now, root);
-            lemma_live_root_evict(rules, jb, now, root);
+            crate::projection::lemma_live_root_evict(rules, ja, now, root);
+            crate::projection::lemma_live_root_evict(rules, jb, now, root);
         },
         Some(received) => {
             lemma_live_jar_props(rules, ja, now);
@@ -525,8 +521,8 @@ pub proof fn lemma_store_agree(
             assert(la.filter(p) == lb.filter(p));
             match clazel_cookie::storage::spec::create_a_cookie(rules, la, url, ctx, received, now) {
                 None => {
-                    lemma_live_root_evict(rules, ja, now, root);
-                    lemma_live_root_evict(rules, jb, now, root);
+                    crate::projection::lemma_live_root_evict(rules, ja, now, root);
+                    crate::projection::lemma_live_root_evict(rules, jb, now, root);
                 },
                 Some(new) => {
                     clazel_cookie::storage::isolation::lemma_store_within_root(rules, la, url, ctx, received, now, host, new);

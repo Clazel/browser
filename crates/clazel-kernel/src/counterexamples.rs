@@ -22,15 +22,7 @@
 //!    6265bis storage applied" omits §5.8.3 step 5.
 
 #[allow(unused_imports)]
-use super::domain::*;
-#[allow(unused_imports)]
-use super::ni_theorem::*;
-#[allow(unused_imports)]
-use super::noninterference::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::unwind_base::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -73,14 +65,14 @@ pub proof fn example_dead_tab_breaks_noninterference(rules: Seq<clazel_psl::spec
         ({
             let urls = ce_urls();
             let t = ce_trace();
-            let d = Domain::Opaque(1nat);
-            ps_free_run(rules, urls, init_state(), t) && !user_tabs_open(rules, urls, init_state(), t) && run_outputs_for(rules, urls, d, init_state(), t)
-                != run_outputs_for(rules, urls, d, init_state(), purge(rules, urls, d, t))
+            let d = crate::domain::Domain::Opaque(1nat);
+            crate::noninterference::ps_free_run(rules, urls, init_state(), t) && !crate::noninterference::user_tabs_open(rules, urls, init_state(), t) && crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t)
+                != crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t))
         }),
 {
     let urls = ce_urls();
     let t = ce_trace();
-    let d = Domain::Opaque(1nat);
+    let d = crate::domain::Domain::Opaque(1nat);
     let e0 = t[0];
     let e1 = t[1];
     let e2 = t[2];
@@ -109,84 +101,84 @@ pub proof fn example_dead_tab_breaks_noninterference(rules: Seq<clazel_psl::spec
     assert(step(rules, urls, s0, t[0]).0 == s1);
     assert(step(rules, urls, s1, t1[0]).0 == s2);
     assert(step(rules, urls, s2, t2[0]).0 == s3);
-    assert(!user_tabs_open(rules, urls, s0, t)) by {
-        reveal_with_fuel(user_tabs_open, 4);
+    assert(!crate::noninterference::user_tabs_open(rules, urls, s0, t)) by {
+        reveal_with_fuel(crate::noninterference::user_tabs_open, 4);
     }
-    assert(state_ps_free(rules, s0));
-    assert(state_ps_free(rules, s1)) by {
-        assert forall|i: int| 0 <= i < s1.renderers.len() implies lock_not_public_suffix(rules, (#[trigger] s1.renderers[i]).lock) by {
+    assert(crate::noninterference::state_ps_free(rules, s0));
+    assert(crate::noninterference::state_ps_free(rules, s1)) by {
+        assert forall|i: int| 0 <= i < s1.renderers.len() implies crate::noninterference::lock_not_public_suffix(rules, (#[trigger] s1.renderers[i]).lock) by {
             assert(s1.renderers[i] == r0);
         }
     }
-    assert(state_ps_free(rules, s2));
-    assert(state_ps_free(rules, s3));
-    assert(ps_free_run(rules, urls, s0, t)) by {
-        reveal_with_fuel(ps_free_run, 4);
+    assert(crate::noninterference::state_ps_free(rules, s2));
+    assert(crate::noninterference::state_ps_free(rules, s3));
+    assert(crate::noninterference::ps_free_run(rules, urls, s0, t)) by {
+        reveal_with_fuel(crate::noninterference::ps_free_run, 4);
     }
     // The original run sends nothing to d: the only renderer is Opaque(0).
     let rest01 = seq![e1, e2];
     assert(t =~= seq![e0] + rest01);
-    lemma_run_outputs_cons(rules, urls, d, s0, e0, rest01);
+    crate::ni_theorem::lemma_run_outputs_cons(rules, urls, d, s0, e0, rest01);
     assert(rest01 =~= seq![e1] + seq![e2]);
-    lemma_run_outputs_cons(rules, urls, d, s1, e1, seq![e2]);
+    crate::ni_theorem::lemma_run_outputs_cons(rules, urls, d, s1, e1, seq![e2]);
     assert(seq![e2] =~= seq![e2] + Seq::<Event>::empty());
-    lemma_run_outputs_cons(rules, urls, d, s2, e2, Seq::<Event>::empty());
+    crate::ni_theorem::lemma_run_outputs_cons(rules, urls, d, s2, e2, Seq::<Event>::empty());
     reveal(Seq::filter);
-    assert(domain_of_renderer(rules, r0) == Domain::Opaque(0nat));
-    assert forall|k: int| 0 <= k < o0.len() implies !addressed_to(rules, d, s0, s1, #[trigger] o0[k]) by {
-        if addressed_to(rules, d, s0, s1, o0[k]) {
-            let q = choose|q: Renderer| (s0.renderers.contains(q) || s1.renderers.contains(q)) && q.id == output_id(o0[k]) && domain_of_renderer(rules, q) == d;
+    assert(crate::domain::domain_of_renderer(rules, r0) == crate::domain::Domain::Opaque(0nat));
+    assert forall|k: int| 0 <= k < o0.len() implies !crate::noninterference::addressed_to(rules, d, s0, s1, #[trigger] o0[k]) by {
+        if crate::noninterference::addressed_to(rules, d, s0, s1, o0[k]) {
+            let q = choose|q: Renderer| (s0.renderers.contains(q) || s1.renderers.contains(q)) && q.id == crate::domain::output_id(o0[k]) && crate::domain::domain_of_renderer(rules, q) == d;
             assert(s1.renderers.contains(q));
             assert(q == r0);
         }
     }
-    lemma_filter_none(o0, |o: Output| addressed_to(rules, d, s0, s1, o));
-    assert forall|k: int| 0 <= k < o1.len() implies !addressed_to(rules, d, s1, s2, #[trigger] o1[k]) by {
-        if addressed_to(rules, d, s1, s2, o1[k]) {
-            let q = choose|q: Renderer| (s1.renderers.contains(q) || s2.renderers.contains(q)) && q.id == output_id(o1[k]) && domain_of_renderer(rules, q) == d;
+    crate::unwind_base::lemma_filter_none(o0, |o: Output| crate::noninterference::addressed_to(rules, d, s0, s1, o));
+    assert forall|k: int| 0 <= k < o1.len() implies !crate::noninterference::addressed_to(rules, d, s1, s2, #[trigger] o1[k]) by {
+        if crate::noninterference::addressed_to(rules, d, s1, s2, o1[k]) {
+            let q = choose|q: Renderer| (s1.renderers.contains(q) || s2.renderers.contains(q)) && q.id == crate::domain::output_id(o1[k]) && crate::domain::domain_of_renderer(rules, q) == d;
             assert(s1.renderers.contains(q));
             assert(q == r0);
         }
     }
-    lemma_filter_none(o1, |o: Output| addressed_to(rules, d, s1, s2, o));
-    assert(run_outputs_for(rules, urls, d, s0, t) =~= Seq::<Output>::empty());
+    crate::unwind_base::lemma_filter_none(o1, |o: Output| crate::noninterference::addressed_to(rules, d, s1, s2, o));
+    assert(crate::noninterference::run_outputs_for(rules, urls, d, s0, t) =~= Seq::<Output>::empty());
     // The purge drops the frame.
-    assert(event_domain(rules, s1, e1) == Some(Domain::Opaque(0nat)));
-    assert(declassified(urls, s1, e1) is None);
-    assert(ipurge_event(rules, urls, s1, d, e1) is None);
-    assert(ipurge_event(rules, urls, s0, d, e0) == Some(e0));
-    assert(ipurge_event(rules, urls, s2, d, e2) == Some(e2));
-    let tail = ipurge(rules, urls, s1, d, rest01);
-    assert(ipurge(rules, urls, s0, d, t) == seq![e0] + tail);
+    assert(crate::domain::event_domain(rules, s1, e1) == Some(crate::domain::Domain::Opaque(0nat)));
+    assert(crate::domain::declassified(urls, s1, e1) is None);
+    assert(crate::domain::ipurge_event(rules, urls, s1, d, e1) is None);
+    assert(crate::domain::ipurge_event(rules, urls, s0, d, e0) == Some(e0));
+    assert(crate::domain::ipurge_event(rules, urls, s2, d, e2) == Some(e2));
+    let tail = crate::domain::ipurge(rules, urls, s1, d, rest01);
+    assert(crate::domain::ipurge(rules, urls, s0, d, t) == seq![e0] + tail);
     assert(rest01.drop_first() =~= seq![e2]);
-    assert(tail == ipurge(rules, urls, s2, d, seq![e2]));
-    assert(ipurge(rules, urls, s2, d, seq![e2]) =~= seq![e2]) by {
+    assert(tail == crate::domain::ipurge(rules, urls, s2, d, seq![e2]));
+    assert(crate::domain::ipurge(rules, urls, s2, d, seq![e2]) =~= seq![e2]) by {
         assert(seq![e2].drop_first() =~= Seq::<Event>::empty());
         assert(seq![e2][0] == e2);
         assert(step(rules, urls, s2, e2).0 == s3);
-        reveal_with_fuel(ipurge, 3);
+        reveal_with_fuel(crate::domain::ipurge, 3);
     }
     assert(tail =~= seq![e2]);
-    let p = purge(rules, urls, d, t);
+    let p = crate::domain::purge(rules, urls, d, t);
     assert(p =~= seq![e0, e2]);
     // The purged run: the renderer 0 navigates to the opaque origin 1.
-    lemma_run_outputs_cons(rules, urls, d, s0, e0, seq![e2]);
+    crate::ni_theorem::lemma_run_outputs_cons(rules, urls, d, s0, e0, seq![e2]);
     let (s1p, o1p) = step(rules, urls, s1, e2);
     assert(find_by_tab(s1.renderers, 0, 0) == Some(0int));
     assert(lock_of_url(urls, empty_u, 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)));
     assert(o1p.len() == 3 && o1p[1] == (Output::Spawn { id: 1, policy: Policy::Renderer }));
     let r1 = Renderer { id: 1, tab: 0, url: empty_u, lock: clazel_origin::spec::Origin::Opaque(1nat) };
     assert(s1p.renderers =~= seq![r1]);
-    assert(domain_of_renderer(rules, r1) == d);
-    assert(addressed_to(rules, d, s1, s1p, o1p[1])) by {
+    assert(crate::domain::domain_of_renderer(rules, r1) == d);
+    assert(crate::noninterference::addressed_to(rules, d, s1, s1p, o1p[1])) by {
         assert(s1p.renderers[0] == r1);
         assert(s1p.renderers.contains(r1));
     }
-    lemma_run_outputs_cons(rules, urls, d, s1, e2, Seq::<Event>::empty());
-    assert(outputs_for(rules, d, s1, s1p, o1p).contains(o1p[1])) by {
-        lemma_filter_contains_elem(o1p, |o: Output| addressed_to(rules, d, s1, s1p, o), 1);
+    crate::ni_theorem::lemma_run_outputs_cons(rules, urls, d, s1, e2, Seq::<Event>::empty());
+    assert(crate::noninterference::outputs_for(rules, d, s1, s1p, o1p).contains(o1p[1])) by {
+        lemma_filter_contains_elem(o1p, |o: Output| crate::noninterference::addressed_to(rules, d, s1, s1p, o), 1);
     }
-    assert(run_outputs_for(rules, urls, d, s0, p).len() > 0);
+    assert(crate::noninterference::run_outputs_for(rules, urls, d, s0, p).len() > 0);
 }
 
 /// An accepted element is in the filter.

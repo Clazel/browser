@@ -44,6 +44,18 @@ theorems = [
     "theorem_cookie_noninterference",
     "theorem_cookie_noninterference_from",
     "theorem_cookie_noninterference_up_to_ids",
+    "lemma_output_consistency",
+    "lemma_step_consistency",
+    "lemma_local_respect",
+    "lemma_navigate_declassify",
+    "quark_tab_non_interference",
+    "quark_cookie_integrity",
+    "quark_cookie_confidentiality",
+    "lemma_independent_cookie_get",
+    "lemma_independent_cookie_set",
+    "example_dead_tab_breaks_noninterference",
+    "example_public_suffix_overlay_crosses_roots",
+    "example_retrieval_changes_jar",
 ]
 
 [package.metadata.verus]

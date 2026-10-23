@@ -4,11 +4,7 @@
 //! `statements.rs` of the same name.
 
 #[allow(unused_imports)]
-use super::invariant::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::statements::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -18,12 +14,12 @@ verus! {
 /// `i` itself.
 pub proof fn lemma_find_by_tab_self(urls: UrlFns, s: State, i: int)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
         0 <= i < s.renderers.len(),
     ensures
         find_by_tab(s.renderers, s.renderers[i].tab, 0) == Some(i),
 {
-    lemma_find_by_tab(s.renderers, s.renderers[i].tab, 0);
+    crate::invariant::lemma_find_by_tab(s.renderers, s.renderers[i].tab, 0);
     match find_by_tab(s.renderers, s.renderers[i].tab, 0) {
         Some(k) => {
             if k != i {
@@ -48,14 +44,14 @@ pub proof fn lemma_find_by_id_some(s: State, id: nat)
             None => forall|k: int| 0 <= k < s.renderers.len() ==> (#[trigger] s.renderers[k]).id != id,
         },
 {
-    lemma_find_by_id(s.renderers, id, 0);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
 }
 
 /// The outputs of `navigate_tab` for a well-formed table: addressed to the
 /// renderer of the tab, or to the renderer spawned.
 pub proof fn lemma_navigate_tab_outputs(urls: UrlFns, s: State, tab: nat, url: Seq<u32>, script: Seq<u8>)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
     ensures
         ({
             let out = navigate_tab(urls, s, tab, url, script).1;
@@ -68,7 +64,7 @@ pub proof fn lemma_navigate_tab_outputs(urls: UrlFns, s: State, tab: nat, url: S
                 }
         }),
 {
-    lemma_find_by_tab(s.renderers, tab, 0);
+    crate::invariant::lemma_find_by_tab(s.renderers, tab, 0);
     if let Some(i) = find_by_tab(s.renderers, tab, 0) {
         let old = s.renderers[i];
         if let Some(lock) = lock_of_url(urls, url, s.next_id) {
@@ -89,10 +85,10 @@ pub proof fn theorem_reply_only_to_sender(rules: Seq<clazel_psl::spec::Rule>, ur
     requires
         reachable(rules, urls, s),
     ensures
-        reply_only_to_sender_statement(rules, urls, s, id, bytes),
+        crate::statements::reply_only_to_sender_statement(rules, urls, s, id, bytes),
 {
-    lemma_reachable_wf(rules, urls, s);
-    lemma_find_by_id(s.renderers, id, 0);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
     let out = step(rules, urls, s, Event::FromRenderer { id, bytes }).1;
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         let r = s.renderers[i];
@@ -103,7 +99,7 @@ pub proof fn theorem_reply_only_to_sender(rules: Seq<clazel_psl::spec::Rule>, ur
                         if lock_of_url(urls, resolved, s.next_id) is Some {
                             lemma_navigate_tab_outputs(urls, s, r.tab, resolved, no_script());
                             lemma_find_by_tab_self(urls, s, i);
-                            lemma_find_by_tab(s.renderers, r.tab, 0);
+                            crate::invariant::lemma_find_by_tab(s.renderers, r.tab, 0);
                             assert forall|k: int| 0 <= k < out.len() implies match #[trigger] out[k] {
                                 Output::ToRenderer { id: x, .. } => x == id || (x == s.next_id && out.contains(Output::Spawn { id: x, policy: Policy::Renderer })),
                                 Output::Spawn { id: x, .. } => x == s.next_id,
@@ -134,7 +130,7 @@ pub proof fn theorem_reply_only_to_sender(rules: Seq<clazel_psl::spec::Rule>, ur
 /// Two renderers of a well-formed table with the same tab are the same.
 pub proof fn tab_unique(urls: UrlFns, s: State, i: int, j: int)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
         0 <= i < s.renderers.len(),
         0 <= j < s.renderers.len(),
         s.renderers[i].tab == s.renderers[j].tab,

@@ -4,10 +4,6 @@
 //! (which evaluates sequences and enums but not maps or quantifiers).
 
 #[allow(unused_imports)]
-use super::counterexamples::*;
-#[allow(unused_imports)]
-use super::domain::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;

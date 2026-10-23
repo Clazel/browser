@@ -3,19 +3,7 @@
 //! public-suffix domain in the jar".
 
 #[allow(unused_imports)]
-use super::cookie_theorems::*;
-#[allow(unused_imports)]
-use super::domain::*;
-#[allow(unused_imports)]
-use super::invariant::*;
-#[allow(unused_imports)]
-use super::lock::*;
-#[allow(unused_imports)]
-use super::noninterference::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::theorems::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -28,7 +16,7 @@ verus! {
 /// A renderer in a well-formed table is at some index, and its id names that index.
 pub proof fn lemma_contains_index(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, x: Renderer, i: int)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         rs.contains(x),
         0 <= i < rs.len(),
         rs[i].id == x.id,
@@ -36,13 +24,13 @@ pub proof fn lemma_contains_index(urls: UrlFns, rs: Seq<Renderer>, next_id: nat,
         rs[i] == x,
 {
     let m = choose|m: int| 0 <= m < rs.len() && rs[m] == x;
-    lemma_ids_distinct(urls, rs, next_id, m, i);
+    crate::lock::lemma_ids_distinct(urls, rs, next_id, m, i);
 }
 
 /// Removing index `i` keeps exactly the renderers whose id is not that of `i`.
 pub proof fn lemma_remove_contains(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int, x: Renderer)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= i < rs.len(),
     ensures
         rs.remove(i).contains(x) == (rs.contains(x) && x.id != rs[i].id),
@@ -54,7 +42,7 @@ pub proof fn lemma_remove_contains(urls: UrlFns, rs: Seq<Renderer>, next_id: nat
         assert(r2[b] == rs[m]);
         assert(rs.contains(x));
         if x.id == rs[i].id {
-            lemma_ids_distinct(urls, rs, next_id, m, i);
+            crate::lock::lemma_ids_distinct(urls, rs, next_id, m, i);
         }
     }
     if rs.contains(x) && x.id != rs[i].id {
@@ -68,7 +56,7 @@ pub proof fn lemma_remove_contains(urls: UrlFns, rs: Seq<Renderer>, next_id: nat
 /// Replacing index `i` by `r` leaves `r` and the renderers whose id is not that of `i`.
 pub proof fn lemma_update_contains(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int, r: Renderer, x: Renderer)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= i < rs.len(),
     ensures
         rs.update(i, r).contains(x) == (x == r || (rs.contains(x) && x.id != rs[i].id)),
@@ -80,7 +68,7 @@ pub proof fn lemma_update_contains(urls: UrlFns, rs: Seq<Renderer>, next_id: nat
             assert(r2[b] == rs[b]);
             assert(rs.contains(x));
             if x.id == rs[i].id {
-                lemma_ids_distinct(urls, rs, next_id, b, i);
+                crate::lock::lemma_ids_distinct(urls, rs, next_id, b, i);
             }
         } else {
             assert(x == r);
@@ -119,7 +107,7 @@ pub proof fn lemma_push_contains(rs: Seq<Renderer>, r: Renderer, x: Renderer)
 /// Two renderers of a well-formed table with the same id are equal.
 pub proof fn lemma_same_id_same_renderer(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, x: Renderer, y: Renderer)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         rs.contains(x),
         rs.contains(y),
         x.id == y.id,
@@ -133,7 +121,7 @@ pub proof fn lemma_same_id_same_renderer(urls: UrlFns, rs: Seq<Renderer>, next_i
 /// Two renderers of a well-formed table with the same tab are equal.
 pub proof fn lemma_same_tab_same_renderer(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, x: Renderer, y: Renderer)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         rs.contains(x),
         rs.contains(y),
         x.tab == y.tab,
@@ -152,7 +140,7 @@ pub proof fn lemma_same_tab_same_renderer(urls: UrlFns, rs: Seq<Renderer>, next_
 /// A renderer of the table is found by its id, at an index holding it.
 pub proof fn lemma_find_contained(urls: UrlFns, s: State, x: Renderer)
     requires
-        renderers_wf(urls, s.renderers, s.next_id),
+        crate::invariant::renderers_wf(urls, s.renderers, s.next_id),
         s.renderers.contains(x),
     ensures
         find_by_id(s.renderers, x.id, 0) is Some,
@@ -160,8 +148,8 @@ pub proof fn lemma_find_contained(urls: UrlFns, s: State, x: Renderer)
         find_by_tab(s.renderers, x.tab, 0) is Some,
         s.renderers[find_by_tab(s.renderers, x.tab, 0)->Some_0] == x,
 {
-    lemma_find_by_id(s.renderers, x.id, 0);
-    lemma_find_by_tab(s.renderers, x.tab, 0);
+    crate::invariant::lemma_find_by_id(s.renderers, x.id, 0);
+    crate::invariant::lemma_find_by_tab(s.renderers, x.tab, 0);
     let m = choose|m: int| 0 <= m < s.renderers.len() && s.renderers[m] == x;
     match find_by_id(s.renderers, x.id, 0) {
         Some(k) => {
@@ -188,8 +176,8 @@ pub proof fn lemma_found_contained(s: State, id: nat)
         find_by_id(s.renderers, id, 0) matches Some(i) ==> (0 <= i < s.renderers.len() && s.renderers[i].id == id && s.renderers.contains(s.renderers[i])),
         find_by_tab(s.renderers, id, 0) matches Some(i) ==> (0 <= i < s.renderers.len() && s.renderers[i].tab == id && s.renderers.contains(s.renderers[i])),
 {
-    lemma_find_by_id(s.renderers, id, 0);
-    lemma_find_by_tab(s.renderers, id, 0);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
+    crate::invariant::lemma_find_by_tab(s.renderers, id, 0);
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         assert(s.renderers.contains(s.renderers[i]));
     }
@@ -249,7 +237,7 @@ pub proof fn lemma_filter_none<A>(s: Seq<A>, p: spec_fn(A) -> bool)
 pub proof fn lemma_addressed_same(
     rules: Seq<clazel_psl::spec::Rule>,
     urls: UrlFns,
-    d: Domain,
+    d: crate::domain::Domain,
     s1: State,
     s2: State,
     s1b: State,
@@ -257,13 +245,13 @@ pub proof fn lemma_addressed_same(
     o: Output,
 )
     requires
-        rel(rules, urls, d, s1, s2),
-        rel(rules, urls, d, s1b, s2b),
+        crate::noninterference::rel(rules, urls, d, s1, s2),
+        crate::noninterference::rel(rules, urls, d, s1b, s2b),
     ensures
-        addressed_to(rules, d, s1, s1b, o) == addressed_to(rules, d, s2, s2b, o),
+        crate::noninterference::addressed_to(rules, d, s1, s1b, o) == crate::noninterference::addressed_to(rules, d, s2, s2b, o),
 {
-    if addressed_to(rules, d, s1, s1b, o) {
-        let r = choose|r: Renderer| (s1.renderers.contains(r) || s1b.renderers.contains(r)) && r.id == output_id(o) && domain_of_renderer(rules, r) == d;
+    if crate::noninterference::addressed_to(rules, d, s1, s1b, o) {
+        let r = choose|r: Renderer| (s1.renderers.contains(r) || s1b.renderers.contains(r)) && r.id == crate::domain::output_id(o) && crate::domain::domain_of_renderer(rules, r) == d;
         if s1.renderers.contains(r) {
             let i = choose|i: int| 0 <= i < s1.renderers.len() && s1.renderers[i] == r;
             assert(s2.renderers.contains(r));
@@ -272,8 +260,8 @@ pub proof fn lemma_addressed_same(
             assert(s2b.renderers.contains(r));
         }
     }
-    if addressed_to(rules, d, s2, s2b, o) {
-        let r = choose|r: Renderer| (s2.renderers.contains(r) || s2b.renderers.contains(r)) && r.id == output_id(o) && domain_of_renderer(rules, r) == d;
+    if crate::noninterference::addressed_to(rules, d, s2, s2b, o) {
+        let r = choose|r: Renderer| (s2.renderers.contains(r) || s2b.renderers.contains(r)) && r.id == crate::domain::output_id(o) && crate::domain::domain_of_renderer(rules, r) == d;
         if s2.renderers.contains(r) {
             let i = choose|i: int| 0 <= i < s2.renderers.len() && s2.renderers[i] == r;
             assert(s1.renderers.contains(s2.renderers[i]));
@@ -288,7 +276,7 @@ pub proof fn lemma_addressed_same(
 pub proof fn lemma_outputs_for_same(
     rules: Seq<clazel_psl::spec::Rule>,
     urls: UrlFns,
-    d: Domain,
+    d: crate::domain::Domain,
     s1: State,
     s2: State,
     s1b: State,
@@ -296,12 +284,12 @@ pub proof fn lemma_outputs_for_same(
     out: Seq<Output>,
 )
     requires
-        rel(rules, urls, d, s1, s2),
-        rel(rules, urls, d, s1b, s2b),
+        crate::noninterference::rel(rules, urls, d, s1, s2),
+        crate::noninterference::rel(rules, urls, d, s1b, s2b),
     ensures
-        outputs_for(rules, d, s1, s1b, out) == outputs_for(rules, d, s2, s2b, out),
+        crate::noninterference::outputs_for(rules, d, s1, s1b, out) == crate::noninterference::outputs_for(rules, d, s2, s2b, out),
 {
-    assert forall|i: int| 0 <= i < out.len() implies (|o: Output| addressed_to(rules, d, s1, s1b, o))(#[trigger] out[i]) == (|o: Output| addressed_to(
+    assert forall|i: int| 0 <= i < out.len() implies (|o: Output| crate::noninterference::addressed_to(rules, d, s1, s1b, o))(#[trigger] out[i]) == (|o: Output| crate::noninterference::addressed_to(
         rules,
         d,
         s2,
@@ -310,7 +298,7 @@ pub proof fn lemma_outputs_for_same(
     ))(out[i]) by {
         lemma_addressed_same(rules, urls, d, s1, s2, s1b, s2b, out[i]);
     }
-    lemma_filter_pointwise(out, |o: Output| addressed_to(rules, d, s1, s1b, o), |o: Output| addressed_to(rules, d, s2, s2b, o));
+    lemma_filter_pointwise(out, |o: Output| crate::noninterference::addressed_to(rules, d, s1, s1b, o), |o: Output| crate::noninterference::addressed_to(rules, d, s2, s2b, o));
 }
 
 // ---------------------------------------------------------------------
@@ -366,9 +354,9 @@ pub proof fn lemma_store_no_public_suffix(
         url.host == Some(host),
         host.name.len() > 0,
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
-        jar_no_public_suffix(rules, jar),
+        crate::noninterference::jar_no_public_suffix(rules, jar),
     ensures
-        jar_no_public_suffix(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jar, s, url, ctx, now)),
+        crate::noninterference::jar_no_public_suffix(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jar, s, url, ctx, now)),
 {
     let live = clazel_cookie::storage::spec::evict_expired(jar, now);
     let any_root = clazel_cookie::matching::spec::CanonicalHost { name: seq![], is_ip_address: false };
@@ -429,11 +417,11 @@ pub proof fn lemma_insert_contains(jar: Seq<clazel_cookie::storage::spec::Cookie
 /// with no renderer on a public-suffix host.
 pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, e: Event)
     requires
-        kernel_wf(rules, urls, s),
-        state_ps_free(rules, s),
-        jar_no_public_suffix(rules, s.jar),
+        crate::invariant::kernel_wf(rules, urls, s),
+        crate::noninterference::state_ps_free(rules, s),
+        crate::noninterference::jar_no_public_suffix(rules, s.jar),
     ensures
-        jar_no_public_suffix(rules, step(rules, urls, s, e).0.jar),
+        crate::noninterference::jar_no_public_suffix(rules, step(rules, urls, s, e).0.jar),
 {
     let any_root = clazel_cookie::matching::spec::CanonicalHost { name: seq![], is_ip_address: false };
     match e {
@@ -448,11 +436,11 @@ pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>,
             }
         },
         Event::FromRenderer { id, bytes } => {
-            lemma_find_by_id(s.renderers, id, 0);
+            crate::invariant::lemma_find_by_id(s.renderers, id, 0);
             if let Some(i) = find_by_id(s.renderers, id, 0) {
                 let r = s.renderers[i];
                 if let Some(m) = decode_renderer_frame(bytes) {
-                    lemma_storage_call_frame(s, r, m);
+                    crate::lock::lemma_storage_call_frame(s, r, m);
                     match m {
                         clazel_ipc::message::spec::Message::CookieGet => {
                             if !cookie_averse(r.lock) {
@@ -485,9 +473,9 @@ pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>,
                         },
                         clazel_ipc::message::spec::Message::CookieSet { cookie_string } => {
                             if !cookie_averse(r.lock) {
-                                lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
-                                assert(lock_not_public_suffix(rules, r.lock));
-                                lemma_request_url_host_nonempty(urls, r);
+                                crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
+                                assert(crate::noninterference::lock_not_public_suffix(rules, r.lock));
+                                crate::invariant::lemma_request_url_host_nonempty(urls, r);
                                 let url = request_url_of(urls, r);
                                 let h = lock_host(r.lock)->Some_0;
                                 lemma_store_no_public_suffix(rules, s.jar, cookie_string, url, document_context(r.lock), s.now, h);

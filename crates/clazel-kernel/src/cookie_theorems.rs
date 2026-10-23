@@ -2,15 +2,7 @@
 //! `theorem_storage_same_origin` (item 2.11).
 
 #[allow(unused_imports)]
-use super::invariant::*;
-#[allow(unused_imports)]
-use super::lock::*;
-#[allow(unused_imports)]
 use super::spec::*;
-#[allow(unused_imports)]
-use super::statements::*;
-#[allow(unused_imports)]
-use super::theorems::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
 
@@ -90,7 +82,7 @@ pub proof fn lemma_sort_from_contains(
 /// A renderer of a well-formed table with a tuple lock has a lock host.
 pub proof fn lemma_tuple_lock_host(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int)
     requires
-        renderers_wf(urls, rs, next_id),
+        crate::invariant::renderers_wf(urls, rs, next_id),
         0 <= i < rs.len(),
         rs[i].lock is Tuple,
     ensures
@@ -106,10 +98,10 @@ pub proof fn theorem_cookie_confidentiality(rules: Seq<clazel_psl::spec::Rule>, 
     requires
         reachable(rules, urls, s),
     ensures
-        cookie_confidentiality_statement(rules, urls, s, id, bytes),
+        crate::statements::cookie_confidentiality_statement(rules, urls, s, id, bytes),
 {
-    lemma_reachable_wf(rules, urls, s);
-    lemma_find_by_id(s.renderers, id, 0);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         let r = s.renderers[i];
         if let Some(clazel_ipc::message::spec::Message::CookieGet) = decode_renderer_frame(bytes) {
@@ -146,16 +138,16 @@ pub proof fn theorem_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: 
     requires
         reachable(rules, urls, s),
     ensures
-        cookie_integrity_statement(rules, urls, s, e),
+        crate::statements::cookie_integrity_statement(rules, urls, s, e),
 {
-    lemma_reachable_wf(rules, urls, s);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
     match e {
         Event::FromRenderer { id, bytes } => {
-            lemma_find_by_id(s.renderers, id, 0);
+            crate::invariant::lemma_find_by_id(s.renderers, id, 0);
             if let Some(i) = find_by_id(s.renderers, id, 0) {
                 let r = s.renderers[i];
                 if let Some(m) = decode_renderer_frame(bytes) {
-                    lemma_storage_call_frame(s, r, m);
+                    crate::lock::lemma_storage_call_frame(s, r, m);
                     if let clazel_ipc::message::spec::Message::Navigate { url } = m {
                         if let Some(relative) = clazel_encoding::utf8::spec::utf8_decode_without_bom_or_fail(url) {
                             if let Some(resolved) = (urls.resolve)(r.url, relative) {
@@ -205,19 +197,19 @@ pub proof fn theorem_storage_same_origin(rules: Seq<clazel_psl::spec::Rule>, url
     requires
         reachable(rules, urls, s),
     ensures
-        storage_same_origin_statement(rules, urls, s, s2, id, bytes),
+        crate::statements::storage_same_origin_statement(rules, urls, s, s2, id, bytes),
 {
-    lemma_find_by_id(s.renderers, id, 0);
-    lemma_find_by_id(s2.renderers, id, 0);
+    crate::invariant::lemma_find_by_id(s.renderers, id, 0);
+    crate::invariant::lemma_find_by_id(s2.renderers, id, 0);
     if let (Some(i), Some(i2)) = (find_by_id(s.renderers, id, 0), find_by_id(s2.renderers, id, 0)) {
         let r = s.renderers[i];
         let r2 = s2.renderers[i2];
         if let Some(m) = decode_renderer_frame(bytes) {
-            if is_storage_message(m) && r.lock is Tuple {
-                lemma_storage_call_frame(s, r, m);
+            if crate::statements::is_storage_message(m) && r.lock is Tuple {
+                crate::lock::lemma_storage_call_frame(s, r, m);
                 if r2.lock == r.lock && storage_of(s2, r.lock) == storage_of(s, r.lock) {
                     lemma_storage_call_local(s, s2, r, r2, m);
-                    lemma_storage_call_frame(s2, r2, m);
+                    crate::lock::lemma_storage_call_frame(s2, r2, m);
                 }
             }
         }

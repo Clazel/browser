@@ -3,8 +3,6 @@
 //! unexpired cookies of the request host's root.
 
 #[allow(unused_imports)]
-use super::projection::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -73,8 +71,8 @@ pub proof fn lemma_retrieval_list_agree(
     assert forall|i: int| 0 <= i < lb.len() && pc(#[trigger] lb[i]) implies p(lb[i]) by {
         clazel_cookie::storage::isolation::lemma_retrieve_within_root(rules, url, ctx, host, lb[i]);
     }
-    lemma_filter_implies(la, pc, p);
-    lemma_filter_implies(lb, pc, p);
+    crate::projection::lemma_filter_implies(la, pc, p);
+    crate::projection::lemma_filter_implies(lb, pc, p);
 }
 
 /// The cookie string of a retrieval is a function of the unexpired cookies
@@ -94,7 +92,7 @@ pub proof fn lemma_retrieval_agree(
         root == clazel_cookie::storage::spec::cookie_root(rules, host),
         clazel_cookie::storage::isolation::jar_domains_nonempty(ja),
         clazel_cookie::storage::isolation::jar_domains_nonempty(jb),
-        live_root(rules, ja, now, root) == live_root(rules, jb, now, root),
+        crate::projection::live_root(rules, ja, now, root) == crate::projection::live_root(rules, jb, now, root),
     ensures
         clazel_cookie::storage::spec::retrieve_cookie_string(rules, ja, url, ctx, now) == clazel_cookie::storage::spec::retrieve_cookie_string(rules, jb, url, ctx, now),
 {
@@ -153,7 +151,7 @@ pub proof fn lemma_retrieval_jar_live_root(
     requires
         url.host == Some(host),
     ensures
-        live_root(rules, clazel_cookie::storage::spec::jar_after_retrieval(rules, jar, url, ctx, now), now, root) == live_root(rules, jar, now, root).map_values(
+        crate::projection::live_root(rules, clazel_cookie::storage::spec::jar_after_retrieval(rules, jar, url, ctx, now), now, root) == crate::projection::live_root(rules, jar, now, root).map_values(
             clazel_cookie::storage::spec::update_last_access_time(rules, url, ctx, host, now),
         ),
 {
@@ -165,11 +163,11 @@ pub proof fn lemma_retrieval_jar_live_root(
     let mapped = live.map_values(f);
     assert(clazel_cookie::storage::spec::jar_after_retrieval(rules, jar, url, ctx, now) == mapped);
     // evict_expired(mapped) = mapped.filter(ne) = live.filter(ne).map(f) = live.map(f)
-    lemma_map_filter(live, f, ne);
+    crate::projection::lemma_map_filter(live, f, ne);
     clazel_cookie::storage::lemmas::lemma_filter_idempotent(jar, ne);
     assert(live.filter(ne) == live);
     assert(clazel_cookie::storage::spec::evict_expired(mapped, now) == mapped);
-    lemma_map_filter(live, f, p);
+    crate::projection::lemma_map_filter(live, f, p);
 }
 
 /// Two jars that agree on the unexpired cookies of a root still agree after
@@ -186,9 +184,9 @@ pub proof fn lemma_retrieval_jar_agree(
 )
     requires
         url.host == Some(host),
-        live_root(rules, ja, now, root) == live_root(rules, jb, now, root),
+        crate::projection::live_root(rules, ja, now, root) == crate::projection::live_root(rules, jb, now, root),
     ensures
-        live_root(rules, clazel_cookie::storage::spec::jar_after_retrieval(rules, ja, url, ctx, now), now, root) == live_root(
+        crate::projection::live_root(rules, clazel_cookie::storage::spec::jar_after_retrieval(rules, ja, url, ctx, now), now, root) == crate::projection::live_root(
             rules,
             clazel_cookie::storage::spec::jar_after_retrieval(rules, jb, url, ctx, now),
             now,
