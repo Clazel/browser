@@ -14,11 +14,14 @@
 //! - [`bignum`]: little-endian `u64` limbs with a `nat` spec, and the
 //!   arithmetic the verification needs.
 //! - [`contract`]: what the executable functions are proven to satisfy.
+//! - [`independent`]: a second transcription, from RFC 2313 and the Handbook
+//!   of Applied Cryptography, proven equal to [`spec`].
 //! - [`lemmas`]: facts proven about the spec itself.
 //! - [`verify`]: the executable `verify` and `encode_message`.
 
 pub mod bignum;
 pub mod contract;
+pub mod independent;
 pub mod lemmas;
 pub mod spec;
 pub mod verify;
