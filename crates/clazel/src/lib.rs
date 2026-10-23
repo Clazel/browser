@@ -29,7 +29,11 @@ enum Ev {
 
 /// The host: the kernel state and the renderers (socket and process) it runs.
 pub struct Host {
-    state: StateRecord,
+    /// The kernel's state. Tests preload the cookie jar (the HTTP layer that
+    /// would fill it is Phase 3); nothing else writes it but `step_real`.
+    pub state: StateRecord,
+    /// A fixed kernel clock (seconds since 1601) for tests; `None`: wall clock.
+    pub clock: Option<u64>,
     table: HashMap<u64, (UnixStream, Child)>,
     tx: Sender<Ev>,
     rx: Receiver<Ev>,
@@ -105,6 +109,7 @@ impl Host {
         let (tx, rx) = channel();
         Host {
             state: init_record(),
+            clock: None,
             table: HashMap::new(),
             tx,
             rx,
@@ -136,7 +141,8 @@ impl Host {
 
     /// Give the kernel an event, after a `Tick`, and carry out its outputs.
     pub fn event(&mut self, e: EventRecord) {
-        self.step(EventRecord::Tick { time: now() });
+        let time = self.clock.unwrap_or_else(now);
+        self.step(EventRecord::Tick { time });
         let mut dead = Vec::new();
         for output in self.step(e) {
             match output {

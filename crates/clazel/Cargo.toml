@@ -14,6 +14,21 @@ clazel-kernel = { path = "../clazel-kernel" }
 # uses to report what it carries.
 clazel-ipc = { path = "../clazel-ipc" }
 
+# The command line (`clazel URL SCRIPT`, `clazel demo`) is outside `src/`, whose
+# line count the README reports: it only calls the host's public functions.
+[[bin]]
+name = "clazel"
+path = "cli/main.rs"
+
+# The conformance and adversarial tests (item 2.16) build their inputs with the
+# workspace crates the kernel's own conformance tests use, and generate the
+# hostile frames with the renderer crate.
+[dev-dependencies]
+clazel-renderer = { path = "../clazel-renderer" }
+clazel-cookie = { path = "../clazel-cookie" }
+clazel-origin = { path = "../clazel-origin" }
+clazel-url = { path = "../clazel-url" }
+
 # Verification tier (docs/VERIFICATION.md). Tier 0: tests only. The shell is
 # the I/O around the proven `step`; its line count is in the README table.
 [package.metadata.clazel]
