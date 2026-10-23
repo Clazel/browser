@@ -126,6 +126,7 @@ mod tests {
 
     fn krate(name: &str, deps: &[&str]) -> Crate {
         Crate {
+            theorems: Vec::new(),
             name: name.to_owned(),
             dir: PathBuf::from(format!(
                 "/r/{}",

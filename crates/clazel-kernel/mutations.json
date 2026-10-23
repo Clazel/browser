@@ -1,0 +1,129 @@
+{
+  "mutations": [
+    {
+      "id": "reply-to-wrong-renderer",
+      "file": "src/spec.rs",
+      "find": "Output::ToRenderer { id: r.id, bytes: reply_frame(m) }",
+      "replace": "Output::ToRenderer { id: r.id + 1, bytes: reply_frame(m) }",
+      "expect": "killed",
+      "reason": "A reply is addressed to the renderer after the sender: ml_reply_for_sender, the core of theorem_reply_only_to_sender and of the noninterference outputs, is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_reply_for_sender(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)",
+        "witness": "crate::domain::output_id(reply(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)[0]) == 1nat"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "reply-shows-renderer-id",
+      "file": "src/spec.rs",
+      "find": "Output::ToRenderer { id: r.id, bytes: reply_frame(m) }",
+      "replace": "Output::ToRenderer { id: r.id, bytes: reply_frame(m).push(r.id as u8) }",
+      "expect": "killed",
+      "reason": "The sender's id is appended to every reply's bytes, so a renderer could learn its id: the bytes of a reply are no longer the frame of its message (ml_reply_for_sender, which theorem_cookie_noninterference uses to keep ids out of D's observations).",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_reply_for_sender(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)",
+        "witness": "reply(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)[0]->ToRenderer_bytes != reply_frame(clazel_ipc::message::spec::Message::StorageClear)"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "request-scheme-from-url-origin",
+      "file": "src/spec.rs",
+      "find": "scheme: clazel_cookie::matching::spec::narrow(lock_scheme(r.lock)),",
+      "replace": "scheme: clazel_cookie::matching::spec::narrow(match (urls.origin_of)(r.url) { Some(o) => lock_scheme(o), None => seq![] }),",
+      "expect": "killed",
+      "reason": "document.cookie is answered for the scheme of the committed URL's origin instead of the lock (what a URL a renderer supplied would do): ml_request_scheme, part of theorem_cookie_confidentiality, is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_request_scheme(ml_urls_a(), ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)))",
+        "witness": "request_url_of(ml_urls_a(), ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat))).scheme.len() == 1"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "cookie-call-is-http",
+      "file": "src/spec.rs",
+      "find": "clazel_cookie::storage::spec::RequestContext::NonHttp(clazel_cookie::storage::spec::DocumentCall { site_for_cookies: lock, top_level_origin: lock })",
+      "replace": "clazel_cookie::storage::spec::RequestContext::Http(clazel_cookie::storage::spec::HttpRequest { url_origin: lock, site_for_cookies: Some(lock), is_reload_navigation: false, reloaded_document_was_same_site: false, navigates_top_level_traversable: false, method_is_safe: false, target_is_active_or_top_level: false })",
+      "expect": "killed",
+      "reason": "document.cookie is treated as an HTTP request, so the HttpOnly check for the non-HTTP API does not apply (and the setter may overwrite HttpOnly cookies): ml_document_context_non_http, used by theorem_cookie_confidentiality and theorem_cookie_integrity, is false. (The same property of clazel-cookie's retrieval is killed there: retrieval-http-only-skipped.)",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_document_context_non_http(clazel_origin::spec::Origin::Opaque(0nat))",
+        "witness": "!clazel_cookie::storage::spec::is_non_http(document_context(clazel_origin::spec::Origin::Opaque(0nat)))"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "cookie-averse-ignores-scheme",
+      "file": "src/spec.rs",
+      "find": "!(lock is Tuple && (lock_scheme(lock) == clazel_url::url::spec::http_str() || lock_scheme(lock)",
+      "replace": "!(lock is Tuple && (true || lock_scheme(lock)",
+      "expect": "killed",
+      "reason": "Every tuple origin may use cookies, ftp and ws too: the getter returns a string and the setter stores, where HTML says empty and nothing (theorem_cookie_confidentiality and theorem_cookie_integrity): ml_ftp_is_cookie_averse is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_ftp_is_cookie_averse(false)",
+        "witness": "!cookie_averse_given(ml_tuple(seq![0x66u32, 0x74, 0x70]), false)"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "navigate-keeps-old-lock",
+      "file": "src/spec.rs",
+      "find": "let r = Renderer { id, tab, url, lock };",
+      "replace": "let r = Renderer { id, tab, url, lock: old.lock };",
+      "expect": "killed",
+      "reason": "A renderer's Navigate to another origin gives the new renderer the old lock: the renderer on a.test is locked to b.test's origin. ml_navigate_new_lock, theorem_lock_is_committed_origin's step, is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_navigate_new_lock(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
+        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(crate::counterexamples::ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).0.renderers[0].lock == clazel_origin::spec::Origin::Opaque(0nat)"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "spawned-renderer-inherits-sender-url",
+      "file": "src/spec.rs",
+      "find": "Output::Spawn { id, policy: Policy::Renderer },\n                        Output::ToRenderer { id, bytes: commit_frame(url, script) },",
+      "replace": "Output::Spawn { id, policy: Policy::Renderer },\n                        Output::ToRenderer { id, bytes: commit_frame(url, script + clazel_cookie::matching::spec::narrow(old.url)) },",
+      "expect": "killed",
+      "reason": "The renderer spawned by a navigation is committed with the navigating renderer's URL as its script, i.e. it inherits something besides the resolved URL: ml_navigate_commit (what lemma_declassified_is_navigate_tab and the declassification of theorem_cookie_noninterference rest on) is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_navigate_commit(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
+        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(crate::counterexamples::ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).1[2]->ToRenderer_bytes != commit_frame(Seq::<u32>::empty(), Seq::<u8>::empty())"
+      },
+      "module": "mutation_lemmas"
+    },
+    {
+      "id": "storage-key-compared-to-value",
+      "file": "src/spec.rs",
+      "find": "list[i as int].key == key",
+      "replace": "list[i as int].value == key",
+      "expect": "killed",
+      "reason": "getItem, setItem and removeItem look a key up among the values: ml_find_key (theorem_storage_same_origin reads the map for the lock by key) is false.",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_find_key(seq![StorageEntry { key: seq![1u8], value: seq![2u8, 3u8] }], seq![2u8, 3u8])",
+        "witness": "find_key(seq![StorageEntry { key: seq![1u8], value: seq![2u8, 3u8] }], seq![2u8, 3u8], 0) == Some(0int)"
+      }
+    },
+    {
+      "id": "public-suffix-host-not-cookie-averse",
+      "file": "src/spec.rs",
+      "find": " && !on_public_suffix)",
+      "replace": ")",
+      "expect": "killed",
+      "reason": "A document on a public-suffix host may use cookies: a host-only cookie of a public suffix can enter the jar, and RFC 6265bis step 16 reads across cookie roots again (example_public_suffix_overlay_crosses_roots), which breaks jar_no_public_suffix and theorem_cookie_noninterference's relation: ml_public_suffix_is_cookie_averse is false. (With the default rule every one-label host such as `a` is a public suffix; co.uk and github.io are the realistic cases.)",
+      "certificate": {
+        "file": "src/mutation_lemmas.rs",
+        "lemma": "ml_public_suffix_is_cookie_averse(ml_tuple(seq![0x68u32, 0x74, 0x74, 0x70, 0x73]))",
+        "witness": "!cookie_averse_given(ml_tuple(seq![0x68u32, 0x74, 0x74, 0x70, 0x73]), true)"
+      },
+      "module": "mutation_lemmas"
+    }
+  ]
+}

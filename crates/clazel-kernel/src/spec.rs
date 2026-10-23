@@ -100,6 +100,20 @@
 //!   reached, and an opaque origin gets the empty string, or nothing on a
 //!   set, as the plan says. The browsing-context-null condition does not
 //!   arise (every renderer has a document).
+//! - **A document on a public-suffix host is cookie-averse (item 2.11).**
+//!   If the lock's host is itself a public suffix (`co.uk`, `github.io`; per
+//!   `clazel-psl` with the same `rules`; an IP address is not one), the
+//!   getter returns the empty string and the setter does nothing, as
+//!   [`cookie_averse`] says. HTML has no such condition; Chrome and Firefox
+//!   behave this way. It is a deliberate choice that closes a flow RFC
+//!   6265bis itself has: step 9 lets a request to a public-suffix host set a
+//!   host-only cookie, and step 16 ("Leave Secure Cookies Alone") scans the
+//!   whole jar for a secure cookie whose domain domain-matches the new
+//!   cookie's domain or conversely, which crosses cookie roots when one is a
+//!   public suffix (`example_public_suffix_overlay_crosses_roots`). With this
+//!   choice no cookie with a public-suffix domain is ever created
+//!   (`jar_no_public_suffix`, part of `kernel_wf`), so that scan never
+//!   crosses a root.
 //! - **Cookie calls** are `clazel_cookie::storage::spec::retrieve_cookie_string`
 //!   and `jar_after_retrieval` (the getter, "the cookie-string for the
 //!   document's URL for a "non-HTTP" API", decoded as UTF-8: the cookie
@@ -429,12 +443,30 @@ pub open spec fn lock_host(lock: clazel_origin::spec::Origin) -> Option<clazel_c
     }
 }
 
+/// The lock's host is itself a public suffix (over the Public Suffix List
+/// `rules`), e.g. `co.uk` or `github.io`. An IP address is not one.
+pub open spec fn lock_on_public_suffix(rules: Seq<clazel_psl::spec::Rule>, lock: clazel_origin::spec::Origin) -> bool {
+    match lock_host(lock) {
+        Some(h) => !h.is_ip_address && clazel_cookie::storage::spec::is_public_suffix_string(rules, h.name),
+        None => false,
+    }
+}
+
 /// HTML's "cookie-averse `Document` object": the document's URL's scheme is
-/// not an HTTP(S) scheme. See the modelling choices for why this is a
-/// property of the lock.
-pub open spec fn cookie_averse(lock: clazel_origin::spec::Origin) -> bool {
+/// not an HTTP(S) scheme (see the modelling choices for why this is a
+/// property of the lock), **or the document is on a public-suffix host**
+/// (a modelling choice that fills no gap in HTML: Chrome and Firefox do the
+/// same, and it keeps RFC 6265bis §5.7 step 16 from reading across cookie
+/// roots).
+pub open spec fn cookie_averse(rules: Seq<clazel_psl::spec::Rule>, lock: clazel_origin::spec::Origin) -> bool {
+    cookie_averse_given(lock, lock_on_public_suffix(rules, lock))
+}
+
+/// [`cookie_averse`] given whether the lock's host is a public suffix (split
+/// out so that the condition can be evaluated without the host parser).
+pub open spec fn cookie_averse_given(lock: clazel_origin::spec::Origin, on_public_suffix: bool) -> bool {
     !(lock is Tuple && (lock_scheme(lock) == clazel_url::url::spec::http_str() || lock_scheme(lock)
-        == clazel_url::url::spec::https_str()))
+        == clazel_url::url::spec::https_str()) && !on_public_suffix)
 }
 
 /// The request URL of a `document.cookie` call by a renderer: the lock's
@@ -685,7 +717,7 @@ pub open spec fn handle_message(
         // then the user agent must return the empty string. [...]
         // Otherwise, the user agent must return the cookie-string for the
         // document's URL for a "non-HTTP" API".
-        clazel_ipc::message::spec::Message::CookieGet => if cookie_averse(r.lock) {
+        clazel_ipc::message::spec::Message::CookieGet => if cookie_averse(rules, r.lock) {
             (s, reply(r, clazel_ipc::message::spec::Message::CookieValue { cookie_string: seq![] }))
         } else {
             let url = request_url_of(urls, r);
@@ -699,7 +731,7 @@ pub open spec fn handle_message(
         // then the user agent must do nothing. [...] Otherwise, the user
         // agent must act as it would when receiving a set-cookie-string for
         // the document's URL via a "non-HTTP" API".
-        clazel_ipc::message::spec::Message::CookieSet { cookie_string } => if cookie_averse(r.lock) {
+        clazel_ipc::message::spec::Message::CookieSet { cookie_string } => if cookie_averse(rules, r.lock) {
             (s, seq![])
         } else {
             let url = request_url_of(urls, r);

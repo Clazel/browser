@@ -223,6 +223,22 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
             ],
         ),
     );
+    let mut theorem_problems = Vec::new();
+    let mut theorem_count = 0usize;
+    for c in crates {
+        theorem_count = theorem_count.saturating_add(c.theorems.len());
+        match workspace::check_theorems(c) {
+            Ok(p) => theorem_problems.extend(p),
+            Err(e) => theorem_problems.push(e),
+        }
+    }
+    r.step(
+        "listed theorems are defined",
+        outcome(
+            theorem_problems,
+            vec![format!("listed theorems: {theorem_count}")],
+        ),
+    );
     r.step(
         "clazel-sys audit",
         sys_audit(crates.iter().find(|c| c.is_sys())),

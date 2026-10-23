@@ -38,6 +38,15 @@ pub open spec fn storage_wf(storage: Map<clazel_origin::spec::Origin, Seq<Storag
             && within_quota(storage[o])
 }
 
+/// No cookie of the jar has a public suffix as its domain (an IP address is
+/// not one). The kernel never creates one: a document on a public-suffix host
+/// is cookie-averse (`cookie_averse`), and step 9 of RFC 6265bis rejects a
+/// `Domain` attribute that is a public suffix.
+pub open spec fn jar_no_public_suffix(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<clazel_cookie::storage::spec::Cookie>) -> bool {
+    forall|i: int|
+        0 <= i < jar.len() ==> (#[trigger] jar[i]).domain.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, jar[i].domain.name)
+}
+
 /// The invariant of every reachable state.
 ///
 /// - the jar: `jar_domains_nonempty` (the hypothesis of `clazel-cookie`'s
@@ -50,6 +59,7 @@ pub open spec fn kernel_wf(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: 
     &&& clazel_cookie::storage::isolation::jar_domains_nonempty(s.jar)
     &&& clazel_cookie::storage::spec::jar_within_root_limit(rules, s.jar)
     &&& clazel_cookie::storage::spec::jar_keys_unique(s.jar)
+    &&& jar_no_public_suffix(rules, s.jar)
     &&& renderers_wf(urls, s.renderers, s.next_id)
     &&& storage_wf(s.storage)
 }
@@ -336,10 +346,10 @@ pub proof fn lemma_jar_wf_store_string(
 
 /// The request URL of a renderer that is not cookie-averse has a non-empty
 /// host, so the jar calls above apply.
-pub proof fn lemma_request_url_host_nonempty(urls: UrlFns, r: Renderer)
+pub proof fn lemma_request_url_host_nonempty(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, r: Renderer)
     requires
         lock_of_url(urls, r.url, r.id) == Some(r.lock),
-        !cookie_averse(r.lock),
+        !cookie_averse(rules, r.lock),
     ensures
         clazel_cookie::storage::isolation::url_host_nonempty(request_url_of(urls, r)),
 {
@@ -559,6 +569,7 @@ pub proof fn lemma_step_preserves_wf(rules: Seq<clazel_psl::spec::Rule>, urls: U
     ensures
         kernel_wf(rules, urls, step(rules, urls, s, e).0),
 {
+    crate::unwind_base::lemma_jar_no_public_suffix_step(rules, urls, s, e);
     match e {
         Event::Tick { time } => {
             let now = if time > s.now { time } else { s.now };
@@ -588,15 +599,15 @@ pub proof fn lemma_step_preserves_wf(rules: Seq<clazel_psl::spec::Rule>, urls: U
                     None => lemma_renderers_wf_remove(urls, s.renderers, s.next_id, i),
                     Some(m) => match m {
                         clazel_ipc::message::spec::Message::CookieGet => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 let url = request_url_of(urls, r);
                                 lemma_jar_wf_retrieval(rules, s.jar, url, document_context(r.lock), s.now);
                             }
                         },
                         clazel_ipc::message::spec::Message::CookieSet { cookie_string } => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 let url = request_url_of(urls, r);
-                                lemma_request_url_host_nonempty(urls, r);
+                                lemma_request_url_host_nonempty(rules, urls, r);
                                 lemma_jar_wf_store_string(rules, s.jar, cookie_string, url, document_context(r.lock), s.now);
                             }
                         },
