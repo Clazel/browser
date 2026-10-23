@@ -3,14 +3,19 @@
 //! these predicates, so reviewing these (and [`super::spec`]) is enough to
 //! know what the implementation guarantees.
 //!
-//! The exec `step` is pure: no I/O, no clock, no processes. Bytes, renderer
-//! ids and the time come in as arguments, as the host shell (item 2.15)
-//! gets them, and the outputs go out as a value for the host to act on. An
-//! exec `State` is viewed as a [`State`] (renderers, jar, storage maps,
-//! counter, time) and an exec event and output as an [`Event`] and
-//! [`Output`]; the exec jar is the view of `clazel-cookie`'s (item 2.9),
-//! with its times `u64`s, hence `jar_in_range`. Ids are `u64`s, hence
-//! `next_id` below `u64::MAX`.
+//! The exec `step` ([`crate::exec::step::step_exec`]) is pure: no I/O, no
+//! clock, no processes. Bytes, renderer ids and the time come in as arguments,
+//! as the host shell (item 2.15) gets them, and the outputs go out as a value
+//! for the host to act on. An exec `StateRecord` is viewed as a [`State`]
+//! (renderers, jar, storage maps, counter, time), an `EventRecord` as an
+//! [`Event`] and an `OutputRecord` as an [`Output`]; the exec jar is the view
+//! of `clazel-cookie`'s (item 2.9), with its times `u64`s, hence
+//! `jar_in_range`. Ids are `u64`s, hence `next_id` below `u64::MAX`. Web
+//! Storage is a vector of buckets, one per origin, whose view is the map; the
+//! exec state's own invariant `StateRecord::exec_wf` (the buckets' origins
+//! are distinct and each bucket is non-empty) holds of `init_record` and of
+//! every state `step_exec` returns, and is the only thing the exec `step`
+//! asks of its state besides [`step_requires`].
 //!
 //! Every contract is about the Public Suffix List the generated tables hold
 //! (`clazel_psl::table::psl_rules()`), as `clazel-cookie`'s are, and for a
@@ -26,10 +31,16 @@
 //! host loop establishes it once, from [`super::spec::init_state`]
 //! (`lemma_init_wf`). `jar_in_range` and `now_in_range` of the state hold of
 //! every state the exec `step` returns because its jar and time are `u64`s
-//! that the exec cookie functions keep in range (their contracts); 2.12
-//! proves it. One more obligation falls to 2.12: the spec casts a storage
-//! map's length to `u64` (`StorageLength`), which is exact because a map
-//! within its quota (`within_quota`) has far fewer than 2^64 entries.
+//! that the exec cookie functions keep in range (their contracts); the exec
+//! `step` ensures both. (`next_id` may reach `u64::MAX`, after which the
+//! host must not call it again; the exec `step` ensures it grows by at most
+//! one.)
+//!
+//! The spec casts a storage map's length to `u64` (`StorageLength`). That is
+//! exact in the exec `step` because a bucket is a `Vec`, whose length is a
+//! `usize`; and for the spec alone, `lemma_storage_length_exact` proves that
+//! a map with unique keys within its quota (`within_quota`, both in
+//! `kernel_wf`) has at most `max_storage_size() + 1` entries.
 
 #[allow(unused_imports)]
 use super::spec::*;

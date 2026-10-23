@@ -11,6 +11,9 @@
 //! - [`domain`]: domains, observations and the intransitive purge that
 //!   item 2.11's noninterference theorem is stated with.
 //! - [`contract`]: what the executable `step` (item 2.12) must satisfy.
+//! - [`exec`]: the executable kernel (item 2.12): exec state, events and
+//!   outputs with views to the spec's, and `step_exec`, proven to meet
+//!   [`contract`] for any implementation of the URL functions.
 
 pub mod contract;
 pub mod cookie_theorems;
