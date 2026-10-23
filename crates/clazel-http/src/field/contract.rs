@@ -107,15 +107,16 @@ pub open spec fn parse_quoted_string_ensures(input: Seq<u8>, output: Option<(Seq
     }
 }
 
-/// Precondition of `quote(&[u8]) -> Vec<u8>`: every octet can be sent in a
-/// quoted string.
-pub open spec fn quote_requires(v: Seq<u8>) -> bool {
-    is_quotable(v)
-}
-
-/// Contract for `quote(&[u8]) -> Vec<u8>` (§5.6.4).
-pub open spec fn quote_ensures(v: Seq<u8>, output: Seq<u8>) -> bool {
-    output == quote(v)
+/// Contract for `quote(&[u8]) -> Option<Vec<u8>>` (§5.6.4): the
+/// `quoted-string` for `v`, or `None` if `v` has an octet that cannot be
+/// sent in one (CR, LF, NUL and the other controls other than HTAB), so
+/// that a caller cannot put a line break into a field by quoting it.
+pub open spec fn quote_ensures(v: Seq<u8>, output: Option<Seq<u8>>) -> bool {
+    output == if is_quotable(v) {
+        Some(quote(v))
+    } else {
+        None
+    }
 }
 
 /// Contract for `parse_parameters(&[u8], ParameterGrammar) ->
