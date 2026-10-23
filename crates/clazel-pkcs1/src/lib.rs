@@ -18,11 +18,16 @@
 //!   of Applied Cryptography, proven equal to [`spec`].
 //! - [`lemmas`]: facts proven about the spec itself.
 //! - [`verify`]: the executable `verify` and `encode_message`.
+//! - `proofs` (under `cfg(kani)`): Kani harnesses on the limb arithmetic.
 
 pub mod bignum;
+pub mod certificates;
 pub mod contract;
 pub mod examples;
 pub mod independent;
 pub mod lemmas;
 pub mod spec;
 pub mod verify;
+
+#[cfg(kani)]
+mod proofs;
