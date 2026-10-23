@@ -2,12 +2,13 @@
 //! exec functions proven equal to their spec functions in [`crate::spec`].
 
 use super::records::*;
-use super::urls::*;
 #[allow(unused_imports)]
 use super::spec::*;
+use super::urls::*;
 use clazel_cookie::matching::exec::{CanonicalHostName, canonicalize_a_host_name};
 use clazel_cookie::storage::exec::{
-    DocumentCallRecord, RequestContextRecord, RequestUrlRecord, is_public_suffix_string_exec, narrow_exec,
+    DocumentCallRecord, RequestContextRecord, RequestUrlRecord, is_public_suffix_string_exec,
+    narrow_exec,
 };
 use clazel_origin::exec::{ParsedOrigin, host_equals};
 use clazel_url::host::record::{ParsedHost, copy};
