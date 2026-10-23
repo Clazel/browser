@@ -438,6 +438,51 @@ pub proof fn lemma_read_list_len<E>(b: Seq<u8>, f: spec_fn(Seq<u8>) -> Option<(E
     }
 }
 
+/// The list a reader loop has read so far, `acc`, followed by what
+/// [`read_list`] reads from the bytes `rest` that are left: what an
+/// executable loop that reads one element at a time maintains.
+pub open spec fn list_after<E>(acc: Seq<E>, rest: Seq<u8>, f: spec_fn(Seq<u8>) -> Option<(E, Seq<u8>)>) -> Option<
+    Seq<E>,
+> {
+    match read_list(rest, f) {
+        None => None,
+        Some(es) => Some(acc + es),
+    }
+}
+
+/// A loop that has read everything has read `acc`.
+pub proof fn lemma_list_after_empty<E>(acc: Seq<E>, f: spec_fn(Seq<u8>) -> Option<(E, Seq<u8>)>)
+    ensures
+        list_after(acc, seq![], f) == Some(acc),
+{
+    assert(acc + Seq::<E>::empty() =~= acc);
+}
+
+/// One step of the loop: if the element reader fails, so does the list;
+/// if it reads an element and leaves fewer bytes, the rest of the list is
+/// read from them, after the elements read so far and this one.
+pub proof fn lemma_list_after_step<E>(acc: Seq<E>, b: Seq<u8>, f: spec_fn(Seq<u8>) -> Option<(E, Seq<u8>)>)
+    requires
+        b.len() > 0,
+    ensures
+        match f(b) {
+            None => list_after(acc, b, f) is None,
+            Some((e, rest)) => if rest.len() < b.len() {
+                list_after(acc, b, f) == list_after(acc.push(e), rest, f)
+            } else {
+                list_after(acc, b, f) is None
+            },
+        },
+{
+    if let Some((e, rest)) = f(b) {
+        if rest.len() < b.len() {
+            if let Some(es) = read_list(rest, f) {
+                assert(acc + (seq![e] + es) =~= acc.push(e) + es);
+            }
+        }
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Lists of uint16.
 // ---------------------------------------------------------------------------
@@ -504,6 +549,32 @@ pub proof fn lemma_write_u16s_read_u16s(b: Seq<u8>)
     lemma_write_list_read_list(b, w, f);
     if let Some(vs) = read_u16s(b) {
         lemma_write_u16s_len(vs);
+    }
+}
+
+/// Writing a list one element at a time: the encoding of `es` followed by
+/// `e` is the encoding of `es` and then of `e`.
+pub proof fn lemma_write_list_push<E>(es: Seq<E>, e: E, w: spec_fn(E) -> Seq<u8>)
+    ensures
+        write_list(es.push(e), w) == write_list(es, w) + w(e),
+    decreases es.len(),
+{
+    if es.len() == 0 {
+        assert(es.push(e).len() == 1);
+        assert(es.push(e).skip(1) =~= Seq::<E>::empty());
+        assert(es.push(e)[0] == e);
+        assert(write_list(Seq::<E>::empty(), w) =~= Seq::<u8>::empty());
+        assert(write_list(es, w) =~= Seq::<u8>::empty());
+        assert(write_list(es.push(e), w) =~= w(e) + Seq::<u8>::empty());
+        assert(write_list(es.push(e), w) =~= write_list(es, w) + w(e));
+    } else {
+        let t = es.skip(1);
+        lemma_write_list_push(t, e, w);
+        assert(es.push(e).skip(1) =~= t.push(e));
+        assert(es.push(e)[0] == es[0]);
+        assert(write_list(es.push(e), w) =~= w(es[0]) + (write_list(t, w) + w(e)));
+        assert(w(es[0]) + (write_list(t, w) + w(e)) =~= (w(es[0]) + write_list(t, w)) + w(e));
+        assert(write_list(es.push(e), w) =~= write_list(es, w) + w(e));
     }
 }
 

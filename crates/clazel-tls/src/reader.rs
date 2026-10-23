@@ -71,6 +71,68 @@ impl<'a> Cur<'a> {
         self.end.saturating_sub(self.pos)
     }
 
+    /// §3.3: read a `uint16` ([`read_u16`]).
+    pub fn u16(&mut self) -> (r: Option<u16>)
+        ensures
+            match r {
+                Some(v) => read_u16(old(self)@) == Some((v, final(self)@)),
+                None => read_u16(old(self)@) is None,
+            },
+    {
+        let ghost before = self@;
+        let v = self.uint(2)?;
+        proof {
+            super::lemmas_pl::lemma_read_uint_canonical(before, 2);
+            super::lemmas_pl::lemma_pow256_widths();
+        }
+        Some(v as u16)
+    }
+
+    /// §3.3: read a `uint8` ([`read_uint`] of one byte).
+    pub fn u8(&mut self) -> (r: Option<u8>)
+        ensures
+            match r {
+                Some(v) => read_uint(old(self)@, 1) == Some((v as nat, final(self)@)),
+                None => read_uint(old(self)@, 1) is None,
+            },
+    {
+        let ghost before = self@;
+        let v = self.uint(1)?;
+        proof {
+            super::lemmas_pl::lemma_read_uint_canonical(before, 1);
+            super::lemmas_pl::lemma_pow256_widths();
+        }
+        Some(v as u8)
+    }
+
+    /// §3.3: read a `uint32` ([`read_uint`] of four bytes).
+    pub fn u32(&mut self) -> (r: Option<u32>)
+        ensures
+            match r {
+                Some(v) => read_uint(old(self)@, 4) == Some((v as nat, final(self)@)),
+                None => read_uint(old(self)@, 4) is None,
+            },
+    {
+        let ghost before = self@;
+        let v = self.uint(4)?;
+        proof {
+            super::lemmas_pl::lemma_read_uint_canonical(before, 4);
+            super::lemmas_pl::lemma_pow256_widths();
+        }
+        Some(v as u32)
+    }
+
+    /// The bytes not yet read, as a slice of the buffer.
+    pub fn as_slice(&self) -> (s: &'a [u8])
+        ensures
+            s@ == self@,
+    {
+        proof {
+            use_type_invariant(self);
+        }
+        vstd::slice::slice_subrange(self.buf, self.pos, self.end)
+    }
+
     /// No bytes are left.
     pub fn is_empty(&self) -> (b: bool)
         ensures
@@ -199,10 +261,7 @@ impl<'a> Cur<'a> {
             3
         };
         let ghost whole = self@;
-        let n = match self.uint_wide(width) {
-            Some(n) => n,
-            None => return None,
-        };
+        let n = self.uint(width)?;
         let ghost after_len = self@;
         proof {
             use_type_invariant(&*self);
@@ -227,17 +286,6 @@ impl<'a> Cur<'a> {
             assert(self@ =~= after_len.skip(n as int));
         }
         Some(c)
-    }
-
-    /// [`Cur::uint`] for a width of up to three bytes, with the contract
-    /// at the width of a length field.
-    fn uint_wide(&mut self, w: usize) -> (r: Option<u64>)
-        requires
-            w <= 4,
-        ensures
-            super::contract::uint_ensures(old(self)@, w as nat, r, final(self)@),
-    {
-        self.uint(w)
     }
 }
 

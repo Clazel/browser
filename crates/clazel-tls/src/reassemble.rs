@@ -8,7 +8,7 @@
 use super::reader::byte_at;
 use super::spec::{
     Alert, CT_ALERT, CT_APPLICATION_DATA, CT_CHANGE_CIPHER_SPEC, CT_HANDSHAKE, ErrKind,
-    HANDSHAKE_HEADER, MAX_HANDSHAKE_BODY, MAX_PLAINTEXT,
+    HANDSHAKE_HEADER, MAX_HANDSHAKE_BODY,
 };
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -244,7 +244,7 @@ impl Reassembler {
     pub fn feed_record(&mut self, ctype: u8, fragment: &[u8]) -> (out: Result<Event, ErrKind>)
         requires
             old(self).wf(),
-            fragment.len() <= MAX_PLAINTEXT,
+            fragment.len() <= super::spec::MAX_PLAINTEXT,
         ensures
             out is Ok ==> final(self).wf(),
             res_event(
@@ -326,3 +326,9 @@ impl Reassembler {
 }
 
 } // verus!
+
+impl Default for Reassembler {
+    fn default() -> Self {
+        Reassembler::new()
+    }
+}
