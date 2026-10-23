@@ -52,19 +52,19 @@
 //!   `CookieGet` is a function of the domain's own cookies.
 
 #[allow(unused_imports)]
+use super::cookie_theorems::*;
+#[allow(unused_imports)]
+use super::domain::*;
+#[allow(unused_imports)]
 use super::invariant::*;
 #[allow(unused_imports)]
 use super::ni_theorem::*;
 #[allow(unused_imports)]
 use super::noninterference::*;
 #[allow(unused_imports)]
-use super::domain::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use super::statements::*;
-#[allow(unused_imports)]
-use super::cookie_theorems::*;
 #[allow(unused_imports)]
 use super::theorems::*;
 #[allow(unused_imports)]

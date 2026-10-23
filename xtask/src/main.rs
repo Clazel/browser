@@ -234,7 +234,10 @@ fn static_checks(r: &mut Runner, crates: &[Crate], pins: &Pins) {
     }
     r.step(
         "listed theorems are defined",
-        outcome(theorem_problems, vec![format!("listed theorems: {theorem_count}")]),
+        outcome(
+            theorem_problems,
+            vec![format!("listed theorems: {theorem_count}")],
+        ),
     );
     r.step(
         "clazel-sys audit",

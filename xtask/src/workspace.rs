@@ -106,7 +106,11 @@ fn parse_package(p: &Value) -> Result<Crate, String> {
         theorems: clazel
             .and_then(|c| c.get("theorems"))
             .and_then(Value::as_array)
-            .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_owned)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(str::to_owned))
+                    .collect()
+            })
             .unwrap_or_default(),
         name,
         dir,
@@ -363,7 +367,11 @@ pub fn missing_theorems(listed: &[String], sources: &[String]) -> Result<Vec<Str
     for src in sources {
         defined.extend(scan::proof_fn_names(src)?);
     }
-    Ok(listed.iter().filter(|name| !defined.contains(*name)).cloned().collect())
+    Ok(listed
+        .iter()
+        .filter(|name| !defined.contains(*name))
+        .cloned()
+        .collect())
 }
 
 /// Check one crate's listed theorems against its sources.
@@ -377,7 +385,12 @@ pub fn check_theorems(c: &Crate) -> Result<Vec<String>, String> {
     }
     Ok(missing_theorems(&c.theorems, &sources)?
         .into_iter()
-        .map(|t| format!("{}: listed theorem `{t}` is not defined as a `proof fn`", c.name))
+        .map(|t| {
+            format!(
+                "{}: listed theorem `{t}` is not defined as a `proof fn`",
+                c.name
+            )
+        })
         .collect())
 }
 
@@ -393,17 +406,29 @@ mod tests {
     fn listed_theorems_must_be_defined() {
         let src = "verus! {\npub proof fn theorem_a(x: nat)\n    ensures true,\n{}\n\
                    pub proof fn theorem_b<A>(x: A) {}\n}";
-        assert_eq!(missing_theorems(&names(&["theorem_a", "theorem_b"]), &[src.to_owned()]), Ok(Vec::new()));
+        assert_eq!(
+            missing_theorems(&names(&["theorem_a", "theorem_b"]), &[src.to_owned()]),
+            Ok(Vec::new())
+        );
     }
 
     #[test]
     fn planted_violation_theorem_without_definition() {
         let src = "pub proof fn theorem_a() {}\n// proof fn theorem_gone() {}\nconst S: &str = \"proof fn theorem_str() {}\";\n\
                    pub proof fn theorem_a_extended() {}";
-        let missing = missing_theorems(&names(&["theorem_a", "theorem_gone", "theorem_str", "theorem_never"]), &[src.to_owned()]);
-        assert_eq!(missing, Ok(names(&["theorem_gone", "theorem_str", "theorem_never"])));
+        let missing = missing_theorems(
+            &names(&["theorem_a", "theorem_gone", "theorem_str", "theorem_never"]),
+            &[src.to_owned()],
+        );
+        assert_eq!(
+            missing,
+            Ok(names(&["theorem_gone", "theorem_str", "theorem_never"]))
+        );
         // A prefix of a defined name is not a definition.
-        assert_eq!(missing_theorems(&names(&["theorem_a_ext"]), &[src.to_owned()]), Ok(names(&["theorem_a_ext"])));
+        assert_eq!(
+            missing_theorems(&names(&["theorem_a_ext"]), &[src.to_owned()]),
+            Ok(names(&["theorem_a_ext"]))
+        );
     }
 
     #[test]

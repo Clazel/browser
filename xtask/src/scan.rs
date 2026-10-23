@@ -79,9 +79,10 @@ fn collect_proof_fns(stream: TokenStream, out: &mut Vec<String>) {
     for (k, tt) in tokens.iter().enumerate() {
         match tt {
             TokenTree::Ident(id) if *id == "proof" => {
-                if let (Some(TokenTree::Ident(f)), Some(TokenTree::Ident(name))) =
-                    (tokens.get(k.saturating_add(1)), tokens.get(k.saturating_add(2)))
-                    && *f == "fn"
+                if let (Some(TokenTree::Ident(f)), Some(TokenTree::Ident(name))) = (
+                    tokens.get(k.saturating_add(1)),
+                    tokens.get(k.saturating_add(2)),
+                ) && *f == "fn"
                 {
                     out.push(name.to_string());
                 }
