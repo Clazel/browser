@@ -320,7 +320,9 @@ mod tests {
     #[test]
     fn every_kind_is_generated_and_every_frame_is_one_the_kernel_refuses() {
         let mut kinds = HashSet::new();
-        for seed in 0..4000 {
+        // Miri runs the decoder slowly: fewer seeds, still every kind.
+        let seeds = if cfg!(miri) { 200 } else { 4000 };
+        for seed in 0..seeds {
             let h = generate(seed);
             kinds.insert(h.kind);
             assert!(refused(&h.bytes), "seed {seed}: {h:?}");
