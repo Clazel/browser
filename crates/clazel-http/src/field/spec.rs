@@ -50,11 +50,13 @@
 //!   `u64::MAX` as too large, which is how §8.6 says to handle
 //!   "potentially large decimal numerals".
 //! - §8.6's list case ("the same decimal value repeated as a
-//!   comma-separated list") reads "the same decimal value" as the same
-//!   number, so `42, 042` is a repeat. A list with an empty member
-//!   (`42,,42`) is not "a comma-separated list" of that value and is
-//!   invalid: [`split_values`] keeps empty pieces, [`list_elements`] is
-//!   the one that drops them, and `Content-Length` uses the former.
+//!   comma-separated list") is read as the same digits repeated, so `42, 42`
+//!   is a repeat and `42, 042` is not: §8.6 lets a recipient reject the
+//!   message, and rejecting is the safe reading when two parsers could
+//!   disagree about what `042` means. A list with an empty member
+//!   (`42,,42`) is not a list of that value either: [`split_values`] keeps
+//!   empty pieces, [`list_elements`] is the one that drops them, and
+//!   `Content-Length` uses the former.
 //! - Several field lines of one name are combined with ", " (§5.3: "separated
 //!   by a comma (",") and optional whitespace ... For consistency, use
 //!   comma SP"). A field line's value is the value after §5.5's removal of
@@ -721,11 +723,11 @@ pub open spec fn decimal_value(s: Seq<u8>) -> nat
     }
 }
 
-/// Every member of `v` is `1*DIGIT` with the decimal value `n`.
-pub open spec fn all_decimal(v: Seq<Seq<u8>>, n: nat) -> bool
+/// Every member of `v` is `e`.
+pub open spec fn all_equal(v: Seq<Seq<u8>>, e: Seq<u8>) -> bool
     decreases v.len()
 {
-    v.len() == 0 || (is_digits(v[0]) && decimal_value(v[0]) == n && all_decimal(v.drop_first(), n))
+    v.len() == 0 || (v[0] == e && all_equal(v.drop_first(), e))
 }
 
 /// §8.6, `Content-Length` of the combined field value `value`: "Content-Length
@@ -736,7 +738,7 @@ pub open spec fn all_decimal(v: Seq<Seq<u8>>, n: nat) -> bool
 /// the decimal value". We replace it. `None` is invalid.
 pub open spec fn parse_content_length(value: Seq<u8>) -> Option<nat> {
     let members = split_values(value);
-    if members.len() > 0 && is_digits(members[0]) && all_decimal(members, decimal_value(members[0])) {
+    if members.len() > 0 && is_digits(members[0]) && all_equal(members, members[0]) {
         Some(decimal_value(members[0]))
     } else {
         None
