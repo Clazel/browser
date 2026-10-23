@@ -10,6 +10,8 @@
 //! also reads. It exits when the script is done; the host sees the socket
 //! close.
 
+pub mod escape;
+pub mod hostile;
 pub mod sandbox;
 pub mod script;
 

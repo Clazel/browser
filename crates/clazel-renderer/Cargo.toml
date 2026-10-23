@@ -25,6 +25,12 @@ target-tier = 0
 [lints]
 workspace = true
 
+# The misbehaving renderer of item 2.16: hostile frames and sandbox escape
+# attempts, run by the tests of `clazel` and of this crate.
+[[bin]]
+name = "clazel-adversary"
+path = "src/adversary.rs"
+
 # A test with its own `main`: it enters the real sandbox in a child process of
 # its own, which a test harness (a thread per test) could not do on Linux.
 [[test]]

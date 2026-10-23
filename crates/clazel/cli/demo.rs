@@ -48,9 +48,9 @@ pub fn run(mut host: Host) -> ExitCode {
     let q = |s: &str| format!("{s:?}");
     let (got_a, got_b, got_x) = (answers(&host, a), answers(&host, b), answers(&host, x));
     println!("-- results (document.cookie, then localStorage.getItem(\"owner\"))");
-    println!("a.test   {got_a:?}");
-    println!("b.test   {got_b:?}");
-    println!("x.a.test {got_x:?}");
+    println!("a.test   {}", got_a.join("   "));
+    println!("b.test   {}", got_b.join("   "));
+    println!("x.a.test {}", got_x.join("   "));
 
     let ok_a = got_a == [q("session=alpha"), q("alpha")];
     let ok_b = got_b == [q("session=beta"), q("beta")];

@@ -1,0 +1,125 @@
+//! Sandbox escape attempts (phase-2.md item 2.16): the calls a compromised
+//! renderer would make to reach something other than its socket, written
+//! with `std` only (the crate has no `unsafe`).
+//!
+//! [`try_it`] makes one call and says whether it *succeeded*; succeeding is
+//! the escape. The adversary binary runs it after entering the sandbox,
+//! one attempt per process, because on Linux a forbidden call kills the
+//! process (`SIGSYS`, from the seccomp filter) and that is the pass there.
+//!
+//! What is not here: `fork` and `ptrace` of a sibling. `std` has neither
+//! (`Command::spawn` is `posix_spawn` on macOS and `fork`/`clone` plus `exec`
+//! on Linux, so `execve` below exercises process creation, but not a bare
+//! `fork`), and `clazel-sys` wraps neither; adding them is a change to that
+//! crate and needs its own audit (CLAUDE.md rule 1).
+
+use std::fs::{File, OpenOptions};
+use std::io::{self, Read};
+use std::net::{TcpListener, TcpStream, UdpSocket};
+use std::os::unix::net::{UnixListener, UnixStream};
+use std::process::{Command, Stdio};
+
+/// One thing a renderer must not be able to do.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Attempt {
+    /// Open an existing file for reading: where the cookie jar would live.
+    OpenCookieJar,
+    /// Open any other existing file for reading.
+    OpenFile,
+    /// Create a new file.
+    CreateFile,
+    /// Connect to a TCP listener.
+    TcpConnect,
+    /// Listen on a TCP port.
+    TcpListen,
+    /// Bind a UDP socket.
+    UdpBind,
+    /// Connect to a Unix socket.
+    UnixConnect,
+    /// Create a Unix socket.
+    UnixListen,
+    /// Start another program (`execve`, through `Command`).
+    Execve,
+}
+
+impl Attempt {
+    /// Every attempt.
+    pub const ALL: [Attempt; 9] = [
+        Attempt::OpenCookieJar,
+        Attempt::OpenFile,
+        Attempt::CreateFile,
+        Attempt::TcpConnect,
+        Attempt::TcpListen,
+        Attempt::UdpBind,
+        Attempt::UnixConnect,
+        Attempt::UnixListen,
+        Attempt::Execve,
+    ];
+
+    /// The name on the command line.
+    pub fn name(self) -> &'static str {
+        match self {
+            Attempt::OpenCookieJar => "open-cookie-jar",
+            Attempt::OpenFile => "open-file",
+            Attempt::CreateFile => "create-file",
+            Attempt::TcpConnect => "tcp-connect",
+            Attempt::TcpListen => "tcp-listen",
+            Attempt::UdpBind => "udp-bind",
+            Attempt::UnixConnect => "unix-connect",
+            Attempt::UnixListen => "unix-listen",
+            Attempt::Execve => "execve",
+        }
+    }
+
+    /// The attempt called `name`.
+    pub fn parse(name: &str) -> Option<Attempt> {
+        Attempt::ALL.into_iter().find(|a| a.name() == name)
+    }
+}
+
+/// Make the call on `target` (a path, a `host:port` or a program). `Ok` is
+/// what succeeded, which is an escape; `Err` is the OS refusing.
+pub fn try_it(attempt: Attempt, target: &str) -> io::Result<String> {
+    match attempt {
+        Attempt::OpenCookieJar | Attempt::OpenFile => {
+            let mut head = String::new();
+            File::open(target)?.take(32).read_to_string(&mut head)?;
+            Ok(format!("read {head:?} from {target}"))
+        }
+        Attempt::CreateFile => {
+            OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(target)?;
+            Ok(format!("created {target}"))
+        }
+        Attempt::TcpConnect => {
+            let peer = TcpStream::connect(target)?.peer_addr()?;
+            Ok(format!("connected to {peer}"))
+        }
+        Attempt::TcpListen => {
+            let addr = TcpListener::bind(target)?.local_addr()?;
+            Ok(format!("listening on {addr}"))
+        }
+        Attempt::UdpBind => {
+            let addr = UdpSocket::bind(target)?.local_addr()?;
+            Ok(format!("bound {addr}"))
+        }
+        Attempt::UnixConnect => {
+            UnixStream::connect(target)?;
+            Ok(format!("connected to {target}"))
+        }
+        Attempt::UnixListen => {
+            UnixListener::bind(target)?;
+            Ok(format!("listening on {target}"))
+        }
+        Attempt::Execve => {
+            let status = Command::new(target)
+                .stdin(Stdio::null())
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .status()?;
+            Ok(format!("ran {target}: {status}"))
+        }
+    }
+}
