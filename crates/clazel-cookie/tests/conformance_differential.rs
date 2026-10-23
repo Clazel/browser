@@ -31,8 +31,13 @@
 //!
 //! The generator is a fixed-seed linear congruential generator, so a run is
 //! reproducible. Prints `clazel-conformance:` with the number of sequences
-//! whose gets all agree. Under Miri, a few sequences are run (the
-//! `cookie_store` side is compiled Rust that Miri runs slowly).
+//! whose gets all agree.
+//!
+//! Skipped under Miri (`#[cfg_attr(miri, ignore)]`, as `clazel-psl`'s
+//! differential test is): `cookie_store` reads the system clock, which Miri's
+//! isolation refuses, and each of our steps scans the Public Suffix List at
+//! about ten seconds a step under Miri. The two other conformance tests of
+//! this crate run a sample of their cases under Miri.
 
 mod support;
 
@@ -184,8 +189,9 @@ fn sequence(seed: u64, now: u64) -> Option<String> {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)]
 fn differential_cookie_store() {
-    let sequences: u64 = if cfg!(miri) { 4 } else { 3000 };
+    let sequences: u64 = 3000;
     let now_unix = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_or(1_792_713_600, |d| d.as_secs());

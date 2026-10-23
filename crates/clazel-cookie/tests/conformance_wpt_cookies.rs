@@ -12,8 +12,8 @@
 //! parsed by the proven URL parser, and each case starts with an empty jar.
 //!
 //! The expected failures are listed in `XFAIL`, each with its reason; none
-//! is counted as a pass. Under Miri, every seventh case is run (a store
-//! runs the Public Suffix List scan several times).
+//! is counted as a pass. Under Miri, every 89th case is run (two cases; a store
+//! runs the Public Suffix List scan several times, which Miri runs at about ten seconds a case).
 
 mod support;
 
@@ -88,7 +88,7 @@ fn run(c: &Case) -> Option<Vec<u8>> {
 
 #[test]
 fn wpt_cookies() {
-    let step = if cfg!(miri) { 7 } else { 1 };
+    let step = if cfg!(miri) { 89 } else { 1 };
     let mut pass: u64 = 0;
     let mut xfail: u64 = 0;
     let mut failed: u64 = 0;

@@ -17,7 +17,7 @@
 //!
 //! The corpus is for RFC 6265. Rows where RFC 6265bis draft 22 differs on
 //! purpose are in `XFAIL` with the reason; none is counted as a pass.
-//! Under Miri, every fifth row is run.
+//! Under Miri, every 111th row is run (two rows; see conformance_wpt_cookies.rs for why so few).
 
 mod support;
 
@@ -132,7 +132,7 @@ fn run(c: &Case) -> Option<Vec<u8>> {
 
 #[test]
 fn http_state_parser() {
-    let step = if cfg!(miri) { 5 } else { 1 };
+    let step = if cfg!(miri) { 111 } else { 1 };
     let mut pass: u64 = 0;
     let mut xfail: u64 = 0;
     let mut failed: u64 = 0;
