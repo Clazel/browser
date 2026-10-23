@@ -119,9 +119,11 @@ pub open spec fn expect_end_ensures(pos: nat, end: nat, out: bool) -> bool {
     out == expect_end(pos, end)
 }
 
-/// Precondition of `encode_tlv`: a tag number the decoder accepts.
-pub open spec fn encode_tlv_requires(tag: Tag, contents: Seq<u8>) -> bool {
-    tlv_ok(tag, contents)
+/// Precondition of `encode_tlv`: a tag number the decoder accepts. (The
+/// contents are a slice, so shorter than 2^64 octets, which is the other
+/// half of [`tlv_ok`]; the function proves that itself.)
+pub open spec fn encode_tlv_requires(tag: Tag) -> bool {
+    tag.number <= MAX_TAG_NUMBER
 }
 
 /// Contract for `encode_tlv`: identifier, length, contents.

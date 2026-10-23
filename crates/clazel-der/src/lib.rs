@@ -17,5 +17,12 @@
 //! end, reads one value at the position and returns where it ended.
 
 pub mod contract;
+pub mod decode;
+pub mod encode;
+pub mod lemmas;
+pub mod lemmas_oid;
+pub mod lemmas_overread;
+pub mod lemmas_tlv;
+pub mod lemmas_typed;
 pub mod spec;
 pub mod termination;
