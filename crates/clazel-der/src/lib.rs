@@ -19,6 +19,7 @@
 pub mod contract;
 pub mod decode;
 pub mod encode;
+pub mod independent;
 pub mod lemmas;
 pub mod lemmas_oid;
 pub mod lemmas_overread;
