@@ -149,6 +149,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "clazel-tls"
+version = "0.0.0"
+dependencies = [
+ "vstd",
+]
+
+[[package]]
 name = "clazel-url"
 version = "0.0.0"
 dependencies = [
