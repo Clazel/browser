@@ -88,8 +88,11 @@ impl UrlFnsExec for RealUrls {
             return None;
         }
         match basic_url_parser(url, None) {
-            Some(parsed) => Some(url_origin_exec(&parsed, 0)),
             None => None,
+            Some(parsed) => {
+                let origin = url_origin_exec(&parsed, 0);
+                Some(origin)
+            },
         }
     }
 
