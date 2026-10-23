@@ -3,7 +3,6 @@
 //! kernel say to each other. The renderer is `$CLAZEL_RENDERER`, or
 //! `clazel-renderer` next to this binary.
 
-use std::path::PathBuf;
 use std::process::{Command, ExitCode};
 use std::time::Duration;
 
@@ -13,19 +12,15 @@ fn main() -> ExitCode {
         eprintln!("usage: clazel URL SCRIPT");
         return ExitCode::from(2);
     };
-    let renderer: PathBuf = std::env::var_os("CLAZEL_RENDERER").map(PathBuf::from).unwrap_or_else(|| {
-        std::env::current_exe().map_or_else(|_| PathBuf::from("clazel-renderer"), |p| p.with_file_name("clazel-renderer"))
-    });
-    let mut host = clazel::Host::new(move |_| Command::new(&renderer));
+    let next_to_me = std::env::current_exe().map(|p| p.with_file_name("clazel-renderer"));
+    let renderer = std::env::var_os("CLAZEL_RENDERER")
+        .map(Into::into)
+        .or(next_to_me.ok());
+    let mut host = clazel::Host::new(move |_| Command::new(renderer.clone().unwrap_or_default()));
     host.open_tab(url, script);
-    if host.live() == 0 {
-        eprintln!("clazel: the kernel did not start a renderer for {url}");
-        return ExitCode::FAILURE;
+    if host.live() > 0 && host.run(Duration::from_secs(30)) {
+        return ExitCode::SUCCESS;
     }
-    if host.run(Duration::from_secs(30)) {
-        ExitCode::SUCCESS
-    } else {
-        eprintln!("clazel: a renderer is still running after 30 s");
-        ExitCode::FAILURE
-    }
+    eprintln!("clazel: no renderer started for {url}, or one is still running after 30 s");
+    ExitCode::FAILURE
 }

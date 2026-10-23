@@ -1525,7 +1525,7 @@ and `crates/clazel-renderer` (library and binary), both Tier 0 with std and
 workspace crates only (no new third-party package, so `Cargo.lock` gained two
 workspace rows and DEPENDENCIES.md none).
 
-- **Host** (`crates/clazel/src/lib.rs` and `main.rs`, 281 lines by `wc -l`;
+- **Host** (`crates/clazel/src/lib.rs` and `main.rs`, 298 lines by `wc -l`;
   the README footnote reports the number and `cargo xtask report` fails over
   300). `Host::new(command)` starts renderers with `command(id)`;
   `open_tab` and `navigate_tab` are the user's `OpenTab` and `NavigateTab`
@@ -1679,7 +1679,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.12 Kernel implementation | done at tier 2: `step_exec` proven to meet 2.10's contract for any `UrlFnsExec`, the storage-length cast discharged, one contract precondition added (scalar-valued URLs), the 9 existing mutations are all still certified kills (9 killed by a theorem, 0 incidental, 0 survived), WPT cookies/ 11/11 (set and get) and 166/167 (1 xfail, read from the HTTP-built jar), WPT webstorage/ 24/24, cookie_store differential 3000/3000 |
 | 2.13 Navigation with the real URL parser | done, `clazel-kernel` stays at tier 2: `RealUrls` proven equal to `urls::real_urls()` (the real parser, serializers, `url_origin_exec`), `urls_resolve_scalar` proven by a scalar guard on `resolve` (that the guard is vacuous is not proven; 2896/2896 inputs never trigger it), `step_real` for the host shell, the 2.11 theorems restated for the real parser, 16 of 16 mutations certified kills, WPT `urltestdata.json` navigation 336/336 and `origin_of`/`path_of` 560/560 through the kernel |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
-| 2.15 Host shell and renderer stub | built, Tier 0: `clazel` (281 lines) and `clazel-renderer`, the sandbox entered first on macOS (Seatbelt; the test shows `open` and `connect` denied) and a script run end to end through real processes; the Linux path is written but not yet compiled or run; the README table rows are not yet generated (no Verus or Kani here); CI's full run has not happened |
+| 2.15 Host shell and renderer stub | built, Tier 0: `clazel` (298 lines) and `clazel-renderer`, the sandbox entered first on macOS (Seatbelt; the test shows `open` and `connect` denied) and a script run end to end through real processes; the Linux path is written but not yet compiled or run; the README table rows are not yet generated (no Verus or Kani here); CI's full run has not happened |
 | 2.16 Exit demo and adversarial tests | not started; ready (2.15 is built) |
 
 ## Risks

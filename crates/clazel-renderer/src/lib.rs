@@ -98,11 +98,16 @@ mod tests {
     use std::io::Cursor;
 
     fn frames(msgs: &[Msg]) -> Vec<u8> {
-        msgs.iter().flat_map(|m| encode_framed(m).unwrap_or_default()).collect()
+        msgs.iter()
+            .flat_map(|m| encode_framed(m).unwrap_or_default())
+            .collect()
     }
 
     fn commit(script: &str) -> Msg {
-        Msg::Commit { url: b"https://a.example/".to_vec(), script: script.as_bytes().to_vec() }
+        Msg::Commit {
+            url: b"https://a.example/".to_vec(),
+            script: script.as_bytes().to_vec(),
+        }
     }
 
     /// Run a script against the kernel's `replies`; the frames it sent.
@@ -118,39 +123,80 @@ mod tests {
     fn a_read_waits_for_its_answer_and_a_write_does_not() -> Result<(), RunError> {
         let sent = exchange(
             "cookie-set a=1\ncookie-get\nstorage-clear",
-            vec![Msg::CookieValue { cookie_string: b"a=1".to_vec() }],
+            vec![Msg::CookieValue {
+                cookie_string: b"a=1".to_vec(),
+            }],
         )?;
-        assert_eq!(sent, frames(&[Msg::CookieSet { cookie_string: b"a=1".to_vec() }, Msg::CookieGet, Msg::StorageClear]));
+        assert_eq!(
+            sent,
+            frames(&[
+                Msg::CookieSet {
+                    cookie_string: b"a=1".to_vec()
+                },
+                Msg::CookieGet,
+                Msg::StorageClear
+            ])
+        );
         Ok(())
     }
 
     #[test]
     fn set_item_is_followed_by_a_length_barrier() -> Result<(), RunError> {
         // Success: one answer, to the barrier.
-        let ok = exchange("storage-set k v\nstorage-get k", vec![
-            Msg::StorageLengthValue { length: 1 },
-            Msg::StorageValue { value: Some(b"v".to_vec()) },
-        ])?;
-        let set = Msg::StorageSetItem { key: b"k".to_vec(), value: b"v".to_vec() };
-        assert_eq!(ok, frames(&[set, Msg::StorageLength, Msg::StorageGetItem { key: b"k".to_vec() }]));
+        let ok = exchange(
+            "storage-set k v\nstorage-get k",
+            vec![
+                Msg::StorageLengthValue { length: 1 },
+                Msg::StorageValue {
+                    value: Some(b"v".to_vec()),
+                },
+            ],
+        )?;
+        let set = Msg::StorageSetItem {
+            key: b"k".to_vec(),
+            value: b"v".to_vec(),
+        };
+        assert_eq!(
+            ok,
+            frames(&[
+                set,
+                Msg::StorageLength,
+                Msg::StorageGetItem { key: b"k".to_vec() }
+            ])
+        );
         // Failure: the `setItem` error, then the barrier's answer, which the
         // next read must not mistake for its own.
-        let failed = exchange("storage-set k v\nstorage-get k", vec![
-            Msg::Error { code: 1 },
-            Msg::StorageLengthValue { length: 0 },
-            Msg::StorageValue { value: None },
-        ]);
+        let failed = exchange(
+            "storage-set k v\nstorage-get k",
+            vec![
+                Msg::Error { code: 1 },
+                Msg::StorageLengthValue { length: 0 },
+                Msg::StorageValue { value: None },
+            ],
+        );
         assert!(failed.is_ok());
         Ok(())
     }
 
     #[test]
     fn protocol_violations_stop_the_script() {
-        assert!(matches!(exchange("cookie-get", vec![]), Err(RunError::Io(_))));
-        assert!(matches!(exchange("nonsense", vec![]), Err(RunError::Script(_))));
+        assert!(matches!(
+            exchange("cookie-get", vec![]),
+            Err(RunError::Io(_))
+        ));
+        assert!(matches!(
+            exchange("nonsense", vec![]),
+            Err(RunError::Script(_))
+        ));
         let mut not_commit = Cursor::new(frames(&[Msg::CookieGet]));
-        assert!(matches!(run(&mut not_commit, &mut Vec::new()), Err(RunError::Protocol(_))));
+        assert!(matches!(
+            run(&mut not_commit, &mut Vec::new()),
+            Err(RunError::Protocol(_))
+        ));
         let mut huge = Cursor::new(vec![0xff, 0xff, 0xff, 0xff]);
-        assert!(matches!(run(&mut huge, &mut Vec::new()), Err(RunError::Protocol(_))));
+        assert!(matches!(
+            run(&mut huge, &mut Vec::new()),
+            Err(RunError::Protocol(_))
+        ));
     }
 }

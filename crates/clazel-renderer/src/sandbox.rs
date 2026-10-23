@@ -26,14 +26,20 @@ impl fmt::Display for Failure {
 }
 
 fn layer<T, E: fmt::Display>(layer: &'static str, r: Result<T, E>) -> Result<T, Failure> {
-    r.map_err(|e| Failure { layer, detail: e.to_string() })
+    r.map_err(|e| Failure {
+        layer,
+        detail: e.to_string(),
+    })
 }
 
 /// macOS: `sandbox_init` with the renderer's Seatbelt profile.
 #[cfg(target_os = "macos")]
 pub fn enter() -> Result<(), Failure> {
     let profile = clazel_sandbox::seatbelt::renderer_profile();
-    layer("seatbelt", clazel_sys::macos::sandbox_init_profile(&profile))
+    layer(
+        "seatbelt",
+        clazel_sys::macos::sandbox_init_profile(&profile),
+    )
 }
 
 /// Linux: `no_new_privs`, namespaces, Landlock, then seccomp last, since its
@@ -44,15 +50,18 @@ pub fn enter() -> Result<(), Failure> {
     use clazel_sys::linux::{self, Namespaces};
 
     layer("no_new_privs", linux::set_no_new_privs())?;
-    let namespaces = clazel_sandbox::namespaces::RENDERER.iter().fold(Namespaces::NONE, |acc, n| {
-        acc.union(match n {
-            Namespace::User => Namespaces::USER,
-            Namespace::Mount => Namespaces::MOUNT,
-            Namespace::Pid => Namespaces::PID,
-            Namespace::Net => Namespaces::NETWORK,
-            Namespace::Ipc => Namespaces::IPC,
-        })
-    });
+    let namespaces =
+        clazel_sandbox::namespaces::RENDERER
+            .iter()
+            .fold(Namespaces::NONE, |acc, n| {
+                acc.union(match n {
+                    Namespace::User => Namespaces::USER,
+                    Namespace::Mount => Namespaces::MOUNT,
+                    Namespace::Pid => Namespaces::PID,
+                    Namespace::Net => Namespaces::NETWORK,
+                    Namespace::Ipc => Namespaces::IPC,
+                })
+            });
     layer("namespaces", linux::unshare(namespaces))?;
     layer("landlock", landlock())?;
     layer("seccomp", seccomp())
@@ -69,7 +78,9 @@ fn landlock() -> Result<(), clazel_sys::Errno> {
     const EINVAL: i32 = 22; // the same on x86-64 and aarch64 Linux
     let mut last = clazel_sys::Errno(EINVAL);
     for abi in [clazel_sandbox::landlock::LATEST_ABI, 3, 2, 1] {
-        let rights = clazel_sandbox::landlock::RENDERER.for_abi(abi).handled_access_fs;
+        let rights = clazel_sandbox::landlock::RENDERER
+            .for_abi(abi)
+            .handled_access_fs;
         match clazel_sys::linux::landlock_deny_filesystem(rights) {
             Ok(()) => return Ok(()),
             Err(e) if e.0 == EINVAL => last = e,
@@ -83,7 +94,10 @@ fn landlock() -> Result<(), clazel_sys::Errno> {
 const ARCH: Option<clazel_sandbox::syscalls::Arch> = Some(clazel_sandbox::syscalls::Arch::X86_64);
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
 const ARCH: Option<clazel_sandbox::syscalls::Arch> = Some(clazel_sandbox::syscalls::Arch::Aarch64);
-#[cfg(all(target_os = "linux", not(any(target_arch = "x86_64", target_arch = "aarch64"))))]
+#[cfg(all(
+    target_os = "linux",
+    not(any(target_arch = "x86_64", target_arch = "aarch64"))
+))]
 const ARCH: Option<clazel_sandbox::syscalls::Arch> = None;
 
 /// The seccomp-BPF allowlist, mapped instruction by instruction to
@@ -94,7 +108,12 @@ fn seccomp() -> Result<(), String> {
     let program = clazel_sandbox::seccomp::renderer_program(arch).map_err(|e| format!("{e:?}"))?;
     let program: Vec<clazel_sys::linux::SockFilter> = program
         .iter()
-        .map(|i| clazel_sys::linux::SockFilter { code: i.code, jt: i.jt, jf: i.jf, k: i.k })
+        .map(|i| clazel_sys::linux::SockFilter {
+            code: i.code,
+            jt: i.jt,
+            jf: i.jf,
+            k: i.k,
+        })
         .collect();
     clazel_sys::linux::seccomp_set_mode_filter(&program).map_err(|e| e.to_string())
 }

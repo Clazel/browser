@@ -17,7 +17,10 @@ const LONG: Duration = Duration::from_secs(20);
 fn stub(script: String) -> Host {
     Host::new(move |id| {
         let mut c = Command::new("/bin/sh");
-        c.arg("-c").arg(&script).env("ID", id.to_string()).env("OUT", env!("CARGO_TARGET_TMPDIR"));
+        c.arg("-c")
+            .arg(&script)
+            .env("ID", id.to_string())
+            .env("OUT", env!("CARGO_TARGET_TMPDIR"));
         c
     })
 }
@@ -25,14 +28,22 @@ fn stub(script: String) -> Host {
 /// A frame of `payload`, as the octal escapes `printf` reads.
 fn frame_octal(payload: &[u8]) -> String {
     let len = u32::try_from(payload.len()).unwrap_or(u32::MAX);
-    len.to_be_bytes().iter().chain(payload).map(|b| format!("\\{b:03o}")).collect()
+    len.to_be_bytes()
+        .iter()
+        .chain(payload)
+        .map(|b| format!("\\{b:03o}"))
+        .collect()
 }
 
 fn decode_all(mut bytes: &[u8]) -> Vec<Msg> {
     let mut out = Vec::new();
     while let Some((header, _)) = bytes.split_at_checked(4) {
-        let Some(len) = payload_length(header) else { break };
-        let Some((frame, rest)) = bytes.split_at_checked(len.saturating_add(4)) else { break };
+        let Some(len) = payload_length(header) else {
+            break;
+        };
+        let Some((frame, rest)) = bytes.split_at_checked(len.saturating_add(4)) else {
+            break;
+        };
         out.extend(decode_framed(frame));
         bytes = rest;
     }
@@ -41,7 +52,9 @@ fn decode_all(mut bytes: &[u8]) -> Vec<Msg> {
 
 /// Pump the host until `f` has a value.
 fn wait_for<T>(mut f: impl FnMut() -> Option<T>, host: &mut Host) -> T {
-    let end = Instant::now().checked_add(LONG).unwrap_or_else(Instant::now);
+    let end = Instant::now()
+        .checked_add(LONG)
+        .unwrap_or_else(Instant::now);
     loop {
         if let Some(v) = f() {
             return v;
@@ -59,7 +72,12 @@ fn has(host: &Host, needle: &str) -> bool {
 /// tab does nothing; if the kernel still had it, it would spawn a renderer.
 fn kernel_forgot_tab_zero(host: &mut Host) {
     host.navigate_tab(0, "https://other.example/", "");
-    assert_eq!(host.live(), 0, "the kernel still has renderer 0: {:#?}", host.log);
+    assert_eq!(
+        host.live(),
+        0,
+        "the kernel still has renderer 0: {:#?}",
+        host.log
+    );
 }
 
 #[test]
@@ -71,7 +89,10 @@ fn an_oversized_frame_is_refused_and_becomes_renderer_exited() {
     assert_eq!(host.live(), 1);
     assert!(host.run(LONG), "{:#?}", host.log);
     assert!(
-        has(&host, "renderer 0 exited: sent a frame over MAX_FRAME (announced 4294967295 bytes)"),
+        has(
+            &host,
+            "renderer 0 exited: sent a frame over MAX_FRAME (announced 4294967295 bytes)"
+        ),
         "{:#?}",
         host.log
     );
@@ -84,7 +105,14 @@ fn a_closed_socket_becomes_renderer_exited() {
     let mut host = stub("exit 0".to_owned());
     host.open_tab("https://a.example/", "");
     assert!(host.run(LONG), "{:#?}", host.log);
-    assert!(has(&host, "renderer 0 exited: closed its socket; exit status: 0"), "{:#?}", host.log);
+    assert!(
+        has(
+            &host,
+            "renderer 0 exited: closed its socket; exit status: 0"
+        ),
+        "{:#?}",
+        host.log
+    );
     kernel_forgot_tab_zero(&mut host);
 }
 
@@ -92,10 +120,17 @@ fn a_closed_socket_becomes_renderer_exited() {
 #[cfg_attr(miri, ignore = "spawns processes")]
 fn a_kernel_only_message_gets_the_renderer_killed() {
     // CookieValue (tag 102) is a message only the kernel may send.
-    let mut host = stub(format!("printf '{}'; exec sleep 30", frame_octal(&[0x82, 0x18, 0x66, 0x60])));
+    let mut host = stub(format!(
+        "printf '{}'; exec sleep 30",
+        frame_octal(&[0x82, 0x18, 0x66, 0x60])
+    ));
     host.open_tab("https://a.example/", "");
     assert!(host.run(LONG), "{:#?}", host.log);
-    assert!(has(&host, "renderer 0 exited: killed by the kernel"), "{:#?}", host.log);
+    assert!(
+        has(&host, "renderer 0 exited: killed by the kernel"),
+        "{:#?}",
+        host.log
+    );
     kernel_forgot_tab_zero(&mut host);
 }
 
@@ -117,7 +152,10 @@ fn the_renderer_id_comes_from_the_socket_and_replies_go_to_the_sender() {
     host.open_tab("https://a.example/", "");
     host.open_tab("https://b.example/", "");
     assert_eq!(host.live(), 2);
-    let got = wait_for(|| Some(decode_all(&fs::read(received(0)).ok()?)).filter(|m| m.len() >= 2), &mut host);
+    let got = wait_for(
+        || Some(decode_all(&fs::read(received(0)).ok()?)).filter(|m| m.len() >= 2),
+        &mut host,
+    );
     assert!(
         matches!(got.as_slice(), [Msg::Commit { .. }, Msg::CookieValue { cookie_string }] if cookie_string.is_empty()),
         "{got:?}"
@@ -126,7 +164,10 @@ fn the_renderer_id_comes_from_the_socket_and_replies_go_to_the_sender() {
     wait_for(|| received(1).exists().then_some(()), &mut host);
     host.pump(Duration::from_millis(200));
     let other = decode_all(&fs::read(received(1)).unwrap_or_default());
-    assert!(matches!(other.as_slice(), [Msg::Commit { .. }]), "{other:?}");
+    assert!(
+        matches!(other.as_slice(), [Msg::Commit { .. }]),
+        "{other:?}"
+    );
 }
 
 #[test]
@@ -152,11 +193,20 @@ fn a_cross_origin_navigation_is_kill_spawn_commit_and_a_same_origin_one_is_a_com
 /// `clazel-renderer` next to the test's own deps directory, built if needed.
 fn real_renderer() -> PathBuf {
     let exe = std::env::current_exe().unwrap_or_default();
-    let path = exe.parent().and_then(Path::parent).map(|d| d.join("clazel-renderer")).unwrap_or_default();
+    let path = exe
+        .parent()
+        .and_then(Path::parent)
+        .map(|d| d.join("clazel-renderer"))
+        .unwrap_or_default();
     if !path.exists() {
         let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-        let built = Command::new(cargo).args(["build", "-p", "clazel-renderer"]).status();
-        assert!(built.is_ok_and(|s| s.success()), "cannot build clazel-renderer");
+        let built = Command::new(cargo)
+            .args(["build", "-p", "clazel-renderer"])
+            .status();
+        assert!(
+            built.is_ok_and(|s| s.success()),
+            "cannot build clazel-renderer"
+        );
     }
     path
 }
@@ -203,9 +253,13 @@ fn a_bad_script_is_reported_with_the_renderers_stderr() {
     host.open_tab("https://example.com/", "cookie-get\nfly");
     assert!(host.run(LONG), "{:#?}", host.log);
     let log = host.log.join("\n");
-    let sandbox_refused = cfg!(target_os = "linux") && log.contains("exit status: 71; stderr: clazel-renderer: sandbox layer");
+    let sandbox_refused = cfg!(target_os = "linux")
+        && log.contains("exit status: 71; stderr: clazel-renderer: sandbox layer");
     assert!(
-        sandbox_refused || log.contains("exit status: 64; stderr: clazel-renderer: script line 2: unknown operation"),
+        sandbox_refused
+            || log.contains(
+                "exit status: 64; stderr: clazel-renderer: script line 2: unknown operation"
+            ),
         "{log}"
     );
 }

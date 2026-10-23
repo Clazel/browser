@@ -51,15 +51,23 @@ fn main() -> ExitCode {
 /// Run the probe in a child process and judge how it ended.
 fn check() -> Result<String, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
-    let out = Command::new(exe).env(PROBE, "1").output().map_err(|e| e.to_string())?;
+    let out = Command::new(exe)
+        .env(PROBE, "1")
+        .output()
+        .map_err(|e| e.to_string())?;
     let stdout = String::from_utf8_lossy(&out.stdout);
     let stderr = String::from_utf8_lossy(&out.stderr);
     let killed_by_seccomp = cfg!(target_os = "linux") && out.status.signal() == Some(31);
     let sandboxed = stdout.contains("SANDBOXED");
     let failed_closed = cfg!(target_os = "linux") && stderr.contains("FAILED-CLOSED sandbox layer");
     if sandboxed || killed_by_seccomp || failed_closed {
-        Ok(format!("sandboxed={sandboxed} killed_by_seccomp={killed_by_seccomp} failed_closed={failed_closed}"))
+        Ok(format!(
+            "sandboxed={sandboxed} killed_by_seccomp={killed_by_seccomp} failed_closed={failed_closed}"
+        ))
     } else {
-        Err(format!("the probe was not confined: status {:?}, stdout {stdout:?}, stderr {stderr:?}", out.status))
+        Err(format!(
+            "the probe was not confined: status {:?}, stdout {stdout:?}, stderr {stderr:?}",
+            out.status
+        ))
     }
 }

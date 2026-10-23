@@ -683,7 +683,10 @@ fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
                 let limit = report::HOST_SHELL_LIMIT;
                 r.step(
                     "host shell size",
-                    Outcome::Fail(vec![format!("{} is {n} lines, over the limit of {limit}", report::HOST_SHELL_DIR)]),
+                    Outcome::Fail(vec![format!(
+                        "{} is {n} lines, over the limit of {limit}",
+                        report::HOST_SHELL_DIR
+                    )]),
                 );
             }
             Err(e) => r.step("host shell size", Outcome::Fail(vec![e])),

@@ -67,9 +67,19 @@ fn split_word(s: &[u8]) -> (&[u8], &[u8]) {
 fn parse_line(line: &[u8]) -> Result<Op, &'static str> {
     let (cmd, arg) = split_word(line);
     let (key, value) = split_word(arg);
-    let no_arg = |op: Op| if arg.is_empty() { Ok(op) } else { Err("unexpected argument") };
+    let no_arg = |op: Op| {
+        if arg.is_empty() {
+            Ok(op)
+        } else {
+            Err("unexpected argument")
+        }
+    };
     let key_only = |f: fn(Vec<u8>) -> Op| {
-        if key.is_empty() || !value.is_empty() { Err("expected one key") } else { Ok(f(key.to_vec())) }
+        if key.is_empty() || !value.is_empty() {
+            Err("expected one key")
+        } else {
+            Ok(f(key.to_vec()))
+        }
     };
     match cmd {
         b"cookie-get" => no_arg(Op::CookieGet),
@@ -98,7 +108,12 @@ pub fn parse(script: &[u8]) -> Result<Vec<Op>, ScriptError> {
         }
         match parse_line(line) {
             Ok(op) => ops.push(op),
-            Err(reason) => return Err(ScriptError { line: i.saturating_add(1), reason }),
+            Err(reason) => {
+                return Err(ScriptError {
+                    line: i.saturating_add(1),
+                    reason,
+                });
+            }
         }
     }
     Ok(ops)
@@ -109,9 +124,14 @@ impl Op {
     pub fn to_message(&self) -> Msg {
         match self {
             Op::CookieGet => Msg::CookieGet,
-            Op::CookieSet(s) => Msg::CookieSet { cookie_string: s.clone() },
+            Op::CookieSet(s) => Msg::CookieSet {
+                cookie_string: s.clone(),
+            },
             Op::StorageGet(k) => Msg::StorageGetItem { key: k.clone() },
-            Op::StorageSet(k, v) => Msg::StorageSetItem { key: k.clone(), value: v.clone() },
+            Op::StorageSet(k, v) => Msg::StorageSetItem {
+                key: k.clone(),
+                value: v.clone(),
+            },
             Op::StorageRemove(k) => Msg::StorageRemoveItem { key: k.clone() },
             Op::StorageClear => Msg::StorageClear,
             Op::StorageKey(n) => Msg::StorageKey { index: *n },
@@ -159,7 +179,13 @@ mod tests {
     #[test]
     fn any_bytes_are_a_script_or_an_error() {
         // Total on arbitrary input, including invalid UTF-8 and a lone space.
-        for s in [&b" "[..], b"\xff\xfe", b"storage-key \xff", b"\n\n\r\n", b"#"] {
+        for s in [
+            &b" "[..],
+            b"\xff\xfe",
+            b"storage-key \xff",
+            b"\n\n\r\n",
+            b"#",
+        ] {
             let _ = parse(s);
         }
     }
