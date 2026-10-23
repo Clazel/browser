@@ -572,6 +572,7 @@ pub fn has_ext(es: &[Extension<'_>], t: u16) -> (b: bool)
         if ti == t {
             proof {
                 assert(super::types::views(es@)[i as int].etype == t);
+                super::lemmas_ext::lemma_has_ext_iff(super::types::views(es@), t);
             }
             return true;
         }
@@ -579,10 +580,10 @@ pub fn has_ext(es: &[Extension<'_>], t: u16) -> (b: bool)
         i = i.saturating_add(1);
     }
     proof {
-        assert(!super::spec::has_ext(super::types::views(es@), t)) by {
-            assert forall|k: int| 0 <= k < super::types::views(es@).len() implies (#[trigger] super::types::views(es@)[k]).etype != t by {
-                assert(super::types::views(es@)[k].etype == es@[k].etype);
-            }
+        super::lemmas_ext::lemma_has_ext_iff(super::types::views(es@), t);
+        assert forall|k: int| 0 <= k < super::types::views(es@).len() implies (#[trigger] super::types::views(es@)[k]).etype
+            != t by {
+            assert(super::types::views(es@)[k].etype == es@[k].etype);
         }
     }
     false
@@ -646,6 +647,11 @@ pub fn check_extensions(es: &[Extension<'_>], m: MsgKind) -> (r: Option<ErrKind>
     ensures
         super::contract::check_extensions_ensures(super::types::views(es@), m, r),
 {
+    proof {
+        super::lemmas_ext::lemma_exts_unique_iff(super::types::views(es@));
+        super::lemmas_ext::lemma_all_allowed_iff(super::types::views(es@), m);
+        super::lemmas_ext::lemma_all_bodies_ok_iff(super::types::views(es@), m);
+    }
     if !no_duplicates(es) {
         return Some(ErrKind::DuplicateExtension);
     }

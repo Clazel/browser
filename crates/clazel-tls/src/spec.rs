@@ -1155,9 +1155,31 @@ pub open spec fn no_duplicates(es: Seq<Ext>) -> bool {
     forall|i: int, j: int| 0 <= i < j < es.len() ==> (#[trigger] es[i]).etype != (#[trigger] es[j]).etype
 }
 
-/// Whether an extension of type `t` is in the list.
-pub open spec fn has_ext(es: Seq<Ext>, t: u16) -> bool {
-    exists|i: int| 0 <= i < es.len() && es[i].etype == t
+/// Whether an extension of type `t` is in the list. (Written as a recursion
+/// over the list so that it can be evaluated; [`super::lemmas_ext::lemma_has_ext_iff`]
+/// proves it is "some extension has type `t`".)
+pub open spec fn has_ext(es: Seq<Ext>, t: u16) -> bool
+    decreases es.len(),
+{
+    if es.len() == 0 {
+        false
+    } else {
+        es[0].etype == t || has_ext(es.skip(1), t)
+    }
+}
+
+/// §4.2: no two extensions of the block have the same type, as a recursion
+/// (the first one's type is not among the rest, and the rest are unique);
+/// [`super::lemmas_ext::lemma_exts_unique_iff`] proves it is
+/// [`no_duplicates`].
+pub open spec fn exts_unique(es: Seq<Ext>) -> bool
+    decreases es.len(),
+{
+    if es.len() == 0 {
+        true
+    } else {
+        !has_ext(es.skip(1), es[0].etype) && exts_unique(es.skip(1))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1541,6 +1563,26 @@ pub open spec fn ext_body_ok(e: Ext, m: MsgKind) -> bool {
     }
 }
 
+/// Every extension of the block is allowed in a message of kind `m`
+/// ([`extension_allowed`]), as a recursion;
+/// [`super::lemmas_ext::lemma_all_allowed_iff`] proves it is "for every
+/// extension".
+pub open spec fn all_allowed(es: Seq<Ext>, m: MsgKind) -> bool
+    decreases es.len(),
+{
+    es.len() == 0 || (extension_allowed(es[0].etype, m) && all_allowed(es.skip(1), m))
+}
+
+/// Every extension of the block has the structure its type calls for
+/// ([`ext_body_ok`]), as a recursion;
+/// [`super::lemmas_ext::lemma_all_bodies_ok_iff`] proves it is "for every
+/// extension".
+pub open spec fn all_bodies_ok(es: Seq<Ext>, m: MsgKind) -> bool
+    decreases es.len(),
+{
+    es.len() == 0 || (ext_body_ok(es[0], m) && all_bodies_ok(es.skip(1), m))
+}
+
 /// The checks §4.2 puts on an extension block `es` of a message of kind
 /// `m`, in this order, giving the first rule broken:
 ///
@@ -1557,11 +1599,11 @@ pub open spec fn ext_body_ok(e: Ext, m: MsgKind) -> bool {
 ///    extensions MUST contain "supported_versions"" for a
 ///    HelloRetryRequest (`missing_extension`, §6.2).
 pub open spec fn check_extensions(es: Seq<Ext>, m: MsgKind) -> Option<ErrKind> {
-    if !no_duplicates(es) {
+    if !exts_unique(es) {
         Some(ErrKind::DuplicateExtension)
-    } else if !(forall|i: int| 0 <= i < es.len() ==> extension_allowed(#[trigger] es[i].etype, m)) {
+    } else if !all_allowed(es, m) {
         Some(ErrKind::ExtensionNotAllowed)
-    } else if !(forall|i: int| 0 <= i < es.len() ==> ext_body_ok(#[trigger] es[i], m)) {
+    } else if !all_bodies_ok(es, m) {
         Some(ErrKind::Decode)
     } else if (m is Sh || m is Hrr) && !has_ext(es, EXT_SUPPORTED_VERSIONS) {
         Some(ErrKind::MissingExtension)

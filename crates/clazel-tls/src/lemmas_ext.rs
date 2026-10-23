@@ -471,4 +471,112 @@ pub proof fn lemma_server_name_ch_canonical(data: Seq<u8>)
     }
 }
 
+// ---------------------------------------------------------------------------
+// The recursive forms of the extension block checks.
+// ---------------------------------------------------------------------------
+
+/// [`has_ext`] is "some extension has type `t`".
+pub proof fn lemma_has_ext_iff(es: Seq<Ext>, t: u16)
+    ensures
+        has_ext(es, t) <==> exists|i: int| 0 <= i < es.len() && es[i].etype == t,
+    decreases es.len(),
+{
+    if es.len() > 0 {
+        lemma_has_ext_iff(es.skip(1), t);
+        if has_ext(es, t) {
+            if es[0].etype != t {
+                let j = choose|j: int| 0 <= j < es.skip(1).len() && es.skip(1)[j].etype == t;
+                assert(es[j + 1].etype == t);
+            }
+        }
+        if exists|i: int| 0 <= i < es.len() && es[i].etype == t {
+            let i = choose|i: int| 0 <= i < es.len() && es[i].etype == t;
+            if i > 0 {
+                assert(es.skip(1)[i - 1].etype == t);
+            }
+        }
+    }
+}
+
+/// [`exts_unique`] is [`no_duplicates`]: the recursion and the quantified
+/// rule of §4.2 say the same.
+pub proof fn lemma_exts_unique_iff(es: Seq<Ext>)
+    ensures
+        exts_unique(es) <==> no_duplicates(es),
+    decreases es.len(),
+{
+    if es.len() > 0 {
+        let t = es.skip(1);
+        lemma_exts_unique_iff(t);
+        lemma_has_ext_iff(t, es[0].etype);
+        if exts_unique(es) {
+            assert forall|i: int, j: int| 0 <= i < j < es.len() implies (#[trigger] es[i]).etype != (#[trigger] es[j]).etype by {
+                if i == 0 {
+                    assert(t[j - 1].etype != es[0].etype);
+                } else {
+                    assert(t[i - 1].etype != t[j - 1].etype);
+                }
+            }
+        }
+        if no_duplicates(es) {
+            assert forall|i: int, j: int| 0 <= i < j < t.len() implies (#[trigger] t[i]).etype != (#[trigger] t[j]).etype by {
+                assert(es[i + 1].etype != es[j + 1].etype);
+            }
+            assert(no_duplicates(t));
+            if has_ext(t, es[0].etype) {
+                let j = choose|j: int| 0 <= j < t.len() && t[j].etype == es[0].etype;
+                assert(es[0].etype != es[j + 1].etype);
+            }
+        }
+    }
+}
+
+/// [`all_allowed`] is "every extension is allowed".
+pub proof fn lemma_all_allowed_iff(es: Seq<Ext>, m: MsgKind)
+    ensures
+        all_allowed(es, m) <==> (forall|i: int| 0 <= i < es.len() ==> extension_allowed(#[trigger] es[i].etype, m)),
+    decreases es.len(),
+{
+    if es.len() > 0 {
+        let t = es.skip(1);
+        lemma_all_allowed_iff(t, m);
+        if all_allowed(es, m) {
+            assert forall|i: int| 0 <= i < es.len() implies extension_allowed(#[trigger] es[i].etype, m) by {
+                if i > 0 {
+                    assert(t[i - 1].etype == es[i].etype);
+                }
+            }
+        }
+        if forall|i: int| 0 <= i < es.len() ==> extension_allowed(#[trigger] es[i].etype, m) {
+            assert forall|i: int| 0 <= i < t.len() implies extension_allowed(#[trigger] t[i].etype, m) by {
+                assert(es[i + 1].etype == t[i].etype);
+            }
+        }
+    }
+}
+
+/// [`all_bodies_ok`] is "every extension's data is well formed".
+pub proof fn lemma_all_bodies_ok_iff(es: Seq<Ext>, m: MsgKind)
+    ensures
+        all_bodies_ok(es, m) <==> (forall|i: int| 0 <= i < es.len() ==> ext_body_ok(#[trigger] es[i], m)),
+    decreases es.len(),
+{
+    if es.len() > 0 {
+        let t = es.skip(1);
+        lemma_all_bodies_ok_iff(t, m);
+        if all_bodies_ok(es, m) {
+            assert forall|i: int| 0 <= i < es.len() implies ext_body_ok(#[trigger] es[i], m) by {
+                if i > 0 {
+                    assert(t[i - 1] == es[i]);
+                }
+            }
+        }
+        if forall|i: int| 0 <= i < es.len() ==> ext_body_ok(#[trigger] es[i], m) {
+            assert forall|i: int| 0 <= i < t.len() implies ext_body_ok(#[trigger] t[i], m) by {
+                assert(es[i + 1] == t[i]);
+            }
+        }
+    }
+}
+
 } // verus!

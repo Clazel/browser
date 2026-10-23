@@ -5,7 +5,10 @@
 //! the spec's writer writes.
 
 use super::spec::{Alert, ErrKind};
-use super::types::{ClientHello, Extension};
+use super::types::{
+    Certificate, CertificateRequest, CertificateVerify, ClientHello, Extension, NewSessionTicket,
+    ServerHello,
+};
 use super::writer::{push_be, push_u16, push_vec};
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -223,6 +226,188 @@ pub fn read_alert(b: &[u8]) -> (r: Option<Alert>)
         Some(Alert { level, description })
     } else {
         None
+    }
+}
+
+/// §4.2: the bytes of an extension block `Extension extensions<_..ceil>`:
+/// the length, then the extensions.
+pub fn push_extension_block(out: &mut Vec<u8>, es: &[Extension<'_>], ceil: usize)
+    requires
+        ceil < 16777216,
+        forall|i: int| 0 <= i < es@.len() ==> (#[trigger] es@[i]).data@.len() <= 65535,
+        super::spec::write_list(super::types::views(es@), |e: super::spec::Ext| super::spec::write_ext(e)).len() <= ceil,
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_exts(super::types::views(es@), ceil as nat),
+{
+    let mut exts: Vec<u8> = Vec::new();
+    push_extensions(&mut exts, es);
+    proof {
+        assert(exts@ =~= Seq::<u8>::empty() + super::spec::write_list(
+            super::types::views(es@),
+            |e: super::spec::Ext| super::spec::write_ext(e),
+        ));
+    }
+    push_vec(out, exts.as_slice(), ceil);
+}
+
+/// §4.1.3: append a ServerHello's body ([`super::spec::write_server_hello`]).
+pub fn write_server_hello(out: &mut Vec<u8>, sh: &ServerHello<'_>)
+    requires
+        super::lemmas_hs::server_hello_requires(sh@),
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_server_hello(sh@),
+{
+    push_u16(out, sh.legacy_version);
+    out.extend_from_slice(sh.random);
+    push_vec(out, sh.session_id_echo, 32);
+    push_u16(out, sh.cipher_suite);
+    out.push(sh.compression);
+    proof {
+        assert forall|i: int| 0 <= i < sh.extensions@.len() implies (#[trigger] sh.extensions@[i]).data@.len() <= 65535 by {
+            assert(super::types::views(sh.extensions@)[i] == sh.extensions@[i]@);
+        }
+    }
+    push_extension_block(out, sh.extensions.as_slice(), 65535);
+    proof {
+        assert(out@ =~= old(out)@ + super::spec::write_server_hello(sh@));
+    }
+}
+
+/// §4.3.1: append an EncryptedExtensions body
+/// ([`super::spec::write_encrypted_extensions`]).
+pub fn write_encrypted_extensions(out: &mut Vec<u8>, es: &[Extension<'_>])
+    requires
+        forall|i: int| 0 <= i < es@.len() ==> (#[trigger] es@[i]).data@.len() <= 65535,
+        super::spec::write_list(super::types::views(es@), |e: super::spec::Ext| super::spec::write_ext(e)).len() <= 65535,
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_encrypted_extensions(super::types::views(es@)),
+{
+    push_extension_block(out, es, 65535);
+}
+
+/// §4.3.2: append a CertificateRequest body
+/// ([`super::spec::write_certificate_request`]).
+pub fn write_certificate_request(out: &mut Vec<u8>, c: &CertificateRequest<'_>)
+    requires
+        c.context@.len() <= 255,
+        forall|i: int| 0 <= i < c.extensions@.len() ==> (#[trigger] c.extensions@[i]).data@.len() <= 65535,
+        super::spec::write_list(super::types::views(c.extensions@), |e: super::spec::Ext| super::spec::write_ext(e)).len()
+            <= 65535,
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_certificate_request(c@),
+{
+    push_vec(out, c.context, 255);
+    push_extension_block(out, c.extensions.as_slice(), 65535);
+    proof {
+        assert(out@ =~= old(out)@ + super::spec::write_certificate_request(c@));
+    }
+}
+
+/// §4.4.3: append a CertificateVerify body
+/// ([`super::spec::write_certificate_verify`]).
+pub fn write_certificate_verify(out: &mut Vec<u8>, c: &CertificateVerify<'_>)
+    requires
+        c.signature@.len() <= 65535,
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_certificate_verify(c@),
+{
+    push_u16(out, c.algorithm);
+    push_vec(out, c.signature, 65535);
+    proof {
+        assert(out@ =~= old(out)@ + super::spec::write_certificate_verify(c@));
+    }
+}
+
+/// §4.6.1: append a NewSessionTicket body
+/// ([`super::spec::write_new_session_ticket`]).
+pub fn write_new_session_ticket(out: &mut Vec<u8>, n: &NewSessionTicket<'_>)
+    requires
+        n.ticket_nonce@.len() <= 255,
+        n.ticket@.len() <= 65535,
+        forall|i: int| 0 <= i < n.extensions@.len() ==> (#[trigger] n.extensions@[i]).data@.len() <= 65535,
+        super::spec::write_list(super::types::views(n.extensions@), |e: super::spec::Ext| super::spec::write_ext(e)).len()
+            <= 65534,
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_new_session_ticket(n@),
+{
+    proof {
+        super::lemmas_pl::lemma_pow256_widths();
+    }
+    push_be(out, n.ticket_lifetime as u64, 4);
+    push_be(out, n.ticket_age_add as u64, 4);
+    push_vec(out, n.ticket_nonce, 255);
+    push_vec(out, n.ticket, 65535);
+    push_extension_block(out, n.extensions.as_slice(), 65534);
+    proof {
+        assert(out@ =~= old(out)@ + super::spec::write_new_session_ticket(n@));
+    }
+}
+
+/// §4.4.2: append a Certificate body ([`super::spec::write_certificate`]).
+pub fn write_certificate(out: &mut Vec<u8>, c: &Certificate<'_>)
+    requires
+        super::lemmas_hs::certificate_ok(c@),
+    ensures
+        final(out)@ =~= old(out)@ + super::spec::write_certificate(c@),
+{
+    push_vec(out, c.context, 255);
+    let mut list: Vec<u8> = Vec::new();
+    let mut i: usize = 0;
+    let ghost entries = super::types::views(c.entries@);
+    proof {
+        assert(entries.take(0) =~= Seq::<super::spec::CertificateEntry>::empty());
+    }
+    while i < c.entries.len()
+        invariant
+            i <= c.entries@.len(),
+            entries == super::types::views(c.entries@),
+            super::lemmas_hs::certificate_ok(c@),
+            list@ =~= super::spec::write_list(
+                entries.take(i as int),
+                |e: super::spec::CertificateEntry| super::spec::write_certificate_entry(e),
+            ),
+        decreases c.entries@.len() - i,
+    {
+        let e = match c.entries.get(i) {
+            Some(e) => e,
+            None => {
+                proof {
+                    assert(false);
+                }
+                return ;
+            },
+        };
+        proof {
+            let w = |x: super::spec::CertificateEntry| super::spec::write_certificate_entry(x);
+            assert(entries[i as int] == c.entries@[i as int]@);
+            assert(super::lemmas_hs::entry_ok(entries[i as int]));
+            super::lemmas_pl::lemma_write_list_push(entries.take(i as int), entries[i as int], w);
+            assert(entries.take(i as int + 1) =~= entries.take(i as int).push(entries[i as int]));
+            assert forall|k: int| 0 <= k < e.extensions@.len() implies (#[trigger] e.extensions@[k]).data@.len() <= 65535 by {
+                assert(super::types::views(e.extensions@)[k] == e.extensions@[k]@);
+            }
+            assert(super::spec::write_list(
+                super::types::views(e.extensions@),
+                |x: super::spec::Ext| super::spec::write_ext(x),
+            ).len() <= 65535);
+        }
+        let ghost before = list@;
+        push_vec(&mut list, e.cert_data, 16777215);
+        push_extension_block(&mut list, e.extensions.as_slice(), 65535);
+        proof {
+            let w = |x: super::spec::CertificateEntry| super::spec::write_certificate_entry(x);
+            assert(list@ =~= before + super::spec::write_certificate_entry(entries[i as int]));
+        }
+        // i < len, so this does not saturate.
+        i = i.saturating_add(1);
+    }
+    proof {
+        assert(entries.take(entries.len() as int) =~= entries);
+        assert(list@.len() <= 16777215);
+    }
+    push_vec(out, list.as_slice(), 16777215);
+    proof {
+        assert(out@ =~= old(out)@ + super::spec::write_certificate(c@));
     }
 }
 
