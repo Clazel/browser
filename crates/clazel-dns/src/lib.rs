@@ -16,6 +16,7 @@ pub mod contract;
 pub mod decode;
 pub mod encode;
 pub mod examples;
+pub mod independent;
 pub mod lemmas;
 pub mod resolv;
 pub mod spec;
