@@ -839,7 +839,76 @@ The URL-to-origin function is a **parameter** of the spec (`spec_fn(Seq<u32>)
 the kernel proofs do not unfold the URL parser's. 2.13 instantiates it with
 the real parser.
 
-**As built:** *(to be filled in when the item is done)*
+**As built (spec done; contracts are the next commit; the implementation is
+2.12, so `clazel-kernel` is at `tier = 0`):** `crates/clazel-kernel/src/`.
+`spec.rs` has the state (`State`: `renderers: Seq<Renderer>` with id, tab,
+committed URL as code points and lock; `jar: Seq<Cookie>`; `storage:
+Map<Origin, Seq<StorageEntry>>`; `next_id`; `now`), `Event` (`FromRenderer
+{ id, bytes }`, `OpenTab { url, script }`, `NavigateTab { tab, url, script }`,
+`RendererExited { id }`, `Tick { time }`), `Output` (`ToRenderer`, `Spawn`
+with a one-valued `Policy`, `Kill`) and `step(rules, urls, s, e)`, with the
+modelling choices at the top. `invariant.rs` has `kernel_wf` and its proofs,
+`domain.rs` the definitions of 2.11 below. **Decisions that change later
+items:**
+
+- **Three URL functions, not one** (`UrlFns`): `origin_of` is the plan's
+  `spec_fn(Seq<u32>) -> Option<Origin>`; `path_of` (the path serialization,
+  which cookie matching needs and an origin does not hold) and `resolve`
+  (basic URL parser with a base, then serializer) are also needed, the second
+  for a renderer's `Navigate`. 2.13 instantiates all three, and must give a
+  URL whose origin is a tuple only if its host canonicalizes to a non-empty
+  name (always so for parsed `http`, `https`, `ws`, `wss`, `ftp`), because
+  the kernel refuses other URLs (`valid_tuple_origin`). An opaque origin from
+  `origin_of` is ignored: the lock is `Opaque(renderer id)`, so an
+  opaque-origin renderer is a domain of its own.
+- **Where the script comes from:** `OpenTab` and `NavigateTab` carry it (the
+  user's actions; the demo, 2.16, types it in). A renderer's own `Navigate`
+  commits `no_script()` (empty), so the renderer it creates gets the resolved
+  URL and nothing else from the navigating renderer. 2.11's declassified
+  event is `NavigateTab(tab, resolved, no_script())`, and
+  `lemma_declassified_is_navigate_tab` proves `step` of the `Navigate` equals
+  `step` of it. 2.15's renderer stub therefore only runs scripts it gets from
+  user-initiated tabs.
+- **`theorem_reply_only_to_sender` needs one exception.** A `Navigate` to a
+  different origin spawns a renderer and sends it the `Commit` in the same
+  step, so a `FromRenderer(r, _)` event's `ToRenderer` outputs are for `r` or
+  for the renderer spawned in that step (id `next_id` of the state before).
+  Same-tuple-origin navigation keeps the renderer and re-commits to it; an
+  opaque-origin target always spawns.
+- **Malformed input:** an id naming no renderer is ignored (no state change,
+  no output); a frame that does not decode, or decodes to a message a renderer
+  may not send, gets `Kill(id)` and the record removed (the tab closes); a
+  request that cannot be served gets an `Error` reply (`error_security`
+  for `localStorage` of an opaque origin, `error_quota`, `error_bad_url`,
+  `error_encode` for a reply that is not one frame). Frames are whole frames
+  (`decode_framed`), so the host shell (2.15) passes the 4-byte header too and
+  turns a frame over `MAX_FRAME` or a closed socket into `RendererExited`.
+- **`document.cookie` and opaque origins.** HTML's getter and setter return
+  empty / do nothing for a cookie-averse document (URL scheme not `http` or
+  `https`) and throw a "SecurityError" for an opaque origin. Every URL with an
+  opaque origin has such a scheme, so the SecurityError branch is unreachable
+  and an opaque lock gets the empty string, as this plan said; the argument is
+  in `spec.rs`. A tuple origin of `ws`, `wss` or `ftp` is cookie-averse too.
+  `localStorage` of an opaque origin does get an `Error` (HTML throws).
+- **Web Storage** is an ordered list per tuple origin with a per-origin quota
+  of 5 MiB of keys and values (HTML's "QuotaExceededError"), no storage events.
+  Time is monotone: `Tick(time)` sets `max(time, now)` and evicts expired
+  cookies.
+- **Tabs:** a tab id is the id of its first renderer and survives navigation
+  to another origin; a renderer exiting closes its tab.
+
+**`kernel_wf` is proven preserved**, not just recorded: `lemma_init_wf`,
+`lemma_step_preserves_wf` (from 2.9's `lemma_store_bounds`,
+`lemma_store_preserves_domains_nonempty` and `lemma_evict_expired_props`, plus
+lemmas here for retrieval and for the renderer table and storage) and
+`lemma_reachable_wf`. It says: `jar_domains_nonempty`, `jar_within_root_limit`,
+`jar_keys_unique`; ids and tabs distinct and below `next_id`, and each
+renderer's lock equal to `lock_of_url` of its committed URL; storage maps only
+for valid tuple origins, non-empty, with unique keys and within the quota.
+**For 2.11** `domain.rs` defines `Domain` (a cookie root, or `Opaque(id)`),
+`domain_of_renderer`, `obs`, `event_domain`, `declassified`, `ipurge_event`,
+`ipurge` and `purge`; the theorems and unwinding lemmas are 2.11's. No
+mutations yet (they come with the theorems).
 
 ### 2.11 Isolation theorems (L)
 
@@ -1116,7 +1185,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.7 Cookie primitives | done at tier 2 with 2.9: parsers, matching and calendar proven, 9 mutations killed, matching and RFC 9110 date independent transcriptions proven, http-state dates 70/70 |
 | 2.8 Set-Cookie parsing | done at tier 2 with 2.9: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; Set-Cookie conformance through 2.9's WPT and http-state suites |
 | 2.9 Cookie storage and retrieval | done at tier 2: exec proven against the contracts, isolation lemmas proven (two recorded statements corrected, see above), RFC 6265 transcription proven equal on a stated class, 43 mutations killed, WPT cookies/ 177/178 (1 xfail), http-state parser 195/222 (27 xfail), cookie_store differential 3000/3000 |
-| 2.10 Kernel spec | not started |
+| 2.10 Kernel spec | spec and contracts done; implementation is 2.12. `kernel_wf` and `step` preserving it are proven; `clazel-kernel` stays at tier 0 until 2.11 and 2.12 |
 | 2.11 Isolation theorems | not started |
 | 2.12 Kernel implementation | not started |
 | 2.13 Navigation with the real URL parser | not started |
