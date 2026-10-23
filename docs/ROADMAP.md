@@ -34,11 +34,12 @@ Detailed plan: [phases/phase-2.md](phases/phase-2.md).
 (2.0) may start.**
 
 ## Phase 3: Networking
-Verified HTTP/1.1 parser, DNS, and TLS via rustls with verified crypto.
+Verified HTTP/1.1 parser, DNS, and our own TLS 1.3 client with verified
+crypto from libcrux (decided in phase-3.md item 3.0; rustls was not taken).
 *Exit:* a verified `curl` clone.
 Detailed plan: [phases/phase-3.md](phases/phase-3.md).
-**Status: in progress (started 2026-10-23). The TLS decision (3.0) waits on
-the maintainer; items that do not depend on it may start.**
+**Status: in progress (started 2026-10-23). The TLS decision (3.0) is
+taken: option B.**
 
 ## Phase 4: HTML and DOM
 WHATWG tokenizer (proven total and panic-free), tree builder, DOM.

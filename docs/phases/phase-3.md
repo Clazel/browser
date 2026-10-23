@@ -65,7 +65,10 @@ tries addresses in order).
 |-------|---------------|----------|----------|
 | `clazel-http` | 2 | RFC 9110 §5, §8.6, §10.2.2; RFC 9112 §2 to §7 | field syntax, message framing, chunked coding, request serialization |
 | `clazel-dns` | 2 | RFC 1035 §2.3, §3, §4; RFC 1034 §3.6.2; RFC 3596 | message format, name compression, query building, answer extraction |
-| `clazel-tls` | per 3.0 | RFC 8446 | TLS 1.3 client, or the glue around a library (3.0) |
+| `clazel-der` | 2 | ITU-T X.690 §8, §10 | DER decoding and the few encodings we write |
+| `clazel-x509` | 2 | RFC 5280 §4, §6.1, §7.1; RFC 9525 §6 | certificates, extensions, path validation, host names, the Mozilla root table |
+| `clazel-pkcs1` | 2 | RFC 8017 §4, §5.2.2, §8.2.2, §9.2 | RSA PKCS#1 v1.5 signature verification and the multiple-precision arithmetic it needs |
+| `clazel-tls` | 2 | RFC 8446 §3 to §7, Appendix A.1; RFC 6066 §3 | record layer, handshake messages, key schedule, the client state machine, joined to libcrux |
 | `clazel-fetch` | 2 | (ours); Fetch §4.4 to §4.6 in part; RFC 6265bis §5.2, §5.3, §5.7, §5.8 HTTP parts; RFC 9110 §15.4 | the client state machine: URL to request, response to result, redirects, cookies |
 | `clazel-net` | 0 | — | the network shell: resolver, TCP, TLS I/O; counted like the host shell |
 
@@ -405,7 +408,61 @@ for item 3.5's spec, not a surprise there. The maintainer should also
 decide whether the eight build-script packages are `shipped` or get a
 `build` class in `docs/DEPENDENCIES.md`.
 
-**Decision:** not yet taken; waits on the maintainer.
+**Decision (2026-10-23): option B**, our own TLS 1.3 client at Tier 2
+with cryptography from libcrux's `verified-hacl` crates and no rustls.
+Chosen by the agent at the maintainer's request ("do what you think is the
+best option, taking into account the project goals"), on these grounds:
+
+- *The claims must be true when they are announced.* The project's two
+  headline claims, that every parser of untrusted input carries a proof
+  and that our code is 100% safe Rust, are what the Phase 5 Show HN post
+  says. TLS is the first parser an attacker on the network reaches. Under
+  A or C both claims would be false at the moment they are made, with the
+  largest unverified component the project had ever added, and "temporary"
+  exceptions of that size rarely end: Phase 8's compatibility grind would
+  always have something more urgent. Phases 1 and 2 (a 565-function URL
+  proof, a proven kernel) show the method carries this size of work.
+- *The facts removed A's advantage.* No verified provider exists for the
+  certificate half; A1's verification is narrow and CPU-specific; the
+  libcrux provider route needs aws-lc-rs anyway. A would add 1.5 million
+  lines of C and assembly to the TCB for a result that is "partly
+  verified" on some CPUs.
+- *The costs are taken knowingly, and recorded here:*
+  1. **Time.** 3.5 becomes seven items (3.5a to 3.5g below), several of
+     them L. The `http://` half of the `curl` clone (3.8) does not wait on
+     them, and Phase 4's text-mode browser can start on `http://` and
+     local files; Phase 5's milestone needs TLS, and that is the right
+     order: the claim is true when it is announced.
+  2. **One cipher suite.** `TLS_CHACHA20_POLY1305_SHA256` with X25519, the
+     primitives that are `verified-hacl`. RFC 8446 §9.1 requires
+     `TLS_AES_128_GCM_SHA256` and secp256r1; this client offers neither
+     until a verified AES-GCM exists (libcrux's is `pre-verification`), so
+     it is non-compliant with §9.1 by design. The spec header lists it as
+     a modelling choice, and 3.5g measures which servers refuse it.
+  3. **RSA PKCS#1 v1.5 verification is our own code**, at Tier 2 (3.5c).
+     No verified library has it and most certificate chains need it.
+     Signature verification handles no secrets (the key, the signature and
+     the message are all public), so the side-channel argument for never
+     writing our own cryptography does not apply. VERIFICATION.md's TCB
+     line changes from "cryptography is not our own code" to "cryptography
+     that handles secrets is not our own code; public-key signature
+     verification for RSA PKCS#1 v1.5 is ours and proven against RFC 8017".
+  4. **libcrux is in the TCB** with what is known: `verified-hacl` crates
+     are F\* proofs plus a trusted C-to-Rust translation (Scylla);
+     `libcrux-intrinsics`, `-secrets` and `-platform` contain `unsafe`; the
+     README makes no side-channel claim for the extracted code. Versions
+     are 0.0.x, pinned exactly and bumped deliberately. The proc-macro
+     chain a libcrux crate may need at compile time is listed `shipped`
+     with a "Why" saying it runs at compile time only (no `build` class is
+     added; the question of build-script packages was A's and is moot).
+     The README's safe-Rust line becomes "our code is 100% safe Rust except
+     `clazel-sys`; shipped dependencies are `libc` and libcrux".
+  5. **Revocation is out of scope** for the phase (no CRL or OCSP), as it
+     is for the browsers' default behaviour on most certificates; listed in
+     3.5b and in the README.
+
+Rule 8 needs no exception. The crypto sentence of rule 8 and the TCB entry
+are written by 3.5f, which adds the rows.
 
 ### 3.1 HTTP field syntax (M)
 
@@ -540,13 +597,178 @@ saying how, since no official suite exists), including a truncated one, a
 NXDOMAIN, a CNAME chain and an AAAA answer; and the RFC 1035 §4.1.4
 compression example. **Raise `clazel-dns` to tier 2.**
 
-### 3.5 TLS (L to XL, waits on 3.0)
+### 3.5 TLS (seven items; 3.0 decided option B)
 
-Per 3.0. Under A or C: `clazel-tls` is Tier 0 glue (a trait with `connect`,
-`read`, `write`, `close` and the peer's verified certificate chain's
-outcome), the `shipped` rows, the rule 8 text and the TCB entry; the
-network shell's TLS loop is counted with it. Under B: the record layer and
-handshake parsers as their own items, added here when chosen.
+Our own TLS 1.3 client. Every parser is a pure function over bytes and the
+handshake is a transducer with the cryptography as parameters, joined to
+libcrux in 3.5f, as the kernel took `UrlFns`. The pure parsers (3.5a, 3.5c,
+3.5d) start at once and add no shipped dependency.
+
+#### 3.5a DER (M)
+
+`crates/clazel-der`. ITU-T X.690 (08/2015): §8.1 the identifier, length
+and contents octets; §10 the DER restrictions (definite length only,
+shortest length form, §11.1 BOOLEAN as `0x00` or `0xFF`, §8.3 INTEGER with
+no redundant leading octets, BIT STRING with the unused-bits octet and
+zero padding bits, §11.5 SET OF ordering is parsed as given and checked by
+X.509 where it matters); the universal types X.509 needs (BOOLEAN,
+INTEGER, BIT STRING, OCTET STRING, NULL, OBJECT IDENTIFIER §8.19,
+UTF8String, PrintableString, IA5String, UTCTime and GeneralizedTime with
+RFC 5280 §4.1.2.5's restrictions applied by X.509, SEQUENCE, SET, and
+context-specific tags, both IMPLICIT and EXPLICIT); nothing indefinite,
+no high-tag-number forms beyond what X.509 uses (reject the rest, listed).
+Functions: a cursor-style decoder over `Seq<u8>` (read one TLV, descend
+into a constructed value, require end of contents), and an encoder for
+the few values 3.5c and 3.5e write (`DigestInfo`, lengths). Lemmas: no
+over-read (the decoder consults no byte past the length it read); encode
+then decode round-trips; decode then encode gives the same bytes (DER is
+canonical); bounded reservation. Independent: Kaliski, "A Layman's Guide
+to a Subset of ASN.1, BER, and DER" (RSA Laboratories, 1993), a different
+author's text of the same rules, proven equal on its subset. Conformance:
+a differential against RustCrypto's `der` crate (a `test` row, counting its
+dependencies) on random and mutated TLVs, and the DER cases of the
+`x509-limbo` corpus (3.5b vendors it) that are pure encoding errors.
+
+#### 3.5b X.509 certificates and path validation (L, after 3.5a)
+
+`crates/clazel-x509`. RFC 5280 §4.1 `Certificate`, `TBSCertificate` and
+its fields (§4.1.2.1 to §4.1.2.9), §4.1.1.2 and RFC 3279, RFC 4055,
+RFC 5758 and RFC 8410 for the signature algorithm identifiers
+(`sha256WithRSAEncryption`, `sha384WithRSAEncryption`, `rsassa-pss` with
+its parameters, `ecdsa-with-SHA256`, `ecdsa-with-SHA384`, `ed25519`),
+`SubjectPublicKeyInfo` for RSA (RFC 8017 Appendix A.1.1) and EC (RFC 5480
+§2, P-256 uncompressed points only), the extensions validation needs
+(§4.2.1.3 Key Usage, §4.2.1.6 Subject Alternative Name with `dNSName` and
+`iPAddress`, §4.2.1.9 Basic Constraints, §4.2.1.10 Name Constraints,
+§4.2.1.12 Extended Key Usage with `id-kp-serverAuth`; unknown critical
+extensions reject, unknown non-critical ones are kept opaque), §6.1 basic
+path validation (steps 6.1.1 to 6.1.5 as a function over a candidate chain,
+with the policy steps taken as "no policy required" and said so, and
+revocation not checked: a modelling choice, listed, with CRL and OCSP as
+Phase 8 work), §7.1 name comparison on the class the lemma states (binary
+after the §7.1 case-folding for PrintableString; the full LDAP StringPrep
+is not transcribed and the class says so), and RFC 9525 §6 host name
+matching (`dNSName`, a wildcard only as the whole leftmost label, IP
+addresses by octets). Path building: the chain the server sent, in order,
+plus one root from the trust store (RFC 5280 §6.1 takes the chain as
+given; §6.2 lets us choose the simple policy and say so). The trust store:
+Mozilla's `certdata.txt` (NSS, MPL-2.0), vendored at a pinned commit under
+`tests/data/`-like rules but shipped, converted by `cargo xtask tables`
+into a Rust table of DER roots, as the Public Suffix List is. Independent:
+ITU-T X.509 (10/2019) §7 to §12 for the structures and path processing
+(the ITU text, not the IETF profile), proven equal on the profile's
+inputs. Conformance: the `x509-limbo` corpus (C2SP, Apache-2.0 / MIT),
+expected failures listed; a differential against `rustls-webpki` as a
+`test` row; Verdict (`verdict`, USENIX Security 2025) as a second oracle
+if its dependency tree allows a `test` row, and as reference text for the
+spec's structure. The signature checks themselves are parameters until
+3.5f.
+
+#### 3.5c RSA PKCS#1 v1.5 signature verification (M)
+
+`crates/clazel-pkcs1`. RFC 8017: §4.1 I2OSP, §4.2 OS2IP, §5.2.2 RSAVP1,
+§8.2.2 RSASSA-PKCS1-v1_5-VERIFY, §9.2 EMSA-PKCS1-v1_5-ENCODE with the
+`DigestInfo` encodings for SHA-256, SHA-384 and SHA-512 (the exact octet
+strings in §9.2's Notes, also derivable with 3.5a's encoder: prove they
+agree). Our own multiple-precision arithmetic over `u64` limbs, with a
+`nat` spec: comparison, subtraction, Montgomery or plain modular
+multiplication, and square-and-multiply exponentiation for a public
+exponent up to 2^64 (RFC 8017 allows any; the cap is a modelling choice)
+and a modulus of 2048 to 8192 bits, proven `pow(s, e) % n` against the
+spec and panic-free. The inputs are all public, so there is no
+constant-time requirement, and the file says so. The digest is an input
+(libcrux-sha2 computes it in 3.5f). Independent: FIPS 186-5 §5.4 / the
+PKCS #1 v1.5 text of RFC 2313 §10.1 for the padding, and Knuth's
+Algorithm M / D or Menezes, van Oorschot and Vanstone, *Handbook of
+Applied Cryptography* §14.2 to §14.3 for the arithmetic, proven equal.
+Conformance: the signature vectors of Wycheproof (`rsa_signature_*_test.json`,
+Apache-2.0) and FIPS 186-3 `SigVer15_186-3.rsp`, vendored with converters;
+a differential against the `rsa` crate (RustCrypto) as a `test` row;
+a Kani harness on the limb arithmetic for small widths.
+
+#### 3.5d TLS 1.3 record layer and handshake message formats (L)
+
+`crates/clazel-tls`. RFC 8446 §3 the presentation language (fixed and
+variable-length vectors, enums, the length prefixes) as the one core
+decoder; §5.1 `TLSPlaintext` (content types, legacy version, the 2^14
+length limit, fragmentation and coalescing of handshake messages across
+records, no interleaving with other content types); §5.2 `TLSCiphertext`
+and `TLSInnerPlaintext` (padding removal from the end, the 2^14 + 256
+limit); §5.3 the per-record nonce as a function of the sequence number;
+§4.1.2 `ClientHello` (serialize), §4.1.3 `ServerHello` and §4.1.4
+`HelloRetryRequest` (the fixed `Random` value), §4.2 extensions:
+`supported_versions` (§4.2.1), `cookie` (§4.2.2), `signature_algorithms`
+(§4.2.3), `supported_groups` (§4.2.7), `key_share` (§4.2.8), `server_name`
+(RFC 6066 §3), others parsed as opaque and rejected where the RFC says
+`illegal_parameter` or `unsupported_extension` (§4.2's table of which
+extension may appear in which message is transcribed as a function);
+§4.3.1 `EncryptedExtensions`, §4.4.2 `Certificate` (with `certificate_list`
+entries as opaque DER for 3.5b), §4.4.3 `CertificateVerify`, §4.4.4
+`Finished`, §4.6.1 `NewSessionTicket` (parsed, then ignored: no
+resumption in this phase, listed), §4.6.3 `KeyUpdate`; §6 alerts.
+Lemmas: serialize then parse round-trips for every message the client
+sends; no over-read; bounded reservation; a record never holds more than
+one handshake message's worth of state beyond its own bytes (the
+coalescing buffer is bounded by 2^14 + the largest message, stated).
+Independent: the RFC's Appendix B (the collected presentation-language
+definitions), transcribed before the prose, and proven to accept exactly
+what the prose parsers accept. Conformance: RFC 8448's handshake traces
+(every message of §3 to §7 decoded and re-encoded byte for byte), and a
+differential against rustls's message codec as a `test` row on random
+and mutated records.
+
+#### 3.5e Key schedule and the client handshake state machine (L)
+
+`clazel-tls`. §7.1 the key schedule (`HKDF-Expand-Label`, `Derive-Secret`,
+the early, handshake and master secrets, the traffic secrets, `Finished`
+keys §4.4.4), §7.2 and §7.3 the traffic keys and their update, §4.4.1 the
+transcript hash, and Appendix A.1's client state machine as a transducer
+(`step(state, input) -> (actions, state)` with inputs `Bytes`, `Closed` and
+actions `Send`, `Deliver(plaintext)`, `Close`, `Fail(alert)`), over
+abstract hash, HMAC, HKDF, AEAD, X25519 and signature-verification
+functions as parameters (traits with spec functions, as `UrlFns`). Proven:
+no application data is delivered before the server's `Finished` has
+been verified over the right transcript (§4.4.4); the server's
+`CertificateVerify` is checked over the transcript with the context
+string of §4.4.3; the certificate chain is handed to 3.5b before any key
+derived from the handshake is used to send anything but alerts; every
+`Send` is the serialization of a message the state machine chose;
+`HelloRetryRequest` is followed at most once (§4.1.4); the prefix lemma
+of 3.2 (no action before the bytes that justify it). Conformance: RFC 8448
+§3 (a simple 1-RTT handshake) and §5 (HelloRetryRequest), with the traces'
+private keys and randoms injected, so the derived secrets and every
+encrypted record match byte for byte; RFC 8448 is the independent
+transcription's evidence too.
+
+#### 3.5f The cryptography and the join (M)
+
+The `shipped` rows for libcrux (`libcrux-chacha20poly1305`,
+`libcrux-curve25519`, `libcrux-ecdsa`, `libcrux-p256`, `libcrux-sha2`,
+`libcrux-hmac`, `libcrux-hkdf`, `libcrux-rsa` for RSA-PSS, `libcrux-ed25519`,
+and the crates they bring, re-measured and pinned exactly), the rule 8
+crypto sentence and VERIFICATION.md's TCB entry as 3.0 records them, the
+README's safe-Rust line; the instantiation of 3.5e's parameters with
+libcrux, of 3.5b's signature checks with libcrux (ECDSA P-256, RSA-PSS,
+Ed25519) and 3.5c (RSA PKCS#1 v1.5), and of SHA-256 for 3.5c's digest;
+the `clazel-tls` public API the shell drives (`connect(host) -> state`,
+`step`). Proven: the joined machine equals 3.5e's for the libcrux
+functions' specs (the libraries' functions are axiomatised by their
+documented input/output types only, in `axioms.rs` with `// AXIOM:`
+lines, and counted in the README).
+
+#### 3.5g TLS conformance and the trust store (M)
+
+`tests/conformance_tls.rs`: an in-process rustls server (a `test` row, with
+`rcgen` or pre-generated certificates) for full handshakes with ECDSA and
+RSA chains, with the client's trust store set to the test root; the
+hostile-server cases (wrong `Finished`, a certificate for another name, an
+expired chain, a self-signed chain, records over the limit, a downgrade to
+TLS 1.2, `change_cipher_spec` in the wrong place) each giving `Fail` with
+the right alert and no panic; the Mozilla root table regenerated and
+checked; and a local measurement, documented not asserted, of which of the
+top sites refuse a ChaCha20-only, X25519-only client (run locally, like
+the demo). **Raise `clazel-der`, `clazel-x509`, `clazel-pkcs1` and
+`clazel-tls` to tier 2** as each earns it.
 
 ### 3.6 The client state machine (L)
 
@@ -630,25 +852,35 @@ ROADMAP.md.
 ## Order of work
 
 ```
-3.0 TLS decision ───────────────────────────────────────> 3.5 TLS ─────┐
-3.1 field syntax ─> 3.2 framing ─> 3.3 conformance ──┐                 │
+3.0 TLS decision (done: B)
+3.5a DER ─> 3.5b X.509 ──────────────┐
+3.5c PKCS#1 v1.5 ────────────────────┼─> 3.5f crypto join ─> 3.5g TLS conformance ─┐
+3.5d TLS formats ─> 3.5e handshake ──┘                                               │
+3.1 field syntax ─> 3.2 framing ─> 3.3 conformance ──┐                               │
 3.4 DNS ──────────────────────────────────────────────┼─> 3.8 shell + curl clone ─> 3.9
                                                      └─> 3.6 client ─> 3.7 kernel ─┘
 ```
 
-3.1, 3.4 and the research for 3.0 start at once; 3.6 can start against
-abstract parameters as soon as 3.1's field types exist.
+3.1, 3.4, 3.5a, 3.5c and 3.5d start at once; 3.6 can start against
+abstract parameters as soon as 3.1's field types exist; 3.8's `http://`
+half does not wait on TLS.
 
 ## Status
 
 | Item | State |
 |------|-------|
-| 3.0 TLS decision | options with checked facts (dated); waits on the maintainer |
+| 3.0 TLS decision | done (2026-10-23): option B, our own TLS 1.3 client over libcrux, grounds and accepted costs recorded above |
 | 3.1 HTTP field syntax | not started |
 | 3.2 HTTP/1.1 message framing | not started |
 | 3.3 HTTP conformance | not started |
 | 3.4 DNS message format | not started |
-| 3.5 TLS | waits on 3.0 |
+| 3.5a DER | not started |
+| 3.5b X.509 and path validation | not started (after 3.5a) |
+| 3.5c RSA PKCS#1 v1.5 | not started |
+| 3.5d TLS record and handshake formats | not started |
+| 3.5e Key schedule and handshake state machine | not started (after 3.5d) |
+| 3.5f Cryptography and the join | not started |
+| 3.5g TLS conformance and trust store | not started |
 | 3.6 Client state machine | not started |
 | 3.7 Kernel integration | not started |
 | 3.8 Network shell and `curl` clone | not started |
@@ -656,10 +888,18 @@ abstract parameters as soon as 3.1's field types exist.
 
 ## Risks
 
-- **TLS dominates.** Under option B the phase is several times its size;
-  under A or C the README's safe-Rust and proof claims need qualifying
-  text, and the project ships tens of thousands of unverified lines. 3.0
-  states both costs so the maintainer chooses with them in view.
+- **TLS dominates.** Option B makes the phase several times its size, and
+  3.5b and 3.5e are each as large as the URL parser. Accepted in 3.0; the
+  `http://` path and Phase 4 do not wait on it.
+- **One suite, no AES.** A server that offers only AES-GCM refuses this
+  client. 3.5g measures how many; if it is material, the answer is a
+  verified AES-GCM (libcrux's, once its badge changes), never an unverified
+  one.
+- **Our own RSA verification.** Public inputs only, so timing is not a
+  concern, but a bignum bug is a signature-forgery bug. It is Tier 2 with
+  Wycheproof and FIPS vectors; the proof is the defence.
+- **libcrux is pre-release.** APIs at 0.0.x move; every bump is a deliberate
+  re-pin with its rows updated.
 - **Incremental parsing proofs.** The prefix lemma (no decision before the
   data) is new; the UTF-8 decoder's "restore to the queue" modelling and
   the CBOR decoder's bounded-reservation lemma are the nearest precedents.
