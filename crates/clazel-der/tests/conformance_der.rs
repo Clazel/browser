@@ -1131,6 +1131,11 @@ fn digest_info_prefixes() {
     assert_eq!(failed, 0);
 }
 
+/// Rounds of the two random suites; Miri (an interpreter, about a thousand
+/// times slower) runs a hundredth of them.
+const VALID_ROUNDS: usize = if cfg!(miri) { 60 } else { 6000 };
+const MUTATED_ROUNDS: usize = if cfg!(miri) { 600 } else { 60_000 };
+
 // ---------------------------------------------------------------------------
 // Suites 2 and 3: the differential against `der`.
 // ---------------------------------------------------------------------------
@@ -1142,7 +1147,7 @@ fn differential_valid_values() {
     let mut cases = 0usize;
     let mut failed = 0usize;
     let mut per_kind = [0usize; 11];
-    for round in 0..6000usize {
+    for round in 0..VALID_ROUNDS {
         let kind = KINDS
             .get(round % KINDS.len())
             .copied()
@@ -1185,7 +1190,10 @@ fn differential_valid_values() {
         cases.saturating_sub(failed)
     );
     println!("valid values per kind: {per_kind:?}");
-    assert!(cases > 5000, "only {cases} values were generated");
+    assert!(
+        cases > VALID_ROUNDS / 6 * 5,
+        "only {cases} values were generated"
+    );
     assert!(
         failures.is_empty(),
         "{}",
@@ -1209,7 +1217,7 @@ fn differential_mutated_bytes() {
     let mut both_accept = 0usize;
     let mut both_reject = 0usize;
     let mut notes: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
-    for round in 0..60_000usize {
+    for round in 0..MUTATED_ROUNDS {
         let kind = KINDS
             .get(round % KINDS.len())
             .copied()
@@ -1289,7 +1297,7 @@ fn differential_mutated_bytes() {
         println!("  {n:6}  {why}");
     }
     assert!(
-        both_accept > 1000 && both_reject > 1000,
+        both_accept > MUTATED_ROUNDS / 60 && both_reject > MUTATED_ROUNDS / 60,
         "the mutations did not exercise both outcomes"
     );
     assert!(
