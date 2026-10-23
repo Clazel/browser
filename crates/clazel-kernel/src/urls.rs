@@ -148,4 +148,32 @@ pub open spec fn real_urls() -> UrlFns {
     urls_with(real_domain_parser())
 }
 
+/// `resolve` returns scalar value strings, whatever the domain parser: the
+/// condition [`crate::contract::urls_resolve_scalar`] that
+/// `step_requires` puts on the URL functions. By construction of
+/// [`urls_with`] (its result is guarded), not by an argument about the
+/// parser; see the modelling choices.
+pub proof fn lemma_urls_with_resolve_scalar(dp: clazel_url::host::spec::DomainParser)
+    ensures
+        crate::contract::urls_resolve_scalar(urls_with(dp)),
+{
+    let urls = urls_with(dp);
+    assert forall|base: Seq<u32>, input: Seq<u32>| match #[trigger] (urls.resolve)(base, input) {
+        Some(u) => clazel_encoding::utf8::spec::all_scalar_values(u),
+        None => true,
+    } by {
+        let _ = (urls.resolve)(base, input);
+    }
+}
+
+/// [`crate::contract::urls_resolve_scalar`] of the real URL functions: what
+/// the exec `step_real` needs of them.
+pub proof fn lemma_real_urls_resolve_scalar()
+    ensures
+        crate::contract::urls_resolve_scalar(real_urls()),
+{
+    lemma_urls_with_resolve_scalar(real_domain_parser());
+}
+
+
 } // verus!
