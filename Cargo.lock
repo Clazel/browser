@@ -15,6 +15,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
+name = "clazel"
+version = "0.0.0"
+dependencies = [
+ "clazel-ipc",
+ "clazel-kernel",
+]
+
+[[package]]
 name = "clazel-base64"
 version = "0.0.0"
 dependencies = [
@@ -114,6 +122,15 @@ dependencies = [
  "clazel-url",
  "publicsuffix",
  "vstd",
+]
+
+[[package]]
+name = "clazel-renderer"
+version = "0.0.0"
+dependencies = [
+ "clazel-ipc",
+ "clazel-sandbox",
+ "clazel-sys",
 ]
 
 [[package]]

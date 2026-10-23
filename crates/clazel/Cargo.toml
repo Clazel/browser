@@ -1,0 +1,24 @@
+[package]
+name = "clazel"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The kernel host shell: one socket pair and one sandboxed renderer process per tab, driven by the proven kernel step."
+
+[dependencies]
+# `step_real`, the proven kernel step with the real URL parser (items 2.12
+# and 2.13), and its state, event and output records.
+clazel-kernel = { path = "../clazel-kernel" }
+# Frames: `MAX_FRAME` and `payload_length`, and the message decoder the host
+# uses to report what it carries.
+clazel-ipc = { path = "../clazel-ipc" }
+
+# Verification tier (docs/VERIFICATION.md). Tier 0: tests only. The shell is
+# the I/O around the proven `step`; its line count is in the README table.
+[package.metadata.clazel]
+tier = 0
+target-tier = 0
+
+[lints]
+workspace = true
