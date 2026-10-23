@@ -632,4 +632,24 @@ pub proof fn lemma_read_optional_context_absent(b: Seq<u8>, pos: nat, end: nat, 
 {
 }
 
+
+/// Writing what [`read_optional_explicit`] read, when it found the
+/// component: the bytes are the encoding of a constructed `[number]` around
+/// the inner range (§8.14.3).
+pub proof fn lemma_encode_context_read_optional_explicit(b: Seq<u8>, pos: nat, end: nat, number: u32)
+    requires
+        end <= b.len(),
+    ensures
+        match read_optional_explicit(b, pos, end, number) {
+            Some(Some((cs, ce))) => {
+                &&& number <= MAX_TAG_NUMBER
+                &&& ce <= end
+                &&& b.subrange(pos as int, ce as int) =~= encode_context(number, true, b.subrange(cs as int, ce as int))
+            },
+            _ => true,
+        },
+{
+    lemma_encode_context_read_optional_context(b, pos, end, number);
+}
+
 } // verus!

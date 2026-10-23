@@ -1278,4 +1278,133 @@ pub proof fn lemma_context_equiv(b: Seq<u8>, i: nat, end: nat, number: u32)
     }
 }
 
+
+/// An OBJECT IDENTIFIER (§5.9): a primitive universal element of tag number
+/// 6 whose contents [`k_oid`] reads.
+pub open spec fn k_read_oid(b: Seq<u8>, i: nat, end: nat) -> Option<(Seq<nat>, nat)> {
+    match k_expect_universal(b, i, end, false, 6) {
+        None => None,
+        Some(e) => match k_oid(b.subrange(e.content_start as int, e.content_end as int)) {
+            Some(arcs) => Some((arcs, e.content_end)),
+            None => None,
+        },
+    }
+}
+
+/// An OBJECT IDENTIFIER read by the Guide's rules is read by the standard's,
+/// and the other way round, with the same components and extent, for every
+/// input whose contents (if it is an element at all) are empty or begin with
+/// an octet below 128: the case where the Guide's first-octet rule applies.
+pub proof fn lemma_read_oid_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+        read_tlv(b, i, end) matches Some(t) ==> (t.cstart == t.cend || b[t.cstart as int] < 128),
+    ensures
+        match (read_oid(b, i, end), k_read_oid(b, i, end)) {
+            (Some((arcs, next)), Some((arcs2, next2))) => arcs == arcs2 && next == next2,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_element_equiv(b, i, end);
+    if let Some(t) = read_tlv(b, i, end) {
+        lemma_tag_is_universal(t.tag, false, 6);
+        super::lemmas::lemma_read_tlv_bounds(b, i, end);
+        let c = b.subrange(t.cstart as int, t.cend as int);
+        if t.tag == universal_primitive(OBJECT_IDENTIFIER) {
+            if t.cstart < t.cend {
+                assert(c[0] == b[t.cstart as int]);
+                lemma_oid_equiv(c);
+            } else {
+                assert(c =~= Seq::<u8>::empty());
+            }
+        }
+    }
+}
+
+/// The wrappers that fix a universal tag number agree with the Guide's
+/// reader at that number: an OCTET STRING (4).
+pub proof fn lemma_read_octet_string_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (read_octet_string(b, i, end), k_read_string(b, i, end, 4)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_read_string_equiv(b, i, end, 4);
+}
+
+/// A PrintableString (19).
+pub proof fn lemma_read_printable_string_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (read_printable_string(b, i, end), k_read_string(b, i, end, 19)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_read_string_equiv(b, i, end, 19);
+}
+
+/// An IA5String (22).
+pub proof fn lemma_read_ia5_string_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (read_ia5_string(b, i, end), k_read_string(b, i, end, 22)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_read_string_equiv(b, i, end, 22);
+}
+
+/// A UTCTime (23).
+pub proof fn lemma_read_utc_time_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (read_utc_time(b, i, end), k_read_string(b, i, end, 23)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_read_string_equiv(b, i, end, 23);
+}
+
+/// A SEQUENCE (16).
+pub proof fn lemma_expect_sequence_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (expect_sequence(b, i, end), k_expect_universal(b, i, end, true, 16)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_expect_constructed_equiv(b, i, end, 16);
+}
+
+/// A SET (17).
+pub proof fn lemma_expect_set_equiv(b: Seq<u8>, i: nat, end: nat)
+    requires
+        end <= b.len(),
+    ensures
+        match (expect_set(b, i, end), k_expect_universal(b, i, end, true, 17)) {
+            (Some((cs, ce)), Some(e)) => cs == e.content_start && ce == e.content_end,
+            (None, None) => true,
+            _ => false,
+        },
+{
+    lemma_expect_constructed_equiv(b, i, end, 17);
+}
+
 } // verus!
