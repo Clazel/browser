@@ -104,41 +104,308 @@ The roadmap says "TLS via rustls with verified crypto", and CLAUDE.md rule 8
 says shipped dependencies are allowed only for cryptography from verified
 libraries, OS and windowing bindings, and GPU access. rustls is a parser of
 untrusted bytes (records, handshake messages, certificates), so the two
-conflict, and the maintainer must choose. The options, to be filled in with
-checked facts (versions, dependency counts, what each library has proven)
-before the decision is asked for:
+conflict, and the maintainer must choose. The facts below were checked on
+2026-10-23 against the sources cited; "unverified" marks what could not be
+checked. Dependency counts are `cargo tree --edges normal` (and, where
+stated, `--edges normal,build`) on a scratch crate outside the repository,
+counting packages other than the scratch crate, on macOS arm64 with
+cargo 1.98.1.
 
-**Option A: rustls as a listed exception.** Add `rustls`, `webpki`,
-`rustls-pki-types` and a crypto provider as `shipped` rows, with a new rule
-8 clause naming TLS as the second exception (after `clazel-sys`) and
-listing rustls in VERIFICATION.md's TCB, as the OS kernel is. The provider
-must be one whose primitives are formally verified where such exist (the
-`aws-lc-rs` provider wraps AWS-LC, parts of which are verified with SAW; a
-libcrux or HACL\* provider, if one covers a full TLS 1.3 cipher suite, is
-the better fit for the policy). Costs: tens of thousands of lines of
-unverified parsing in the TCB; every version bump re-audits nothing; the
-provider's own dependency tree.
+#### Checked facts
 
-**Option B: our own TLS 1.3 client, Tier 2.** RFC 8446: the record layer
-(§5), handshake messages (§4), key schedule (§7.1), one cipher suite
-(`TLS_CHACHA20_POLY1305_SHA256` or `TLS_AES_128_GCM_SHA256`) and one key
-exchange (X25519), with the primitives from a verified library (libcrux or
-`hacl-rs`) as the only shipped dependency, and X.509 certificate parsing
-(RFC 5280, DER) and path validation (§6) as our own Tier 2 crates. The
-state machine is a transducer like `clazel-fetch`'s. Costs: it is the
-largest item in the roadmap so far, likely several phases' worth of proof
-work, and the certificate part alone is comparable to the URL parser.
+**rustls and its two parsers.** The newest stable `rustls` on crates.io is
+0.23.46 (2026-10-14); 0.24.0-dev.2 was published the same day and is not
+stable ([crates.io/crates/rustls](https://crates.io/crates/rustls)). With
+`default-features = false` it has seven packages: `rustls` 0.23.46,
+`rustls-webpki` 0.103.16, `rustls-pki-types` 1.15.1, `subtle` 2.6.1,
+`zeroize` 1.9.1, `untrusted` 0.9.0 and `once_cell` 1.21.4. Without a crypto
+provider it can do nothing. `rustls-pki-types` holds the DER-carrying types
+(certificates, keys, names; 4,103 lines under `src/`, one `unsafe`
+`transmute` in `server_name.rs`). `rustls-webpki` is the X.509 parser and
+path validator (10,197 lines under `src/`, no `unsafe`); it hands the
+signature check to the provider. `rustls` itself is 49,208 lines under
+`src/` (all features, in-file tests included; TLS 1.2 is part of that) and
+declares `#![forbid(unsafe_code)]`. Line counts are `wc -l` on the crates
+as downloaded, and are not a count of the parts a TLS 1.3 client uses.
+Of the dependencies, `zeroize` (21 mentions of `unsafe`), `once_cell` (51)
+and `subtle` (2) contain `unsafe`, so "100% safe Rust" is false for any
+rustls build whatever the provider.
+
+**What a provider supplies.** From the 0.23.46 source
+([docs.rs/rustls/0.23.46/rustls/crypto](https://docs.rs/rustls/0.23.46/rustls/crypto/struct.CryptoProvider.html)):
+a `CryptoProvider` has five fields: `cipher_suites`, `kx_groups`,
+`signature_verification_algorithms`, `secure_random` and `key_provider`. For
+a TLS 1.3-only client with one suite, the provider writes: one
+`Tls13CipherSuite` (its `CipherSuiteCommon`, a `crypto::hash::Hash` for the
+transcript, a `crypto::tls13::Hkdf` with `crypto::hmac::Hmac`, and a
+`Tls13AeadAlgorithm` that makes a `MessageEncrypter` and
+`MessageDecrypter`); one `SupportedKxGroup` with its `ActiveKeyExchange`;
+a `WebPkiSupportedAlgorithms` (a list of `SignatureVerificationAlgorithm`,
+and a mapping from TLS `SignatureScheme` to them, which for TLS 1.3 tries
+only the first); a `SecureRandom`; and a `KeyProvider`, which a client with
+no client certificate can make fail on every call (unverified: not tried).
+The rustls project's own list of third-party providers
+([PROVIDERS.md](https://raw.githubusercontent.com/rustls/rustls/main/PROVIDERS.md))
+names ten (graviola, SymCrypt, OpenSSL, BoringSSL, CCM, mbedTLS,
+`rustls-pure`, RustCrypto, scytale, wolfCrypt), none of them libcrux or
+HACL\*, and says the rustls maintainers have not evaluated them. rustls
+recommends its own `rustls-aws-lc-rs` provider; `rustls-ring` is the other
+first-party one.
+
+**Dependency trees by provider** (`rustls` 0.23.46, `default-features =
+false`, feature `std`):
+
+| Provider | Packages (`normal`) | Packages (`normal,build`) | Notes |
+|----------|---------------------|---------------------------|-------|
+| none | 7 | 7 | no cryptography |
+| `ring` 0.17.14 | 11 | 14 | adds `ring`, `cfg-if`, `getrandom`, `libc`; build adds `cc`, `find-msvc-tools`, `shlex` |
+| `aws-lc-rs` 1.18.2 (`aws_lc_rs`) | 9 | 18 | adds `aws-lc-rs`, `aws-lc-sys`; build adds `cc`, `cmake`, `dunce`, `find-msvc-tools`, `fs_extra`, `jobserver`, `pkg-config`, `shlex`, `libc` |
+| `rustls-provider-libcrux-pq` 0.1.1 | 42 | 42 | 35 more packages than none, see below |
+| `rustls-graviola` 0.4.0 | 12 | not run | not examined (unverified) |
+| `rustls-rustcrypto` 0.0.2-alpha | 78 | not run | RustCrypto; version is an alpha |
+
+**aws-lc-rs.** `aws-lc-sys` 0.46.0 holds 1,529,921 lines of C, headers and
+assembly in 421 `.c` and 912 `.S` files (`wc -l`, whole `aws-lc/`
+directory, tests and generated assembly included, so an upper bound for the
+code a build uses). A build with no CMake installed (only `cc`, `clang`,
+`go` and `perl` on the path) completed in 21 seconds for `rustls` plus
+`aws_lc_rs`; the `cmake` crate is a build dependency, but the CMake program
+was not needed. The aws-lc-rs requirements page says a C or C++ compiler is
+enough and that CMake, Go and bindgen are needed only for the FIPS build
+([aws.github.io/aws-lc-rs/requirements](https://aws.github.io/aws-lc-rs/requirements/index.html)).
+What AWS-LC has proven, per the
+[AWS-LC formal verification repository](https://github.com/awslabs/aws-lc-verification)
+and the [AWS-LC README](https://github.com/aws/aws-lc/blob/main/README.md):
+SHA-2 (384 and 512, not 256) on x86-64 SandyBridge or later and, for 384,
+on Neoverse N1 and V1; HMAC with SHA-384 on x86-64; AES-KW(P) with 256-bit
+keys; and AES-256-GCM on x86-64 (SandyBridge to Skylake), only for 12-byte
+IVs and 16-byte tags. The tools are SAW with Cryptol on C and x86-64
+(on the code Clang produces), and NSym on AArch64 assembly. Separately,
+assembly from s2n-bignum, proven in HOL Light, is used for P-256, P-384,
+P-521, X25519 and Ed25519 on aarch64 and x86-64 and for RSA on aarch64
+only. Not in the verified table: ChaCha20-Poly1305, HKDF (compositional
+proofs referenced, not in the table), ECDSA (some helpers), RSA on x86-64.
+So in AWS-LC the best-covered suite is `TLS_AES_256_GCM_SHA384`, and only
+on particular CPUs. `ring` 0.17.14 (last release 2025-03-11) makes no
+claim of formal verification; most of its C and assembly comes from
+BoringSSL ([github.com/briansmith/ring](https://github.com/briansmith/ring)).
+
+**libcrux.** Cryspen's libcrux (the repository now redirects to
+`celabshq/libcrux`; how that organisation relates to Cryspen is
+unverified) is "in pre-release (all of its crates are versioned < 0.1)"
+and says its executables are not verified to be side-channel resistant
+([README](https://api.github.com/repositories/561361007/readme)). Each crate
+carries one of three badges, which I read in each crate's `Readme.md` on
+2026-10-23:
+
+- `verified-hacl`: `libcrux-chacha20poly1305`, `-poly1305`,
+  `-curve25519`, `-ed25519`, `-p256`, `-ecdsa`, `-sha2`, `-hmac`, `-hkdf`
+  and `-rsa`. The README says each "contains safe Rust that was compiled
+  from verified C originating in the HACL\* project", where the F\* source is
+  proven memory safe, functionally correct against a specification, and
+  secret independent. The README cites Fromherz and Protzenko,
+  "Compiling C to Safe Rust, Formalized"
+  ([arXiv:2412.15042](https://arxiv.org/abs/2412.15042)), whose tool is
+  Scylla; I did not confirm which tool produced the checked-in code. The
+  abstract page describes a type-directed translation and does not claim
+  it is itself proven, so the translation is in the TCB.
+  (Eurydice, named in the task, compiles Rust to C, the other direction;
+  it is not what produces these crates.)
+- `verified` (hax to F\*): `libcrux-ml-kem` (I did not read `libcrux-ml-dsa`'s
+  badge; unverified). The ML-KEM
+  status file says its table is "a rough guide", and in it, for example,
+  `ind_cpa`, `sampling` and the whole Neon back end have 0 of their
+  functions proven panic free.
+- `pre-verification`: `libcrux-aes` (AES-GCM and AES-CCM), so
+  `TLS_AES_128_GCM_SHA256`, the suite RFC 8446 §9.1 requires, has no
+  verified AEAD in libcrux. `libcrux-p384` 0.0.1 says it is an internal
+  dependency that should not be used directly and comes from fiat-crypto
+  and AU-Curves, not HACL\*.
+
+`libcrux-rsa` 0.0.9 exposes RSA-PSS signing and verification only (its
+public functions are `sign`, `verify`, `sign_varlen`, `verify_varlen`
+over PSS); there is no PKCS#1 v1.5 and no raw modular exponentiation. The
+`unsafe` count in the sources: `libcrux-intrinsics` 196 mentions,
+`libcrux-secrets` 22, `libcrux-ml-kem` 102, `libcrux-ml-dsa` 70,
+`libcrux-aes` 14, the `verified-hacl` crates 0 to 1 each.
+
+**A libcrux provider for rustls.** There are two. `rustls-provider-libcrux-pq`
+0.1.1 (crates.io, 2026-10-16; repository `ctf16/rustls-provider-libcrux-pq`,
+author not affiliated with Cryspen as far as the README says) offers three
+TLS 1.3 suites (AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305), X25519 and
+P-256 and ML-KEM hybrids, and verifies ECDSA P-256, Ed25519, ML-DSA and
+RSA-PSS. Its README says: P-384 ECDSA and RSA PKCS#1 v1.5 are missing, and
+"certificates signed with PKCS#1 v1.5, which is OpenSSL's default for RSA
+and what most public CAs use, don't verify"; it has "No security audit";
+its AES comes from the pre-verification crate. The other is
+`celabshq/rustls-libcrux` (`rustls-libcrux-provider` 0.0.1, not on
+crates.io; 23 commits, last push 2026-09-09): ChaCha20-Poly1305 only,
+X25519 and X25519MLKEM768, verification of ECDSA P-256, Ed25519, RSA-PSS and
+RSA PKCS#1 v1.5. Its `verify.rs` gets PKCS#1 v1.5 from
+`webpki::aws_lc_rs::RSA_PKCS1_2048_8192_SHA256`, that is from aws-lc-rs,
+which I read but did not build. So no libcrux provider verifies RSA
+PKCS#1 v1.5 with verified code, and RSA PKCS#1 v1.5 is needed for most
+certificate chains (the claim of both provider READMEs; I did not measure
+it). Counting packages for the first provider, the 42 are: the seven rustls
+ones, the provider, 20 `libcrux-*` crates (aes, chacha20poly1305,
+curve25519, ecdsa, ed25519, hacl-rs, hmac, intrinsics, macros, ml-dsa,
+ml-kem, p256, p384, platform, poly1305, rsa, secrets, sha2, sha3, traits),
+and `cfg-if`, `const-oid`, `der`, `getrandom` 0.4.3, `libc`, `pkcs8`,
+`proc-macro2`, `quote`, `rand` 0.10.3, `rand_core`, `sec1`, `spki`, `syn`
+3.0.9, `unicode-ident`. Several of these parse untrusted DER (`der`,
+`pkcs8`, `sec1`, `spki`) for private keys a client does not need.
+
+**Option B's size.** RFC 8446 is 160 pages. A client needs §4 (handshake;
+the text from §4 to §5 is about 2,970 lines), §5 (record protocol, about 430
+lines), §7.1 (key schedule, about 390 lines), §4.4.2 and §4.4.3
+(Certificate, CertificateVerify), §4.4.4 (Finished), the alerts of §6, and
+the extensions of §9.2 (`supported_versions`, `signature_algorithms`,
+`supported_groups`, `key_share`, `server_name`, plus `cookie` for
+HelloRetryRequest). §9.1 says a compliant application MUST implement
+`TLS_AES_128_GCM_SHA256`, MUST support `rsa_pkcs1_sha256` for certificates,
+`rsa_pss_rsae_sha256` and `ecdsa_secp256r1_sha256`, and MUST support
+secp256r1 key exchange (X25519 only SHOULD). A client with
+`TLS_CHACHA20_POLY1305_SHA256` and X25519 only, the choices whose
+primitives are `verified-hacl`, is therefore non-compliant with §9.1 by
+design, and would have to be recorded as a modelling choice; whether
+the servers we care about accept it is unverified. RFC 5280 is 151 pages;
+the certificate profile is §4.1 to §4.2, path validation §6.1 is about
+980 lines, and DER itself is X.690 (not read). A client still needs RSA
+PKCS#1 v1.5 verification, which means either aws-lc-rs for that one
+function, or our own modular exponentiation with a Verus proof (public-key
+operations handle no secrets, so side channels do not arise, but
+VERIFICATION.md currently says cryptography is not our own code).
+
+Existing formal work that can serve as a second source (reference text for
+an independent transcription, and as a differential-test oracle; never as
+a shipped dependency, since rule 8 says we write our own parsers):
+`miTLS` of Project Everest, a verified TLS 1.2 and 1.3 implementation in
+F\*, whose message formats were generated by EverParse
+([Everest](https://www.microsoft.com/en-us/research/project/project-everest-verified-secure-implementations-https-ecosystem/);
+a Microsoft and INRIA slide deck dates Everest 2016 to 2021, current status
+unverified); `ASN1*`, a formalisation of ASN.1 DER with a mechanised
+non-malleability proof, in F\* on EverParse (CPP 2023), which does not do
+X.509 chain validation; ARMOR (Stony Brook and CUHK) for RFC 5280 chain
+validation; and Verdict (Lin et al., USENIX Security 2025, Carnegie Mellon),
+a formally verified X.509 validator in Rust checked with Verus, covering
+parsing, path building and path validation, published as the `verdict` 0.1.0
+crate ([repository](https://github.com/secure-foundations/verdict)).
+Verdict's README says its default build uses verified primitives from
+libcrux and aws-lc-rs, and that its `aws-lc` feature uses "unverified
+signature checking for RSA and ECDSA P-256"; I did not read the code or the
+paper beyond its abstract, so its size and its fit to our spec style are
+unverified. I found no evidence that s2n-tls's ASN.1 or X.509 parser is
+formally verified: Galois's SAW proofs of s2n cover HMAC and the DRBG.
+The Galois X.509 work named in the task I could not find (unverified).
+
+#### The options
+
+**Option A: rustls as a listed exception.** `clazel-tls` is Tier 0 glue
+around rustls, with a provider. Two providers are realistic. (A1) aws-lc-rs:
+`aws-lc-rs` 1.18.2 and `aws-lc-sys` 0.46.0 are two packages, with 1.5
+million lines of C and assembly, `unsafe` FFI, and verification that is
+partial and CPU-specific (above); restricting the provider to
+`TLS_AES_256_GCM_SHA384` and X25519 keeps to the primitives AWS-LC lists as
+proven. It covers RSA PKCS#1 v1.5 and all the signature schemes a web
+client needs. (A2) A libcrux provider: its primitives for ChaCha20-Poly1305,
+X25519, SHA-256, HKDF and ECDSA P-256 are `verified-hacl`, but both
+existing providers are 0.0.x or unpublished, one is unaudited by its own
+account, neither verifies RSA PKCS#1 v1.5 with libcrux, so it cannot validate
+most chains alone; it would have to borrow aws-lc-rs for that function, and
+the project would then carry both libraries. The policy preference stated
+in the first draft of this item (a libcrux or HACL\* provider "if one covers
+a full TLS 1.3 cipher suite") is met for the suite but not for certificates.
+Costs: rustls, webpki and pki-types, about 63,000 lines under `src/` of
+unproven parsing of records, handshakes and certificates, are in the TCB;
+every version bump goes unaudited; the 0.24 line is pre-release and changes
+how providers are chosen (unverified: not examined).
+
+*Rows A1 would add to `DEPENDENCIES.md`, class `shipped`:* `rustls` 0.23.46,
+`rustls-webpki` 0.103.16, `rustls-pki-types` 1.15.1, `aws-lc-rs` 1.18.2,
+`aws-lc-sys` 0.46.0, `subtle` 2.6.1, `zeroize` 1.9.1, `untrusted` 0.9.0,
+`once_cell` 1.21.4; and for build scripts only, `cc` 1.10.0, `cmake` 0.1.58,
+`dunce` 1.0.5, `find-msvc-tools` 0.1.15, `fs_extra` 1.3.0, `jobserver`
+0.1.35, `pkg-config` 0.3.34, `shlex` 2.0.1. The `libc` row (0.2.190, Linux
+only, no default features) would have to cover every target through
+`jobserver`. The class list has no "build" class, so either these eight are
+`shipped` (rule 8 does not fit them) or the checker gains a class.
+*Rows A2 would add:* the 42 packages above (the aws-lc-rs ones too for
+PKCS#1 v1.5); `syn` 3.0.9 is a new version beside the `proof` row `syn`
+2.0.119, and `proc-macro2`, `quote` and `unicode-ident` would move from
+`proof` to `shipped`, the strictest class that covers them.
+*Rule 8 text (A):* after the sentence on shipped dependencies, "One further
+exception: the TLS stack, `rustls`, `rustls-webpki`, `rustls-pki-types` and
+the packages of the chosen crypto provider, which parse untrusted bytes
+without proofs. Only `clazel-tls` may depend on them, and the exception
+lasts until `clazel-tls` is replaced by a verified TLS client." *TCB entry:*
+"rustls, rustls-webpki, rustls-pki-types and the crypto provider
+(aws-lc-rs over AWS-LC, partly verified for particular algorithms and CPUs):
+TLS records, handshake messages and X.509 certificates are parsed by
+unproven code." The existing line "Cryptography ... from formally verified
+libraries (libcrux / HACL\*)" becomes false for A1 and would be reworded.
+The README's "100% safe Rust" claim is qualified as above.
+
+**Option B: our own TLS 1.3 client, Tier 2.** The record layer (§5),
+handshake messages (§4), key schedule (§7.1), one suite and one key exchange
+as a state machine like `clazel-fetch`'s, with X.509 and DER (RFC 5280, X.690)
+and path validation (§6) as our own Tier 2 crates, and cryptography from
+`verified-hacl` libcrux crates. The suite choice is forced by the facts:
+`TLS_CHACHA20_POLY1305_SHA256` with X25519, ECDSA P-256 and RSA-PSS
+verification and SHA-256 and SHA-384, since AES-GCM in libcrux is
+`pre-verification`; that departs from §9.1's mandatory suite and from its
+mandatory secp256r1 key exchange. Costs: it is the largest item in the
+roadmap; RSA PKCS#1 v1.5 verification has no verified source (own bignum
+code, or aws-lc-rs for that one function, which brings back the C library
+and its build dependencies); chains with RSA-signed certificates do not
+validate without it; the
+crypto crates' extraction (Scylla) and `libcrux-intrinsics`, `-secrets` and
+`-platform` (`unsafe`) stay in the TCB, so "100% safe Rust" is qualified
+even here. Verdict (above) shows that Verus can carry an X.509 validator;
+it is the nearest precedent and a candidate oracle.
+
+*Rows B would add, class `shipped`:* `libcrux-chacha20poly1305` 0.0.10,
+`libcrux-curve25519` 0.0.9, `libcrux-ecdsa` 0.0.9, `libcrux-hacl-rs` 0.0.6,
+`libcrux-hkdf` 0.0.9, `libcrux-hmac` 0.0.9, `libcrux-intrinsics` 0.0.9,
+`libcrux-macros` 0.0.4, `libcrux-p256` 0.0.9, `libcrux-platform` 0.0.4,
+`libcrux-poly1305` 0.0.7, `libcrux-rsa` 0.0.9, `libcrux-secrets` 0.0.7,
+`libcrux-sha2` 0.0.9, `libcrux-sha3` 0.0.11, `libcrux-traits` 0.0.9,
+`rand` 0.10.3, `rand_core` 0.10.1, `syn` 3.0.9, and the reclassification of
+`proc-macro2`, `quote`, `unicode-ident` and the existing `libc` row (23
+packages in this resolution, all with default features off; the exact set
+is to be re-measured by the item that adds them). *Rule 8 text (B):* no
+exception; the sentence on crypto gains "from the formally verified
+`libcrux` crates named in `docs/DEPENDENCIES.md`, which are
+`verified-hacl` or `verified` in their own READMEs, and the proc-macro
+packages they need at build time". *TCB entry:* replace the cryptography
+line with "libcrux: `verified-hacl` algorithms (F\* proofs, with the
+C-to-Rust translation trusted), plus the `unsafe` in `libcrux-intrinsics`,
+`libcrux-secrets` and `libcrux-platform`; RSA PKCS#1 v1.5 verification
+(none verified, or our own code)".
 
 **Option C: A now, B later.** Take A, with the exception written as
 temporary and a roadmap entry for B, so the `curl` clone and Phase 4's
 text-mode browser do not wait for a TLS proof. The shell keeps TLS behind
-one trait so the replacement is a swap.
+one trait so the replacement is a swap. The rows, rule 8 text and TCB entry
+are those of A, written with an end date condition. Costs: those of A for
+as long as it lasts, and the risk that the exception does not end.
 
 **Recommendation:** C, with the exception recorded exactly (the rows, the
 rule 8 text, the TCB entry) so that the README's "100% safe Rust" and
 "every parser of untrusted input carries proofs" claims are qualified
-wherever they appear until B lands. The decision, its date and its grounds
-are recorded here, as 2.0 did.
+wherever they appear until B lands. The checked facts change two details,
+not the choice. First, the "better fit" provider in the first draft, one
+over libcrux, does not exist in usable form: the only candidates are
+0.x, one unaudited, none with verified RSA PKCS#1 v1.5, so the interim
+provider is aws-lc-rs (A1), limited to `TLS_AES_256_GCM_SHA384` and
+X25519, and the cryptography sentence in VERIFICATION.md is reworded to say
+"partly verified". Second, B's suite is not the RFC's mandatory one, and B
+needs an answer to RSA PKCS#1 v1.5 (own proof or a retained aws-lc-rs call)
+before it can drop A's dependency entirely; that should be a question
+for item 3.5's spec, not a surprise there. The maintainer should also
+decide whether the eight build-script packages are `shipped` or get a
+`build` class in `docs/DEPENDENCIES.md`.
+
+**Decision:** not yet taken; waits on the maintainer.
 
 ### 3.1 HTTP field syntax (M)
 
@@ -376,7 +643,7 @@ abstract parameters as soon as 3.1's field types exist.
 
 | Item | State |
 |------|-------|
-| 3.0 TLS decision | options drafted; facts to check; waits on the maintainer |
+| 3.0 TLS decision | options with checked facts (dated); waits on the maintainer |
 | 3.1 HTTP field syntax | not started |
 | 3.2 HTTP/1.1 message framing | not started |
 | 3.3 HTTP conformance | not started |
