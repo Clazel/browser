@@ -1,8 +1,11 @@
 //! The definitions and statements of `theorem_cookie_noninterference` (item
 //! 2.11), committed before their proofs (`unwinding.rs`, `projection.rs`).
 //!
-//! The theorem, as proven (it differs from the plan's text in three places,
-//! each shown necessary by an `example_*` lemma in `counterexamples.rs`):
+//! The theorem, as proven (it differs from the plan's text in two places,
+//! each shown necessary by an `example_*` lemma in `counterexamples.rs`; a
+//! third, a hypothesis that no renderer is on a public-suffix host, was
+//! removed by making such documents cookie-averse in the kernel, see
+//! `spec.rs`):
 //!
 //! For every Public Suffix List `rules`, every `UrlFns`, every reachable
 //! state `s`, every domain `d` and every trace `t` such that
@@ -11,11 +14,6 @@
 //!   open at that point of the run of `t` (a user types a URL into a tab they
 //!   can see; without it, a renderer that kills itself closes its tab in
 //!   one run and not in the run without its events);
-//! - `ps_free_run(s, t)`: no renderer of the run is locked to a host that
-//!   is itself a public suffix, or an IP address aside (RFC 6265bis §5.7
-//!   step 16, "Leave Secure Cookies Alone", reads the jar across cookie
-//!   roots when a host-only cookie of a public suffix such as `com` is
-//!   involved: the one flow of 6265bis that crosses a root);
 //!
 //! the outputs addressed to the renderers of `d` ([`run_outputs_for`], their
 //! `Spawn` and `Kill` included) are the same from running `t` as from running
@@ -44,33 +42,6 @@ pub open spec fn user_tabs_open(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns
         &&& (t[0] is NavigateTab ==> find_by_tab(s.renderers, t[0]->NavigateTab_tab, 0) is Some)
         &&& user_tabs_open(rules, urls, step(rules, urls, s, t[0]).0, t.drop_first())
     }
-}
-
-/// The lock's host is not itself a public suffix (an IP address is not one).
-pub open spec fn lock_not_public_suffix(rules: Seq<clazel_psl::spec::Rule>, lock: clazel_origin::spec::Origin) -> bool {
-    match lock_host(lock) {
-        Some(h) => h.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, h.name),
-        None => true,
-    }
-}
-
-/// No renderer of the state is on a public-suffix host.
-pub open spec fn state_ps_free(rules: Seq<clazel_psl::spec::Rule>, s: State) -> bool {
-    forall|i: int| 0 <= i < s.renderers.len() ==> lock_not_public_suffix(rules, (#[trigger] s.renderers[i]).lock)
-}
-
-/// No cookie of the jar has a public suffix as its domain.
-pub open spec fn jar_no_public_suffix(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<clazel_cookie::storage::spec::Cookie>) -> bool {
-    forall|i: int|
-        0 <= i < jar.len() ==> (#[trigger] jar[i]).domain.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, jar[i].domain.name)
-}
-
-/// No state of the run of `t` from `s` has a renderer on a public-suffix
-/// host.
-pub open spec fn ps_free_run(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, t: Seq<Event>) -> bool
-    decreases t.len(),
-{
-    state_ps_free(rules, s) && (t.len() == 0 || ps_free_run(rules, urls, step(rules, urls, s, t[0]).0, t.drop_first()))
 }
 
 // ---------------------------------------------------------------------
@@ -126,10 +97,6 @@ pub open spec fn rel(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate:
         d,
     ))
     &&& forall|o: clazel_origin::spec::Origin| o is Tuple && crate::domain::domain_of_lock(rules, o) == d ==> storage_of(s1, o) == storage_of(s2, o)
-    &&& state_ps_free(rules, s1)
-    &&& state_ps_free(rules, s2)
-    &&& jar_no_public_suffix(rules, s1.jar)
-    &&& jar_no_public_suffix(rules, s2.jar)
 }
 
 // ---------------------------------------------------------------------

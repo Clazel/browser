@@ -8,16 +8,19 @@
 //!    closed; the purge drops that frame, so in the purged run the tab is
 //!    still open, and a later `NavigateTab` of the user to that tab spawns a
 //!    renderer in the observer's domain, which the first run does not.
-//! 2. [`example_public_suffix_overlay_crosses_roots`]: without `ps_free_run`,
-//!    the theorem is false. RFC 6265bis §5.7 step 16 ("Leave Secure Cookies
-//!    Alone") asks whether the jar holds a secure cookie of the same name
-//!    whose domain domain-matches the new cookie's domain or the other way
-//!    round, over the whole jar. For a host-only cookie of a public suffix
-//!    such as `co.uk` (allowed by step 9) and a cookie to be set for `a.co.uk`,
-//!    the match crosses cookie roots (`co.uk` and `a.co.uk`), so what a renderer
-//!    on `a.co.uk` can set depends on what a renderer on `co.uk` did. That is a
-//!    flow RFC 6265bis itself prescribes, so it is excluded by hypothesis,
-//!    not removed.
+//! 2. [`example_public_suffix_overlay_crosses_roots`]: **unreachable in the
+//!    kernel since a document on a public-suffix host is cookie-averse**
+//!    (`cookie_averse`, `spec.rs`); kept as the record of why. Without that
+//!    choice the theorem would be false. RFC 6265bis §5.7 step 16 ("Leave
+//!    Secure Cookies Alone") asks whether the jar holds a secure cookie of
+//!    the same name whose domain domain-matches the new cookie's domain or the
+//!    other way round, over the whole jar. For a host-only cookie of a public
+//!    suffix such as `co.uk` (allowed by step 9) and a cookie to be set for
+//!    `x.a.co.uk`, the match crosses cookie roots (`co.uk` and `a.co.uk`), so
+//!    what a renderer on `x.a.co.uk` can set would depend on what a renderer
+//!    on `co.uk` did. The kernel never creates such a cookie (no cookie with
+//!    a public-suffix domain enters the jar: `jar_no_public_suffix`, part of
+//!    `kernel_wf`), so the scan never crosses a root.
 //! 3. [`example_retrieval_changes_jar`]: the plan's "the jar is unchanged or
 //!    6265bis storage applied" omits §5.8.3 step 5.
 
@@ -66,7 +69,7 @@ pub proof fn example_dead_tab_breaks_noninterference(rules: Seq<clazel_psl::spec
             let urls = ce_urls();
             let t = ce_trace();
             let d = crate::domain::Domain::Opaque(1nat);
-            crate::noninterference::ps_free_run(rules, urls, init_state(), t) && !crate::noninterference::user_tabs_open(rules, urls, init_state(), t) && crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t)
+            !crate::noninterference::user_tabs_open(rules, urls, init_state(), t) && crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t)
                 != crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t))
         }),
 {
@@ -103,17 +106,6 @@ pub proof fn example_dead_tab_breaks_noninterference(rules: Seq<clazel_psl::spec
     assert(step(rules, urls, s2, t2[0]).0 == s3);
     assert(!crate::noninterference::user_tabs_open(rules, urls, s0, t)) by {
         reveal_with_fuel(crate::noninterference::user_tabs_open, 4);
-    }
-    assert(crate::noninterference::state_ps_free(rules, s0));
-    assert(crate::noninterference::state_ps_free(rules, s1)) by {
-        assert forall|i: int| 0 <= i < s1.renderers.len() implies crate::noninterference::lock_not_public_suffix(rules, (#[trigger] s1.renderers[i]).lock) by {
-            assert(s1.renderers[i] == r0);
-        }
-    }
-    assert(crate::noninterference::state_ps_free(rules, s2));
-    assert(crate::noninterference::state_ps_free(rules, s3));
-    assert(crate::noninterference::ps_free_run(rules, urls, s0, t)) by {
-        reveal_with_fuel(crate::noninterference::ps_free_run, 4);
     }
     // The original run sends nothing to d: the only renderer is Opaque(0).
     let rest01 = seq![e1, e2];
@@ -214,7 +206,9 @@ pub open spec fn ce_secure_co_uk_cookie() -> clazel_cookie::storage::spec::Cooki
     }
 }
 
-/// **Counterexample 2.** Two jars that agree on every cookie under the root
+/// **Counterexample 2 (now unreachable in the kernel: a document on a
+/// public-suffix host is cookie-averse, so no cookie with a public-suffix
+/// domain is ever created).** Two jars that agree on every cookie under the root
 /// `a.co.uk` (they have none), one of which holds the secure host-only cookie
 /// `a` of the public suffix `co.uk` (root `co.uk`, not `a.co.uk`): §5.7 step
 /// 16 finds that cookie overlaid by an insecure `a` to be set for the domain

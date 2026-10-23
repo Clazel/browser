@@ -65,9 +65,7 @@ verus! {
 pub proof fn quark_tab_non_interference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t1: Seq<Event>, t2: Seq<Event>)
     requires
         crate::noninterference::user_tabs_open(rules, urls, init_state(), t1),
-        crate::noninterference::ps_free_run(rules, urls, init_state(), t1),
         crate::noninterference::user_tabs_open(rules, urls, init_state(), t2),
-        crate::noninterference::ps_free_run(rules, urls, init_state(), t2),
         crate::domain::purge(rules, urls, d, t1) == crate::domain::purge(rules, urls, d, t2),
     ensures
         crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t1) == crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t2),
@@ -81,7 +79,6 @@ pub proof fn quark_tab_non_interference(rules: Seq<clazel_psl::spec::Rule>, urls
 pub proof fn quark_tab_non_interference_alone(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t: Seq<Event>)
     requires
         crate::noninterference::user_tabs_open(rules, urls, init_state(), t),
-        crate::noninterference::ps_free_run(rules, urls, init_state(), t),
     ensures
         crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t) == crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t)),
 {
@@ -166,7 +163,7 @@ pub proof fn quark_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
                     let r = s.renderers[i];
                     match decode_renderer_frame(bytes) {
                         Some(clazel_ipc::message::spec::Message::CookieSet { cookie_string }) => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
                                 let url = request_url_of(urls, r);
                                 assert(url.host == lock_host(r.lock));
@@ -174,7 +171,7 @@ pub proof fn quark_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
                             }
                         },
                         Some(clazel_ipc::message::spec::Message::CookieGet) => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 let url = request_url_of(urls, r);
                                 let live = clazel_cookie::storage::spec::evict_expired(s.jar, s.now);
                                 clazel_cookie::storage::isolation::lemma_evict_expired_props(rules, s.jar, s.now, any_root);
@@ -211,8 +208,7 @@ pub proof fn quark_cookie_integrity(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
 /// HttpOnly): it follows from `theorem_cookie_confidentiality` and 2.9's
 /// `lemma_retrieve_within_root`.
 pub open spec fn quark_cookie_confidentiality_statement(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, id: nat, bytes: Seq<u8>) -> bool {
-    find_by_id(s.renderers, id, 0) matches Some(i) ==> (decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::CookieGet) && !cookie_averse(
-        s.renderers[i].lock,
+    find_by_id(s.renderers, id, 0) matches Some(i) ==> (decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::CookieGet) && !cookie_averse(rules, s.renderers[i].lock,
     ) ==> {
         let r = s.renderers[i];
         let list = clazel_cookie::storage::spec::retrieval_cookie_list(rules, clazel_cookie::storage::spec::evict_expired(s.jar, s.now), request_url_of(urls, r), document_context(r.lock));
@@ -233,7 +229,7 @@ pub proof fn quark_cookie_confidentiality(rules: Seq<clazel_psl::spec::Rule>, ur
     crate::invariant::lemma_find_by_id(s.renderers, id, 0);
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         let r = s.renderers[i];
-        if decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::CookieGet) && !cookie_averse(r.lock) {
+        if decode_renderer_frame(bytes) matches Some(clazel_ipc::message::spec::Message::CookieGet) && !cookie_averse(rules, r.lock) {
             crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
             let live = clazel_cookie::storage::spec::evict_expired(s.jar, s.now);
             let list = clazel_cookie::storage::spec::retrieval_cookie_list(rules, live, request_url_of(urls, r), document_context(r.lock));

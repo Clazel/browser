@@ -105,7 +105,7 @@ pub proof fn theorem_cookie_confidentiality(rules: Seq<clazel_psl::spec::Rule>, 
     if let Some(i) = find_by_id(s.renderers, id, 0) {
         let r = s.renderers[i];
         if let Some(clazel_ipc::message::spec::Message::CookieGet) = decode_renderer_frame(bytes) {
-            if !cookie_averse(r.lock) {
+            if !cookie_averse(rules, r.lock) {
                 lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
                 let live = clazel_cookie::storage::spec::evict_expired(s.jar, s.now);
                 let url = request_url_of(urls, r);

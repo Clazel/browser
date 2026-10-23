@@ -3,7 +3,10 @@
 //! `document.cookie` getter and setter and of the Web Storage methods the
 //! kernel uses, **proven equal** to what the kernel does (item 2.11).
 //!
-//! The class on which they are equal: a renderer's document is a top-level
+//! The class on which they are equal: the lock's host is not a public suffix
+//! (the kernel makes documents on public-suffix hosts cookie-averse, as
+//! Chrome and Firefox do; HTML has no such condition, so there the two
+//! deliberately differ), a renderer's document is a top-level
 //! document whose URL is built as the kernel builds it (`request_url_of`: the
 //! lock's scheme and host, the committed URL's path), and the lock's scheme
 //! is an ASCII string (an origin's scheme is "an ASCII string"). Under it
@@ -55,11 +58,12 @@ pub proof fn lemma_narrow_ascii(a: Seq<u32>, b: Seq<u32>)
 }
 
 /// HTML's cookie-averse test on the document's URL scheme is the kernel's on the lock.
-pub proof fn lemma_cookie_averse_equal(urls: UrlFns, r: Renderer)
+pub proof fn lemma_cookie_averse_equal(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, r: Renderer)
     requires
         lock_scheme_ascii(r.lock),
+        !lock_on_public_suffix(rules, r.lock),
     ensures
-        crate::independent::cookie_averse(doc_of(urls, r)) == cookie_averse(r.lock),
+        crate::independent::cookie_averse(doc_of(urls, r)) == cookie_averse(rules, r.lock),
 {
     let sc = lock_scheme(r.lock);
     let n = clazel_cookie::matching::spec::narrow(sc);
@@ -79,6 +83,7 @@ pub proof fn lemma_cookie_averse_equal(urls: UrlFns, r: Renderer)
 pub proof fn lemma_independent_cookie_get(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, r: Renderer)
     requires
         lock_scheme_ascii(r.lock),
+        !lock_on_public_suffix(rules, r.lock),
     ensures
         ({
             let (res, jar2) = crate::independent::document_cookie_get(rules, doc_of(urls, r), s.jar, s.now);
@@ -88,8 +93,8 @@ pub proof fn lemma_independent_cookie_get(rules: Seq<clazel_psl::spec::Rule>, ur
             ))
         }),
 {
-    lemma_cookie_averse_equal(urls, r);
-    if !cookie_averse(r.lock) {
+    lemma_cookie_averse_equal(rules, urls, r);
+    if !cookie_averse(rules, r.lock) {
         assert(r.lock is Tuple);
     }
 }
@@ -98,6 +103,7 @@ pub proof fn lemma_independent_cookie_get(rules: Seq<clazel_psl::spec::Rule>, ur
 pub proof fn lemma_independent_cookie_set(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, r: Renderer, cs: Seq<u8>)
     requires
         lock_scheme_ascii(r.lock),
+        !lock_on_public_suffix(rules, r.lock),
     ensures
         ({
             let (res, jar2) = crate::independent::document_cookie_set(rules, doc_of(urls, r), s.jar, cs, s.now);
@@ -107,8 +113,8 @@ pub proof fn lemma_independent_cookie_set(rules: Seq<clazel_psl::spec::Rule>, ur
             )
         }),
 {
-    lemma_cookie_averse_equal(urls, r);
-    if !cookie_averse(r.lock) {
+    lemma_cookie_averse_equal(rules, urls, r);
+    if !cookie_averse(rules, r.lock) {
         assert(r.lock is Tuple);
     }
 }

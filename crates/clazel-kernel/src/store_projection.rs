@@ -54,7 +54,7 @@ pub proof fn lemma_overlay_filter(
 )
     requires
         clazel_cookie::storage::isolation::jar_domains_nonempty(x),
-        crate::noninterference::jar_no_public_suffix(rules, x),
+        crate::invariant::jar_no_public_suffix(rules, x),
         dom.name.len() > 0,
         dom.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, dom.name),
         clazel_cookie::storage::spec::cookie_root(rules, dom) == root,
@@ -361,7 +361,7 @@ pub proof fn lemma_create_filter(
         host.name.len() > 0,
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
         clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
-        crate::noninterference::jar_no_public_suffix(rules, jar),
+        crate::invariant::jar_no_public_suffix(rules, jar),
     ensures
         clazel_cookie::storage::spec::create_a_cookie(rules, jar, url, ctx, received, now) == clazel_cookie::storage::spec::create_a_cookie(rules, jar.filter(clazel_cookie::storage::spec::in_root(rules, root)), url, ctx, received, now),
 {
@@ -398,10 +398,10 @@ pub proof fn lemma_create_filter(
 pub proof fn lemma_live_jar_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<clazel_cookie::storage::spec::Cookie>, now: int)
     requires
         clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
-        crate::noninterference::jar_no_public_suffix(rules, jar),
+        crate::invariant::jar_no_public_suffix(rules, jar),
     ensures
         clazel_cookie::storage::isolation::jar_domains_nonempty(clazel_cookie::storage::spec::evict_expired(jar, now)),
-        crate::noninterference::jar_no_public_suffix(rules, clazel_cookie::storage::spec::evict_expired(jar, now)),
+        crate::invariant::jar_no_public_suffix(rules, clazel_cookie::storage::spec::evict_expired(jar, now)),
 {
     let live = clazel_cookie::storage::spec::evict_expired(jar, now);
     assert forall|i: int| 0 <= i < live.len() implies clazel_cookie::storage::isolation::cookie_domain_nonempty(#[trigger] live[i]) && (live[i].domain.is_ip_address
@@ -494,8 +494,8 @@ pub proof fn lemma_store_agree(
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
         clazel_cookie::storage::isolation::jar_domains_nonempty(ja),
         clazel_cookie::storage::isolation::jar_domains_nonempty(jb),
-        crate::noninterference::jar_no_public_suffix(rules, ja),
-        crate::noninterference::jar_no_public_suffix(rules, jb),
+        crate::invariant::jar_no_public_suffix(rules, ja),
+        crate::invariant::jar_no_public_suffix(rules, jb),
         crate::projection::live_root(rules, ja, now, root) == crate::projection::live_root(rules, jb, now, root),
     ensures
         crate::projection::live_root(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, ja, s, url, ctx, now), now, root) == crate::projection::live_root(

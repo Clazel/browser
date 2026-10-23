@@ -83,7 +83,6 @@ pub proof fn lemma_local_respect(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::other_domain_local(rules, urls, d, s1, e),
-        crate::noninterference::state_ps_free(rules, step(rules, urls, s1, e).0),
     ensures
         crate::noninterference::local_respect_statement(rules, urls, d, s1, s2, e),
 {
@@ -126,13 +125,6 @@ pub proof fn lemma_local_respect(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
                 crate::unwind_base::lemma_same_id_same_renderer(urls, s1.renderers, s1.next_id, x, r);
             }
         }
-        assert forall|x: Renderer| s1b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-            crate::unwind_base::lemma_remove_contains(urls, s1.renderers, s1.next_id, i1, x);
-            crate::unwinding::lemma_ps_free_elem(rules, s1, x);
-        }
-        assert forall|x: Renderer| s2.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-            crate::unwinding::lemma_ps_free_elem(rules, s2, x);
-        }
         assert(s1b.jar == s1.jar && s1b.storage == s1.storage && s1b.now == s1.now && s1b.next_id == s1.next_id);
         crate::unwinding::lemma_rel_from_sets(rules, urls, d, s1b, s2);
     } else {
@@ -144,7 +136,7 @@ pub proof fn lemma_local_respect(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
             assert(s1b.next_id == s1.next_id && s1b.now == s1.now);
             match m {
                 clazel_ipc::message::spec::Message::CookieGet => {
-                    if !cookie_averse(r.lock) {
+                    if !cookie_averse(rules, r.lock) {
                         crate::unwinding_d::lemma_domain_of_tuple(rules, urls, s1, i1, d2);
                         let h = lock_host(r.lock)->Some_0;
                         let url = request_url_of(urls, r);
@@ -156,7 +148,7 @@ pub proof fn lemma_local_respect(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
                     }
                 },
                 clazel_ipc::message::spec::Message::CookieSet { cookie_string } => {
-                    if !cookie_averse(r.lock) {
+                    if !cookie_averse(rules, r.lock) {
                         crate::unwinding_d::lemma_domain_of_tuple(rules, urls, s1, i1, d2);
                         let h = lock_host(r.lock)->Some_0;
                         let url = request_url_of(urls, r);

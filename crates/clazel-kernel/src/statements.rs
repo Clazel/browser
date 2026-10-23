@@ -12,11 +12,11 @@
 //!   neither; so a third alternative, the retrieval's own
 //!   `jar_after_retrieval`, is allowed. Every cookie call also evicts expired
 //!   cookies first, which the plan's "except expiry at Tick" omits.
-//! - `theorem_cookie_noninterference`: see `unwinding.rs` and
-//!   `counterexamples.rs`: (1) the user may only navigate a tab that is open
-//!   (`user_tabs_open`); (2) no renderer of the run is on a host that is
-//!   itself a public suffix (`ps_free_run`), because §5.7 step 16 reads
-//!   cookies across roots when a public suffix is involved.
+//! - `theorem_cookie_noninterference`: see `noninterference.rs` and
+//!   `counterexamples.rs`: the user may only navigate a tab that is open
+//!   (`user_tabs_open`). (A second correction, that no renderer is on a
+//!   public-suffix host, was first a hypothesis and is now closed in the
+//!   kernel: such documents are cookie-averse.)
 
 #[allow(unused_imports)]
 use super::spec::*;
@@ -90,7 +90,7 @@ pub open spec fn html_cookie_getter(
     lock: clazel_origin::spec::Origin,
     url: Seq<u32>,
 ) -> Seq<u8> {
-    if cookie_averse(lock) {
+    if cookie_averse(rules, lock) {
         seq![]
     } else {
         clazel_cookie::storage::spec::retrieve_cookie_string(
@@ -122,7 +122,7 @@ pub open spec fn cookie_confidentiality_statement(rules: Seq<clazel_psl::spec::R
                     r,
                     clazel_ipc::message::spec::Message::CookieValue { cookie_string: html_cookie_getter(rules, urls, s.jar, s.now, r.lock, r.url) },
                 )
-                &&& (!cookie_averse(r.lock) ==> {
+                &&& (!cookie_averse(rules, r.lock) ==> {
                     let list = clazel_cookie::storage::spec::retrieval_cookie_list(
                         rules,
                         clazel_cookie::storage::spec::evict_expired(s.jar, s.now),
@@ -159,7 +159,7 @@ pub open spec fn cookie_integrity_statement(rules: Seq<clazel_psl::spec::Rule>, 
             Some(i) => {
                 let r = s.renderers[i];
                 match decode_renderer_frame(bytes) {
-                    Some(clazel_ipc::message::spec::Message::CookieSet { cookie_string }) => if cookie_averse(r.lock) {
+                    Some(clazel_ipc::message::spec::Message::CookieSet { cookie_string }) => if cookie_averse(rules, r.lock) {
                         s1.jar == s.jar
                     } else {
                         s1.jar == clazel_cookie::storage::spec::store_a_set_cookie_string(
@@ -171,7 +171,7 @@ pub open spec fn cookie_integrity_statement(rules: Seq<clazel_psl::spec::Rule>, 
                             s.now,
                         )
                     },
-                    Some(clazel_ipc::message::spec::Message::CookieGet) => if cookie_averse(r.lock) {
+                    Some(clazel_ipc::message::spec::Message::CookieGet) => if cookie_averse(rules, r.lock) {
                         s1.jar == s.jar
                     } else {
                         s1.jar == clazel_cookie::storage::spec::jar_after_retrieval(rules, s.jar, request_url_of(urls, r), document_context(r.lock), s.now)

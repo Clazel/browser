@@ -354,9 +354,9 @@ pub proof fn lemma_store_no_public_suffix(
         url.host == Some(host),
         host.name.len() > 0,
         host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
-        crate::noninterference::jar_no_public_suffix(rules, jar),
+        crate::invariant::jar_no_public_suffix(rules, jar),
     ensures
-        crate::noninterference::jar_no_public_suffix(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jar, s, url, ctx, now)),
+        crate::invariant::jar_no_public_suffix(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jar, s, url, ctx, now)),
 {
     let live = clazel_cookie::storage::spec::evict_expired(jar, now);
     let any_root = clazel_cookie::matching::spec::CanonicalHost { name: seq![], is_ip_address: false };
@@ -418,10 +418,8 @@ pub proof fn lemma_insert_contains(jar: Seq<clazel_cookie::storage::spec::Cookie
 pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, e: Event)
     requires
         crate::invariant::kernel_wf(rules, urls, s),
-        crate::noninterference::state_ps_free(rules, s),
-        crate::noninterference::jar_no_public_suffix(rules, s.jar),
     ensures
-        crate::noninterference::jar_no_public_suffix(rules, step(rules, urls, s, e).0.jar),
+        crate::invariant::jar_no_public_suffix(rules, step(rules, urls, s, e).0.jar),
 {
     let any_root = clazel_cookie::matching::spec::CanonicalHost { name: seq![], is_ip_address: false };
     match e {
@@ -443,7 +441,7 @@ pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>,
                     crate::lock::lemma_storage_call_frame(s, r, m);
                     match m {
                         clazel_ipc::message::spec::Message::CookieGet => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 let url = request_url_of(urls, r);
                                 let live = clazel_cookie::storage::spec::evict_expired(s.jar, s.now);
                                 let host = lock_host(r.lock);
@@ -472,12 +470,13 @@ pub proof fn lemma_jar_no_public_suffix_step(rules: Seq<clazel_psl::spec::Rule>,
                             }
                         },
                         clazel_ipc::message::spec::Message::CookieSet { cookie_string } => {
-                            if !cookie_averse(r.lock) {
+                            if !cookie_averse(rules, r.lock) {
                                 crate::cookie_theorems::lemma_tuple_lock_host(urls, s.renderers, s.next_id, i);
-                                assert(crate::noninterference::lock_not_public_suffix(rules, r.lock));
-                                crate::invariant::lemma_request_url_host_nonempty(urls, r);
+                                crate::invariant::lemma_request_url_host_nonempty(rules, urls, r);
                                 let url = request_url_of(urls, r);
                                 let h = lock_host(r.lock)->Some_0;
+                                // A document on a public-suffix host is cookie-averse.
+                                assert(h.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, h.name));
                                 lemma_store_no_public_suffix(rules, s.jar, cookie_string, url, document_context(r.lock), s.now, h);
                             }
                         },

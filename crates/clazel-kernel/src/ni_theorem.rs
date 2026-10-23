@@ -14,7 +14,6 @@ pub proof fn lemma_navigate_declassify(rules: Seq<clazel_psl::spec::Rule>, urls:
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::other_domain_navigate(rules, urls, d, s1, e),
-        crate::noninterference::state_ps_free(rules, step(rules, urls, s1, e).0),
     ensures
         crate::noninterference::navigate_declassify_statement(rules, urls, d, s1, s2, e),
 {
@@ -102,7 +101,6 @@ pub proof fn lemma_kept_step(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::kept_event(rules, urls, d, s1, e),
-        crate::noninterference::state_ps_free(rules, step(rules, urls, s1, e).0),
     ensures
         step(rules, urls, s1, e).1 == step(rules, urls, s2, e).1,
         crate::noninterference::rel(rules, urls, d, step(rules, urls, s1, e).0, step(rules, urls, s2, e).0),
@@ -138,7 +136,6 @@ pub proof fn lemma_output_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: 
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::kept_event(rules, urls, d, s1, e),
-        crate::noninterference::state_ps_free(rules, step(rules, urls, s1, e).0),
     ensures
         crate::noninterference::output_consistency_statement(rules, urls, d, s1, s2, e),
 {
@@ -153,7 +150,6 @@ pub proof fn lemma_step_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::kept_event(rules, urls, d, s1, e),
-        crate::noninterference::state_ps_free(rules, step(rules, urls, s1, e).0),
     ensures
         crate::noninterference::step_consistency_statement(rules, urls, d, s1, s2, e),
 {
@@ -181,7 +177,6 @@ pub proof fn lemma_trace_noninterference(rules: Seq<clazel_psl::spec::Rule>, url
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         crate::noninterference::user_tabs_open(rules, urls, s1, t),
-        crate::noninterference::ps_free_run(rules, urls, s1, t),
     ensures
         crate::noninterference::run_outputs_for(rules, urls, d, s1, t) == crate::noninterference::run_outputs_for(rules, urls, d, s2, crate::domain::ipurge(rules, urls, s1, d, t)),
     decreases t.len(),
@@ -190,9 +185,7 @@ pub proof fn lemma_trace_noninterference(rules: Seq<clazel_psl::spec::Rule>, url
         let e = t[0];
         let rest = t.drop_first();
         let (s1b, o1) = step(rules, urls, s1, e);
-        assert(crate::noninterference::ps_free_run(rules, urls, s1b, rest));
         assert(crate::noninterference::user_tabs_open(rules, urls, s1b, rest));
-        assert(crate::noninterference::state_ps_free(rules, s1b));
         let pe_opt = crate::domain::ipurge_event(rules, urls, s1, d, e);
         let kept: Seq<Event> = match pe_opt {
             Some(pe) => seq![pe],
@@ -253,72 +246,32 @@ pub proof fn lemma_trace_noninterference(rules: Seq<clazel_psl::spec::Rule>, url
 // The theorem.
 // ---------------------------------------------------------------------
 
-/// `s` is reached from the initial state by a run with no renderer on a
-/// public-suffix host.
-pub open spec fn ps_free_reachable(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State) -> bool {
-    exists|t0: Seq<Event>| run_state(rules, urls, init_state(), t0) == s && crate::noninterference::ps_free_run(rules, urls, init_state(), t0)
-}
-
-/// A public-suffix-free run keeps the invariants the unwinding needs.
-pub proof fn lemma_ps_free_run_props(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, t0: Seq<Event>)
-    requires
-        crate::invariant::kernel_wf(rules, urls, s),
-        crate::noninterference::jar_no_public_suffix(rules, s.jar),
-        crate::noninterference::ps_free_run(rules, urls, s, t0),
-    ensures
-        crate::invariant::kernel_wf(rules, urls, run_state(rules, urls, s, t0)),
-        crate::noninterference::jar_no_public_suffix(rules, run_state(rules, urls, s, t0).jar),
-        crate::noninterference::state_ps_free(rules, run_state(rules, urls, s, t0)),
-    decreases t0.len(),
-{
-    if t0.len() > 0 {
-        crate::invariant::lemma_step_preserves_wf(rules, urls, s, t0[0]);
-        crate::unwind_base::lemma_jar_no_public_suffix_step(rules, urls, s, t0[0]);
-        lemma_ps_free_run_props(rules, urls, step(rules, urls, s, t0[0]).0, t0.drop_first());
-    }
-}
-
-/// The initial state is public-suffix free.
-pub proof fn lemma_init_ps_free(rules: Seq<clazel_psl::spec::Rule>)
-    ensures
-        crate::noninterference::state_ps_free(rules, init_state()),
-        crate::noninterference::jar_no_public_suffix(rules, init_state().jar),
-{
-}
-
-/// **`theorem_cookie_noninterference`**, from any state reached by a run
-/// with no renderer on a public-suffix host.
+/// **`theorem_cookie_noninterference`**, from any reachable state.
 pub proof fn theorem_cookie_noninterference_from(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, d: crate::domain::Domain, t: Seq<Event>)
     requires
-        ps_free_reachable(rules, urls, s),
+        reachable(rules, urls, s),
         crate::noninterference::user_tabs_open(rules, urls, s, t),
-        crate::noninterference::ps_free_run(rules, urls, s, t),
     ensures
         crate::noninterference::cookie_noninterference_statement(rules, urls, s, d, t),
 {
-    crate::invariant::lemma_init_wf(rules, urls);
-    lemma_init_ps_free(rules);
-    let t0 = choose|t0: Seq<Event>| run_state(rules, urls, init_state(), t0) == s && crate::noninterference::ps_free_run(rules, urls, init_state(), t0);
-    lemma_ps_free_run_props(rules, urls, init_state(), t0);
+    crate::invariant::lemma_reachable_wf(rules, urls, s);
     assert(crate::noninterference::rel(rules, urls, d, s, s));
     lemma_trace_noninterference(rules, urls, d, s, s, t);
 }
 
 /// **`theorem_cookie_noninterference`**, the plan's form: from the initial
 /// state, with `purge(t, D)`. The outputs addressed to the renderers of `d`
-/// are the same from `t` and from its purge.
+/// are the same from `t` and from its purge. The only hypothesis is that the
+/// user navigates only tabs that are open.
 pub proof fn theorem_cookie_noninterference(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t: Seq<Event>)
     requires
         crate::noninterference::user_tabs_open(rules, urls, init_state(), t),
-        crate::noninterference::ps_free_run(rules, urls, init_state(), t),
     ensures
         crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t) == crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t)),
 {
     let t0 = Seq::<Event>::empty();
     assert(run_state(rules, urls, init_state(), t0) == init_state());
-    lemma_init_ps_free(rules);
-    assert(crate::noninterference::ps_free_run(rules, urls, init_state(), t0));
-    assert(ps_free_reachable(rules, urls, init_state()));
+    assert(reachable(rules, urls, init_state()));
     theorem_cookie_noninterference_from(rules, urls, init_state(), d, t);
 }
 
@@ -349,7 +302,6 @@ pub open spec fn is_inverse(f: spec_fn(nat) -> nat, g: spec_fn(nat) -> nat) -> b
 pub proof fn theorem_cookie_noninterference_up_to_ids(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, t: Seq<Event>)
     requires
         crate::noninterference::user_tabs_open(rules, urls, init_state(), t),
-        crate::noninterference::ps_free_run(rules, urls, init_state(), t),
     ensures
         exists|f: spec_fn(nat) -> nat|
             is_bijection(f) && crate::noninterference::run_outputs_for(rules, urls, d, init_state(), t) =~= crate::noninterference::run_outputs_for(rules, urls, d, init_state(), crate::domain::purge(rules, urls, d, t)).map_values(

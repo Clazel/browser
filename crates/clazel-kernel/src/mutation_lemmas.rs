@@ -62,10 +62,21 @@ pub proof fn ml_document_context_non_http(lock: clazel_origin::spec::Origin)
 {
 }
 
-/// A tuple lock of scheme `ftp` is cookie-averse.
-pub proof fn ml_ftp_is_cookie_averse()
+/// A tuple lock of scheme `ftp` is cookie-averse, whatever its host.
+pub proof fn ml_ftp_is_cookie_averse(on_public_suffix: bool)
     ensures
-        cookie_averse(ml_tuple(seq![0x66u32, 0x74, 0x70])),
+        cookie_averse_given(ml_tuple(seq![0x66u32, 0x74, 0x70]), on_public_suffix),
+{
+}
+
+/// A document on a public-suffix host is cookie-averse: the getter returns
+/// the empty string and the setter does nothing (so no cookie with a
+/// public-suffix domain is ever created, and RFC 6265bis §5.7 step 16 never
+/// reads across cookie roots). `cookie_averse(rules, lock)` is
+/// `cookie_averse_given(lock, lock_on_public_suffix(rules, lock))`.
+pub proof fn ml_public_suffix_is_cookie_averse(lock: clazel_origin::spec::Origin)
+    ensures
+        cookie_averse_given(lock, true),
 {
 }
 

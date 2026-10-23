@@ -11,17 +11,6 @@ use vstd::prelude::*;
 
 verus! {
 
-/// A renderer of a state with no renderer on a public-suffix host is not on one.
-pub proof fn lemma_ps_free_elem(rules: Seq<clazel_psl::spec::Rule>, s: State, x: Renderer)
-    requires
-        crate::noninterference::state_ps_free(rules, s),
-        s.renderers.contains(x),
-    ensures
-        crate::noninterference::lock_not_public_suffix(rules, x.lock),
-{
-    let i = choose|i: int| 0 <= i < s.renderers.len() && s.renderers[i] == x;
-}
-
 /// The cookie part of `rel` is unchanged when the jar and time are.
 pub open spec fn cookies_agree(rules: Seq<clazel_psl::spec::Rule>, d: crate::domain::Domain, s1: State, s2: State) -> bool {
     d is Root ==> crate::domain::cookies_of_domain(rules, clazel_cookie::storage::spec::evict_expired(s1.jar, s1.now), d) == crate::domain::cookies_of_domain(rules, clazel_cookie::storage::spec::evict_expired(s2.jar, s2.now), d)
@@ -42,7 +31,6 @@ pub proof fn lemma_navigate_tab_consistency(
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
         find_by_tab(s1.renderers, tab, 0) is Some,
-        crate::noninterference::state_ps_free(rules, navigate_tab(urls, s1, tab, url, script).0),
     ensures
         navigate_tab(urls, s1, tab, url, script).1 == navigate_tab(urls, s2, tab, url, script).1,
         crate::noninterference::rel(rules, urls, d, navigate_tab(urls, s1, tab, url, script).0, navigate_tab(urls, s2, tab, url, script).0),
@@ -96,17 +84,6 @@ pub proof fn lemma_navigate_tab_consistency(
             ) by {
                 assert(s2b.renderers.contains(s2b.renderers[i]));
             }
-            assert forall|i: int| 0 <= i < s2b.renderers.len() implies crate::noninterference::lock_not_public_suffix(rules, (#[trigger] s2b.renderers[i]).lock) by {
-                let x = s2b.renderers[i];
-                assert(s2b.renderers.contains(x));
-                crate::unwind_base::lemma_update_contains(urls, s2.renderers, s2.next_id, i2, r, x);
-                if x == r {
-                    crate::unwind_base::lemma_update_contains(urls, s1.renderers, s1.next_id, i1, r, x);
-                    lemma_ps_free_elem(rules, s1b, x);
-                } else {
-                    lemma_ps_free_elem(rules, s2, x);
-                }
-            }
         },
     }
 }
@@ -122,10 +99,6 @@ pub proof fn lemma_rel_from_sets(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
         s1.now == s2.now,
         cookies_agree(rules, d, s1, s2),
         forall|o: clazel_origin::spec::Origin| o is Tuple && crate::domain::domain_of_lock(rules, o) == d ==> storage_of(s1, o) == storage_of(s2, o),
-        forall|x: Renderer| s1.renderers.contains(x) ==> crate::noninterference::lock_not_public_suffix(rules, x.lock),
-        forall|x: Renderer| s2.renderers.contains(x) ==> crate::noninterference::lock_not_public_suffix(rules, x.lock),
-        crate::noninterference::jar_no_public_suffix(rules, s1.jar),
-        crate::noninterference::jar_no_public_suffix(rules, s2.jar),
     ensures
         crate::noninterference::rel(rules, urls, d, s1, s2),
 {
@@ -137,19 +110,12 @@ pub proof fn lemma_rel_from_sets(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFn
     ) by {
         assert(s2.renderers.contains(s2.renderers[i]));
     }
-    assert forall|i: int| 0 <= i < s1.renderers.len() implies crate::noninterference::lock_not_public_suffix(rules, (#[trigger] s1.renderers[i]).lock) by {
-        assert(s1.renderers.contains(s1.renderers[i]));
-    }
-    assert forall|i: int| 0 <= i < s2.renderers.len() implies crate::noninterference::lock_not_public_suffix(rules, (#[trigger] s2.renderers[i]).lock) by {
-        assert(s2.renderers.contains(s2.renderers[i]));
-    }
 }
 
 /// `OpenTab` from related states: the same outputs, and related states.
 pub proof fn lemma_open_tab_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, d: crate::domain::Domain, s1: State, s2: State, url: Seq<u32>, script: Seq<u8>)
     requires
         crate::noninterference::rel(rules, urls, d, s1, s2),
-        crate::noninterference::state_ps_free(rules, open_tab(urls, s1, url, script).0),
     ensures
         open_tab(urls, s1, url, script).1 == open_tab(urls, s2, url, script).1,
         crate::noninterference::rel(rules, urls, d, open_tab(urls, s1, url, script).0, open_tab(urls, s2, url, script).0),
@@ -176,18 +142,6 @@ pub proof fn lemma_open_tab_consistency(rules: Seq<clazel_psl::spec::Rule>, urls
                 assert(s1.renderers.contains(s2.renderers[k]));
             }
         }
-        assert forall|x: Renderer| s2b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-            crate::unwind_base::lemma_push_contains(s2.renderers, rn, x);
-            crate::unwind_base::lemma_push_contains(s1.renderers, rn, x);
-            if x == rn {
-                lemma_ps_free_elem(rules, s1b, rn);
-            } else {
-                lemma_ps_free_elem(rules, s2, x);
-            }
-        }
-        assert forall|x: Renderer| s1b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-            lemma_ps_free_elem(rules, s1b, x);
-        }
         lemma_rel_from_sets(rules, urls, d, s1b, s2b);
     }
 }
@@ -207,18 +161,6 @@ pub proof fn lemma_exited_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: 
     let (s2b, o2) = renderer_exited(s2, id);
     crate::unwind_base::lemma_found_contained(s1, id);
     crate::unwind_base::lemma_found_contained(s2, id);
-    assert forall|x: Renderer| s1b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-        if let Some(i) = find_by_id(s1.renderers, id, 0) {
-            crate::unwind_base::lemma_remove_contains(urls, s1.renderers, s1.next_id, i, x);
-        }
-        lemma_ps_free_elem(rules, s1, x);
-    }
-    assert forall|x: Renderer| s2b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-        if let Some(i) = find_by_id(s2.renderers, id, 0) {
-            crate::unwind_base::lemma_remove_contains(urls, s2.renderers, s2.next_id, i, x);
-        }
-        lemma_ps_free_elem(rules, s2, x);
-    }
     if let Some(i1) = find_by_id(s1.renderers, id, 0) {
         let x1 = s1.renderers[i1];
         assert(s2.renderers.contains(x1));
@@ -273,12 +215,6 @@ pub proof fn lemma_tick_consistency(rules: Seq<clazel_psl::spec::Rule>, urls: Ur
     let now2 = if time > s1.now { time } else { s1.now };
     if let crate::domain::Domain::Root(root) = d {
         crate::projection::lemma_tick_agree(rules, s1.jar, s2.jar, s1.now, now2, root);
-    }
-    assert forall|x: Renderer| s1b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-        lemma_ps_free_elem(rules, s1, x);
-    }
-    assert forall|x: Renderer| s2b.renderers.contains(x) implies crate::noninterference::lock_not_public_suffix(rules, x.lock) by {
-        lemma_ps_free_elem(rules, s2, x);
     }
     assert forall|x: Renderer| s1b.renderers.contains(x) implies s2b.renderers.contains(x) by {
         let k = choose|k: int| 0 <= k < s1.renderers.len() && s1.renderers[k] == x;
