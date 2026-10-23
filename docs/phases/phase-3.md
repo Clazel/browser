@@ -169,6 +169,39 @@ lemma, not hidden.
 
 Mutations seeded for each grammar rule. Conformance for this item is 3.3's.
 
+**As built:** `crates/clazel-http/src/field/` (`spec`, `contract`,
+`termination`, `string`, `section`, `list`, `quoted`, `params`,
+`content_length`, `types`, `lemmas`, `examples`, `independent`, `tests`),
+`mutations.json` and a README. Verus verifies 146 items with no errors; the
+crate stays `tier = 0`, `target-tier = 2`, because framing (3.2) and the
+conformance tests (3.3) do not exist. Every exec function is proven equal to
+its contract (tokens, field names and case-insensitive comparison, OWS/RWS/BWS
+and stripping, field values, field lines of one name, the combined value,
+`Set-Cookie` lines, list splitting, quoted strings read and written,
+parameters in both the §5.6.6 and §10.1.4 forms, `Transfer-Encoding`,
+`Connection`, `Content-Length` with a `u64` limit). Proven lemmas: a token
+has no delimiter and tchar is "VCHAR except delimiters"; unquote after quote,
+and quote after unquote on canonical quoted strings; a combined value splits
+back into its lines (needs no comma and no DQUOTE in a line, because a
+DQUOTE opens a quoted string that swallows later commas); repeated identical
+`Content-Length` equals the single value; `Set-Cookie` is never combined.
+`examples.rs` evaluates RFC 9110's examples and a case per rule boundary.
+`independent.rs` is the Fetch §2.2 transcription (token code points from MIME
+Sniffing, which Fetch defers to the RFC for), proven equal to the spec on
+every byte sequence for header names, for trimming tab and space, and for
+"get, decode, and split" against `split_values` (empty pieces kept; dropping
+them is `list_elements`), and equal on every RFC quoted string for "collect
+an HTTP quoted string". Differences, stated in the lemmas: Fetch keeps empty
+elements, its *normalize* also strips CR and LF, its header value allows
+control bytes other than NUL, CR and LF, and its quoted-string reader accepts
+unterminated strings. (HTTP tab or space is exactly OWS, so there is no
+difference there.) 76 mutations, all `killed` with certificates, one or more
+per grammar rule. 10 unit tests. Choices worth review: "the same decimal
+value" in §8.6 is read as the same digits (`42, 042` is rejected); `Content-Length`
+keeps empty list members as errors where `list_elements` drops them;
+`quote` returns `None` for a value with a CR, LF, NUL or other control.
+Not done: conformance (3.3), framing (3.2).
+
 ### 3.2 HTTP/1.1 message framing (L)
 
 `clazel-http`, module `message/`. RFC 9112 §2.1 message format, §2.2
@@ -377,7 +410,7 @@ abstract parameters as soon as 3.1's field types exist.
 | Item | State |
 |------|-------|
 | 3.0 TLS decision | options drafted; facts to check; waits on the maintainer |
-| 3.1 HTTP field syntax | not started |
+| 3.1 HTTP field syntax | built: 146 verified, independent transcription (Fetch), 76 certified mutations, 10 unit tests; tier stays 0 until 3.2 and 3.3 |
 | 3.2 HTTP/1.1 message framing | not started |
 | 3.3 HTTP conformance | not started |
 | 3.4 DNS message format | not started |
