@@ -10,7 +10,7 @@
       "certificate": {
         "file": "src/mutation_lemmas.rs",
         "lemma": "ml_reply_for_sender(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)",
-        "witness": "output_id(reply(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)[0]) == 1nat"
+        "witness": "crate::domain::output_id(reply(ml_renderer(0, clazel_origin::spec::Origin::Opaque(0nat)), clazel_ipc::message::spec::Message::StorageClear)[0]) == 1nat"
       },
       "module": "mutation_lemmas"
     },
@@ -79,8 +79,8 @@
       "reason": "A renderer's Navigate to another origin gives the new renderer the old lock: the renderer on a.test is locked to b.test's origin. ml_navigate_new_lock, theorem_lock_is_committed_origin's step, is false.",
       "certificate": {
         "file": "src/mutation_lemmas.rs",
-        "lemma": "ml_navigate_new_lock(ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
-        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).0.renderers[0].lock == clazel_origin::spec::Origin::Opaque(0nat)"
+        "lemma": "ml_navigate_new_lock(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
+        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(crate::counterexamples::ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).0.renderers[0].lock == clazel_origin::spec::Origin::Opaque(0nat)"
       },
       "module": "mutation_lemmas"
     },
@@ -93,8 +93,8 @@
       "reason": "The renderer spawned by a navigation is committed with the navigating renderer's URL as its script, i.e. it inherits something besides the resolved URL: ml_navigate_commit (what lemma_declassified_is_navigate_tab and the declassification of theorem_cookie_noninterference rest on) is false.",
       "certificate": {
         "file": "src/mutation_lemmas.rs",
-        "lemma": "ml_navigate_commit(ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
-        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).1[2]->ToRenderer_bytes != commit_frame(Seq::<u32>::empty(), Seq::<u8>::empty())"
+        "lemma": "ml_navigate_commit(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty(), 0, clazel_origin::spec::Origin::Opaque(1nat))",
+        "witness": "find_by_tab(ml_state_one().renderers, 0, 0) == Some(0int) && lock_of_url(crate::counterexamples::ce_urls(), Seq::<u32>::empty(), 1) == Some(clazel_origin::spec::Origin::Opaque(1nat)) && !(clazel_origin::spec::Origin::Opaque(1nat) is Tuple) && navigate_tab(crate::counterexamples::ce_urls(), ml_state_one(), 0, Seq::<u32>::empty(), Seq::<u8>::empty()).1[2]->ToRenderer_bytes != commit_frame(Seq::<u32>::empty(), Seq::<u8>::empty())"
       },
       "module": "mutation_lemmas"
     },
