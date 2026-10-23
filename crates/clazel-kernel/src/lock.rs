@@ -1,0 +1,244 @@
+//! `theorem_lock_is_committed_origin` (item 2.11): the lock of a renderer is
+//! the origin of its committed URL, and only navigation sets it.
+
+#[allow(unused_imports)]
+use super::invariant::*;
+#[allow(unused_imports)]
+use super::spec::*;
+#[allow(unused_imports)]
+use super::statements::*;
+#[allow(unused_imports)]
+use super::theorems::*;
+#[allow(unused_imports)]
+use vstd::prelude::*;
+
+verus! {
+
+/// **`theorem_lock_is_committed_origin`, part 1.**
+pub proof fn theorem_lock_is_committed_origin_state(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State)
+    requires
+        reachable(rules, urls, s),
+    ensures
+        lock_is_committed_origin_statement(urls, s),
+{
+    lemma_reachable_wf(rules, urls, s);
+    assert forall|i: int| 0 <= i < s.renderers.len() implies (lock_of_url(urls, (#[trigger] s.renderers[i]).url, s.renderers[i].id) == Some(s.renderers[i].lock)
+        && match (urls.origin_of)(s.renderers[i].url) {
+        Some(o) => match o {
+            clazel_origin::spec::Origin::Tuple { .. } => s.renderers[i].lock == o,
+            clazel_origin::spec::Origin::Opaque(_) => s.renderers[i].lock == clazel_origin::spec::Origin::Opaque(s.renderers[i].id),
+        },
+        None => false,
+    }) by {
+        let r = s.renderers[i];
+        assert(lock_of_url(urls, r.url, r.id) == Some(r.lock));
+    }
+}
+
+/// Distinct positions of a well-formed table have distinct ids.
+pub proof fn lemma_ids_distinct(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, a: int, b: int)
+    requires
+        renderers_wf(urls, rs, next_id),
+        0 <= a < rs.len(),
+        0 <= b < rs.len(),
+        rs[a].id == rs[b].id,
+    ensures
+        a == b,
+{
+    if a < b {
+        assert(rs[a].id != rs[b].id);
+    } else if b < a {
+        assert(rs[b].id != rs[a].id);
+    }
+}
+
+/// Locks of surviving ids after a removal.
+pub proof fn lemma_stable_remove(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int)
+    requires
+        renderers_wf(urls, rs, next_id),
+        0 <= i < rs.len(),
+    ensures
+        forall|a: int, b: int|
+            0 <= a < rs.len() && 0 <= b < rs.remove(i).len() && (#[trigger] rs[a]).id == (#[trigger] rs.remove(i)[b]).id ==> rs[a].lock == rs.remove(i)[b].lock,
+        forall|b: int| 0 <= b < rs.remove(i).len() ==> rs.contains(#[trigger] rs.remove(i)[b]),
+{
+    let r2 = rs.remove(i);
+    assert forall|b: int| 0 <= b < r2.len() implies rs.contains(#[trigger] r2[b]) by {
+        let m = if b < i { b } else { b + 1 };
+        assert(r2[b] == rs[m]);
+    }
+    assert forall|a: int, b: int| 0 <= a < rs.len() && 0 <= b < r2.len() && (#[trigger] rs[a]).id == (#[trigger] r2[b]).id implies rs[a].lock == r2[b].lock by {
+        let m = if b < i { b } else { b + 1 };
+        assert(r2[b] == rs[m]);
+        lemma_ids_distinct(urls, rs, next_id, a, m);
+    }
+}
+
+/// Locks of surviving ids after replacing a renderer by one that keeps its
+/// id and lock, or has a fresh id.
+pub proof fn lemma_stable_update(urls: UrlFns, rs: Seq<Renderer>, next_id: nat, i: int, r: Renderer)
+    requires
+        renderers_wf(urls, rs, next_id),
+        0 <= i < rs.len(),
+        (r.id == rs[i].id && r.lock == rs[i].lock) || r.id == next_id,
+    ensures
+        forall|a: int, b: int|
+            0 <= a < rs.len() && 0 <= b < rs.update(i, r).len() && (#[trigger] rs[a]).id == (#[trigger] rs.update(i, r)[b]).id ==> rs[a].lock
+                == rs.update(i, r)[b].lock,
+{
+    let r2 = rs.update(i, r);
+    assert forall|a: int, b: int| 0 <= a < rs.len() && 0 <= b < r2.len() && (#[trigger] rs[a]).id == (#[trigger] r2[b]).id implies rs[a].lock == r2[b].lock by {
+        if b == i {
+            assert(r2[b] == r);
+            if r.id == next_id {
+                assert(rs[a].id < next_id);
+            } else {
+                lemma_ids_distinct(urls, rs, next_id, a, i);
+            }
+        } else {
+            assert(r2[b] == rs[b]);
+            lemma_ids_distinct(urls, rs, next_id, a, b);
+        }
+    }
+}
+
+/// The renderers after a `navigate_tab` keep the lock of every id that
+/// survives.
+pub proof fn lemma_navigate_tab_stable(urls: UrlFns, s: State, tab: nat, url: Seq<u32>, script: Seq<u8>)
+    requires
+        renderers_wf(urls, s.renderers, s.next_id),
+    ensures
+        ({
+            let s1 = navigate_tab(urls, s, tab, url, script).0;
+            forall|a: int, b: int|
+                0 <= a < s.renderers.len() && 0 <= b < s1.renderers.len() && (#[trigger] s.renderers[a]).id == (#[trigger] s1.renderers[b]).id ==> s.renderers[a].lock
+                    == s1.renderers[b].lock
+        }),
+{
+    lemma_find_by_tab(s.renderers, tab, 0);
+    if let Some(i) = find_by_tab(s.renderers, tab, 0) {
+        if let Some(lock) = lock_of_url(urls, url, s.next_id) {
+            let old = s.renderers[i];
+            if lock is Tuple && lock == old.lock {
+                lemma_stable_update(urls, s.renderers, s.next_id, i, Renderer { url, ..old });
+            } else {
+                lemma_stable_update(urls, s.renderers, s.next_id, i, Renderer { id: s.next_id, tab, url, lock });
+            }
+        }
+    }
+}
+
+/// `storage_call` leaves all but the storage alone.
+pub proof fn lemma_storage_call_frame(s: State, r: Renderer, m: clazel_ipc::message::spec::Message)
+    ensures
+        storage_call(s, r, m).0.renderers == s.renderers,
+        storage_call(s, r, m).0.jar == s.jar,
+        storage_call(s, r, m).0.next_id == s.next_id,
+        storage_call(s, r, m).0.now == s.now,
+{
+}
+
+/// How `step` changes the renderer table.
+pub proof fn lemma_step_renderers_shape(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, e: Event)
+    requires
+        renderers_wf(urls, s.renderers, s.next_id),
+    ensures
+        ({
+            let s1 = step(rules, urls, s, e).0;
+            navigation_event(e) || s1.renderers == s.renderers || exists|i: int| 0 <= i < s.renderers.len() && s1.renderers == s.renderers.remove(i)
+        }),
+{
+    match e {
+        Event::RendererExited { id } => {
+            lemma_find_by_id(s.renderers, id, 0);
+        },
+        Event::FromRenderer { id, bytes } => {
+            lemma_find_by_id(s.renderers, id, 0);
+            if let Some(i) = find_by_id(s.renderers, id, 0) {
+                let r = s.renderers[i];
+                match decode_renderer_frame(bytes) {
+                    None => {
+                        assert(step(rules, urls, s, e).0.renderers == s.renderers.remove(i));
+                    },
+                    Some(m) => {
+                        lemma_storage_call_frame(s, r, m);
+                    },
+                }
+            }
+        },
+        _ => {},
+    }
+}
+
+/// Same renderers: every surviving id has its lock.
+pub proof fn lemma_stable_same(urls: UrlFns, rs: Seq<Renderer>, next_id: nat)
+    requires
+        renderers_wf(urls, rs, next_id),
+    ensures
+        forall|a: int, b: int| 0 <= a < rs.len() && 0 <= b < rs.len() && (#[trigger] rs[a]).id == (#[trigger] rs[b]).id ==> rs[a].lock == rs[b].lock,
+{
+    assert forall|a: int, b: int| 0 <= a < rs.len() && 0 <= b < rs.len() && (#[trigger] rs[a]).id == (#[trigger] rs[b]).id implies rs[a].lock == rs[b].lock by {
+        lemma_ids_distinct(urls, rs, next_id, a, b);
+    }
+}
+
+/// **`theorem_lock_is_committed_origin`, part 2.**
+pub proof fn theorem_lock_set_only_by_navigation(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State, e: Event)
+    requires
+        reachable(rules, urls, s),
+    ensures
+        lock_set_only_by_navigation_statement(rules, urls, s, e),
+{
+    lemma_reachable_wf(rules, urls, s);
+    lemma_step_renderers_shape(rules, urls, s, e);
+    let s1 = step(rules, urls, s, e).0;
+    lemma_stable_same(urls, s.renderers, s.next_id);
+    if s1.renderers == s.renderers {
+        assert forall|j: int| 0 <= j < s1.renderers.len() implies s.renderers.contains(#[trigger] s1.renderers[j]) by {
+            assert(s.renderers[j] == s1.renderers[j]);
+        }
+    } else if !navigation_event(e) {
+        let k = choose|k: int| 0 <= k < s.renderers.len() && s1.renderers == s.renderers.remove(k);
+        lemma_stable_remove(urls, s.renderers, s.next_id, k);
+    } else {
+        match e {
+            Event::OpenTab { url, script } => {
+                if let Some(lock) = lock_of_url(urls, url, s.next_id) {
+                    let rn = Renderer { id: s.next_id, tab: s.next_id, url, lock };
+                    assert forall|i: int, j: int|
+                        0 <= i < s.renderers.len() && 0 <= j < s1.renderers.len() && (#[trigger] s.renderers[i]).id == (#[trigger] s1.renderers[j]).id implies s.renderers[i].lock
+                        == s1.renderers[j].lock by {
+                        if j < s.renderers.len() {
+                            assert(s1.renderers[j] == s.renderers[j]);
+                            lemma_ids_distinct(urls, s.renderers, s.next_id, i, j);
+                        } else {
+                            assert(s1.renderers[j] == rn);
+                            assert(s.renderers[i].id < s.next_id);
+                        }
+                    }
+                }
+            },
+            Event::NavigateTab { tab, url, script } => {
+                lemma_navigate_tab_stable(urls, s, tab, url, script);
+            },
+            Event::FromRenderer { id, bytes } => {
+                lemma_find_by_id(s.renderers, id, 0);
+                if let Some(i) = find_by_id(s.renderers, id, 0) {
+                    let r = s.renderers[i];
+                    if let Some(clazel_ipc::message::spec::Message::Navigate { url }) = decode_renderer_frame(bytes) {
+                        if let Some(relative) = clazel_encoding::utf8::spec::utf8_decode_without_bom_or_fail(url) {
+                            if let Some(resolved) = (urls.resolve)(r.url, relative) {
+                                if lock_of_url(urls, resolved, s.next_id) is Some {
+                                    lemma_navigate_tab_stable(urls, s, r.tab, resolved, no_script());
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            _ => {},
+        }
+    }
+}
+
+} // verus!

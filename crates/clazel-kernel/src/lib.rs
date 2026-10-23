@@ -13,8 +13,11 @@
 //! - [`contract`]: what the executable `step` (item 2.12) must satisfy.
 
 pub mod contract;
+pub mod cookie_theorems;
 pub mod domain;
 pub mod independent;
 pub mod invariant;
+pub mod lock;
 pub mod spec;
 pub mod statements;
+pub mod theorems;
