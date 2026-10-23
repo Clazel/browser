@@ -125,10 +125,13 @@ pub proof fn lemma_finished()
         parse_handshake(seq![20u8, 0, 0, 2, 7, 8], 2) == Res::<HsMsg>::Ok(HsMsg::Finished(seq![7u8, 8])),
         parse_handshake(seq![20u8, 0, 0, 2, 7, 8], 3) == Res::<HsMsg>::Err(ErrKind::Decode),
         parse_handshake(seq![20u8, 0, 0, 3, 7, 8, 9], 2) == Res::<HsMsg>::Err(ErrKind::Decode),
+        // a message that is longer than its length field says is not one.
+        parse_handshake(seq![20u8, 0, 0, 2, 7, 8, 9], 3) == Res::<HsMsg>::Err(ErrKind::Decode),
 {
     assert(parse_handshake(seq![20u8, 0, 0, 2, 7, 8], 2) == Res::<HsMsg>::Ok(HsMsg::Finished(seq![7u8, 8]))) by (compute_only);
     assert(parse_handshake(seq![20u8, 0, 0, 2, 7, 8], 3) == Res::<HsMsg>::Err(ErrKind::Decode)) by (compute_only);
     assert(parse_handshake(seq![20u8, 0, 0, 3, 7, 8, 9], 2) == Res::<HsMsg>::Err(ErrKind::Decode)) by (compute_only);
+    assert(parse_handshake(seq![20u8, 0, 0, 2, 7, 8, 9], 3) == Res::<HsMsg>::Err(ErrKind::Decode)) by (compute_only);
 }
 
 /// §4.1.2: a ClientHello is read field by field, and the fields' bounds
@@ -219,6 +222,14 @@ pub proof fn lemma_extension_checks()
             == Some(ErrKind::ExtensionNotAllowed),
         check_extensions(seq![Ext { etype: 1234, data: seq![9u8] }, Ext { etype: 1234, data: seq![] }], MsgKind::Ee)
             == Some(ErrKind::DuplicateExtension),
+        check_extensions(
+            seq![Ext { etype: 43, data: seq![3u8, 4] }, Ext { etype: 44, data: seq![0u8] }],
+            MsgKind::Hrr,
+        ) == Some(ErrKind::Decode),
+        check_extensions(
+            seq![Ext { etype: 1234, data: seq![9u8] }, Ext { etype: 43, data: seq![3u8, 4] }],
+            MsgKind::Sh,
+        ) is None,
 {
     assert(check_extensions(seq![Ext { etype: 43, data: seq![3u8, 4] }], MsgKind::Sh) is None) by (compute_only);
     assert(check_extensions(
@@ -251,6 +262,14 @@ pub proof fn lemma_extension_checks()
         == Some(ErrKind::ExtensionNotAllowed)) by (compute_only);
     assert(check_extensions(seq![Ext { etype: 1234, data: seq![9u8] }, Ext { etype: 1234, data: seq![] }], MsgKind::Ee)
         == Some(ErrKind::DuplicateExtension)) by (compute_only);
+    assert(check_extensions(
+        seq![Ext { etype: 43, data: seq![3u8, 4] }, Ext { etype: 44, data: seq![0u8] }],
+        MsgKind::Hrr,
+    ) == Some(ErrKind::Decode)) by (compute_only);
+    assert(check_extensions(
+        seq![Ext { etype: 1234, data: seq![9u8] }, Ext { etype: 43, data: seq![3u8, 4] }],
+        MsgKind::Sh,
+    ) is None) by (compute_only);
 }
 
 /// The body of a ServerHello: `legacy_version` 0x0303, `random`, an empty
@@ -288,6 +307,16 @@ pub proof fn lemma_server_hello()
             ServerHello {
                 legacy_version: 0x0303,
                 random: hrr_random(),
+                session_id_echo: Seq::<u8>::empty(),
+                cipher_suite: 0x1303,
+                compression: 0,
+                extensions: Seq::<Ext>::empty(),
+            },
+        ),
+        is_hello_retry_request(
+            ServerHello {
+                legacy_version: 0x0303,
+                random: seq![0xCFu8, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C],
                 session_id_echo: Seq::<u8>::empty(),
                 cipher_suite: 0x1303,
                 compression: 0,
@@ -337,6 +366,16 @@ pub proof fn lemma_server_hello()
         ServerHello {
             legacy_version: 0x0303,
             random: hrr_random(),
+            session_id_echo: Seq::<u8>::empty(),
+            cipher_suite: 0x1303,
+            compression: 0,
+            extensions: Seq::<Ext>::empty(),
+        },
+    )) by (compute_only);
+    assert(is_hello_retry_request(
+        ServerHello {
+            legacy_version: 0x0303,
+            random: seq![0xCFu8, 0x21, 0xAD, 0x74, 0xE5, 0x9A, 0x61, 0x11, 0xBE, 0x1D, 0x8C, 0x02, 0x1E, 0x65, 0xB8, 0x91, 0xC2, 0xA2, 0x11, 0x16, 0x7A, 0xBB, 0x8C, 0x5E, 0x07, 0x9E, 0x09, 0xE2, 0xC8, 0xA8, 0x33, 0x9C],
             session_id_echo: Seq::<u8>::empty(),
             cipher_suite: 0x1303,
             compression: 0,

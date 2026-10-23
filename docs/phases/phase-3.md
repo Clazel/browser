@@ -717,6 +717,59 @@ what the prose parsers accept. Conformance: RFC 8448's handshake traces
 differential against rustls's message codec as a `test` row on random
 and mutated records.
 
+**As built:** `crates/clazel-tls`, `tier = 0`, `target-tier = 2`; the README
+says the key schedule, the state machine and the cryptography are not here.
+`spec.rs` is one file (the section 3 reader and writer, section 6 alerts
+and the `ErrKind` to alert mapping, section 5 records and the reassembler,
+section 4.2 extensions with the table as `extension_allowed`, section 4
+messages), its modelling choices listed at its top with numbers: a reader
+returns what is left; the AEAD is a parameter (`spec_fn` in the spec, the
+`Aead` trait in `record.rs`, which 3.5f implements); handshake bodies are
+refused above 2^18 octets and the reassembly buffer is below 2^14 + 4 + 2^18
+bytes; `legacy_record_version` must be 0x0303 (0x0301 only on an
+unprotected record), stricter than section 5.1's "MUST be ignored"; a type
+that is not a row of the section 4.2 table passes it; unknown record and
+handshake types are errors; `legacy_version` is read, not checked. Every
+parse error is an `ErrKind` with its alert. The proofs are Verus, 418
+verified: all the `exec` code (`reader` cursor, `writer`, `record`,
+`reassemble`, `extension`, `handshake`, `encode`) is proven against
+`contract.rs`, the round trips and their converses, no over-read
+(`lemma_*_extend`), bounded reservation, the reassembler's bound,
+conservation and prefix lemmas, the nonce lemmas, and the encrypt then
+decrypt round trip over any AEAD that opens what it seals
+(`lemmas_*.rs`); `examples.rs` and `examples_hs.rs` hold one concrete lemma
+per rule and per table row. Two deviations from the plan: the extension
+block checks (`check_extensions`) are recursions, with the quantified rules
+proven equal, because Verus's evaluator cannot run a quantifier and the
+mutation certificates need to; and `independent.rs` (Appendix B as a grammar
+of generated strings, proven to accept what the parsers accept for the
+messages and bodies listed at its top; `Certificate` is outside its class)
+was written after `spec.rs` in the same session and not hidden from it,
+which the task wanted the other way round, so it is weaker evidence than
+planned. `mutations.json` has 76 mutations, each `killed` with a certificate,
+held in `src/certificates.rs`, a module with nothing else in it. Conformance
+is `tests/conformance_tls_formats.rs`: RFC 8448 sections 3 to 7 (vectors as
+Rust literals in `tests/rfc8448/mod.rs`, with section and line, since an
+RFC has no commit for `SOURCE.md`): 39 of 40 messages read and written back
+byte for byte, the 40th an expected failure (the section 4 ClientHello shown
+before its PSK binders: a prefix of the message at line 972), 41 of 41
+records, the reassembler on 24 payloads; 68 hand-built error cases; and a
+rustls 0.23.46 differential through `rustls::internal::msgs`, which exposes
+the message reader, the fragmenter and the enums but not the handshake types,
+so it compares enum numbers (79), all 65536 alerts and every change_cipher_spec
+byte, fragmenter output at seven sizes (168), and the acceptance of 16040
+handshake messages, 83 of whose differences are classified in the test (we
+refuse what rustls leaves to its state machine; rustls reads the data of
+extensions we keep opaque and refuses unoffered extensions in a
+ServerHello). DEPENDENCIES.md has a `test` row for `rustls`, its six
+packages as built (`once_cell`, `rustls-pki-types`, `rustls-webpki`,
+`subtle`, `untrusted`, `zeroize`) and the sixteen packages the lock lists
+but never compiles (`ring` and what `ring` names). Not done: the tier stays
+0 (it is 3.5e and 3.5f that complete the crate, and CI's full run on a pull
+request has not been seen); `NewSessionTicket` is parsed and has no
+consumer; a client Certificate other than the empty one is written but is
+not exercised by the handshake.
+
 #### 3.5e Key schedule and the client handshake state machine (L)
 
 `clazel-tls`. §7.1 the key schedule (`HKDF-Expand-Label`, `Derive-Secret`,
@@ -877,7 +930,7 @@ half does not wait on TLS.
 | 3.5a DER | not started |
 | 3.5b X.509 and path validation | not started (after 3.5a) |
 | 3.5c RSA PKCS#1 v1.5 | not started |
-| 3.5d TLS record and handshake formats | not started |
+| 3.5d TLS record and handshake formats | built and proven to the level stated in its **As built** paragraph (2026-10-24), `clazel-tls` at tier 0: tier 2 waits for 3.5e and 3.5f and for CI's full run |
 | 3.5e Key schedule and handshake state machine | not started (after 3.5d) |
 | 3.5f Cryptography and the join | not started |
 | 3.5g TLS conformance and trust store | not started |

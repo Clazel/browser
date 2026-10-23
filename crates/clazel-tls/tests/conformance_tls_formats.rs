@@ -1517,8 +1517,10 @@ fn rustls_handshake_acceptance() {
     let originals: Vec<Vec<u8>> = MESSAGES.iter().map(|m| hex(m.hex)).collect();
     let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
     let mut cases: Vec<Vec<u8>> = originals.clone();
+    // Miri runs the tests too, about a hundred times slower: fewer mutations.
+    let per_message: usize = if cfg!(miri) { 8 } else { 400 };
     for o in &originals {
-        for _ in 0..400 {
+        for _ in 0..per_message {
             cases.push(mutate(o, &mut rng));
         }
     }
@@ -1533,7 +1535,9 @@ fn rustls_handshake_acceptance() {
         }
     }
     print_suite(
-        "rustls handshake message acceptance (RFC 8448 messages and 400 mutations each)",
+        &format!(
+            "rustls handshake message acceptance (RFC 8448 messages and {per_message} mutations each)"
+        ),
         agree,
         stricter,
         unexplained.len(),
@@ -1557,7 +1561,12 @@ fn rustls_handshake_acceptance() {
 fn rustls_alerts_and_change_cipher_spec() {
     let mut total = 0usize;
     let mut bad: Vec<String> = Vec::new();
-    for level in 0..=255u8 {
+    let levels: Vec<u8> = if cfg!(miri) {
+        vec![0, 1, 2, 255]
+    } else {
+        (0..=255u8).collect()
+    };
+    for level in levels {
         for desc in 0..=255u8 {
             total = total.saturating_add(1);
             let ours = read_alert(&[level, desc]).is_some();
