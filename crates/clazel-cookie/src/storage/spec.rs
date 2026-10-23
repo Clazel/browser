@@ -158,7 +158,8 @@
 //!   step 9 allows, can ever be sent back. For isolation either reading
 //!   would do: a host-only cookie is returned only to its own host.
 //!   `lemma_retrieve_within_root` needs the condition on the other
-//!   alternative, and holds for every cookie in every jar.
+//!   alternative, and holds for every cookie with a non-empty domain (see
+//!   the lemmas below).
 //! - **§5.7 step 10 uses "request-host-canonical"**, which the draft binds
 //!   only inside step 9 (and only when the domain-attribute is a public
 //!   suffix). We canonicalize the request host up front and ignore the
@@ -174,12 +175,13 @@
 //!
 //! # Lemmas this spec is for (statements fixed here, proved by item 2.9)
 //!
-//! These are the facts the isolation theorems use. They need
-//! `clazel_psl`'s `lemma_root_of_suffix` (item 2.4), which another change
-//! is proving, so they are recorded as statements and not yet written as
-//! proof functions (a proof function cannot be left unproven). The ones that
-//! do not need it are in `lemmas.rs`. In Verus syntax, with
-//! `rules: Seq<Rule>` the Public Suffix List throughout:
+//! These are the facts the isolation theorems use. They are proved in
+//! `isolation.rs` (from `clazel_psl`'s `lemma_domain_match_same_root`, item
+//! 2.4, and the bridge `lemma_domain_matches_bridge` between the octets of
+//! this crate and its code points) and `lemmas.rs`. The statements as first
+//! recorded here, in Verus syntax, with `rules: Seq<Rule>` the Public Suffix
+//! List throughout; **two of them were wrong as recorded and are proved in a
+//! corrected form**, marked below:
 //!
 //! ```text
 //! // clazel-psl, item 2.4 (the dependency):
@@ -195,12 +197,21 @@
 //!              create_a_cookie(rules, jar, url, ctx, received, now) == Some(new),
 //!     ensures cookie_root(rules, new.domain) == cookie_root(rules, host);
 //!
-//! // Retrieval for host h returns only cookies whose domain has h's root,
-//! // from any jar (it needs no invariant of the jar). Cookie by cookie; the
-//! // cookies of `retrieval_cookie_list` are among those, since it filters
-//! // by `cookie_is_retrieved` and sorts (a permutation).
+//! // Retrieval for host h returns only cookies whose domain has h's root.
+//! // Cookie by cookie; the cookies of `retrieval_cookie_list` are among
+//! // those, since it filters by `cookie_is_retrieved` and sorts (a
+//! // permutation).
+//! // CORRECTED: as first recorded this said "from any jar (it needs no
+//! // invariant of the jar)", which is false. A cookie with the empty string
+//! // as its domain and host-only-flag false is not a public suffix and
+//! // "domain-matches" every host that ends in "." (the empty domain string is
+//! // a suffix of it, preceded by "."), and the cookie root of "" is "", of
+//! // "a." is "a.". `isolation.rs` proves the counterexample
+//! // (`example_empty_domain_breaks_retrieve_within_root`) and the lemma with
+//! // the hypothesis `cookie_domain_nonempty(cookie)`, which every cookie
+//! // `create_a_cookie` makes has (`lemma_store_preserves_domains_nonempty`).
 //! proof fn lemma_retrieve_within_root(rules, url, ctx, host, cookie)
-//!     requires url.host == Some(host),
+//!     requires url.host == Some(host), cookie_domain_nonempty(cookie),
 //!              cookie_is_retrieved(rules, url, ctx, host, cookie),
 //!     ensures cookie_root_of(rules, cookie) == cookie_root(rules, host);
 //!
@@ -212,8 +223,11 @@
 //!             == cookies_of_root(rules, evict_expired(jar, now), other);
 //!
 //! // Retrieval for host h changes no cookie of another root, likewise.
+//! // CORRECTED: with the jar invariant `jar_domains_nonempty(jar)`, for the
+//! // reason above.
 //! proof fn lemma_retrieve_frame(rules, jar, url, ctx, now, host, other)
 //!     requires url.host == Some(host), other != cookie_root(rules, host),
+//!              jar_domains_nonempty(jar),
 //!     ensures cookies_of_root(rules, jar_after_retrieval(rules, jar, url, ctx, now), other)
 //!             == cookies_of_root(rules, evict_expired(jar, now), other);
 //!
@@ -224,11 +238,12 @@
 //!             jar_keys_unique(store_a_cookie(rules, jar, url, ctx, received, now));
 //! ```
 //!
-//! `lemma_store_frame` and `lemma_retrieve_frame` are proved in `lemmas.rs`
-//! in the forms that need only the root of the new cookie
-//! (`lemma_store_frame_of_new_root`) and "no retrieved cookie is under
-//! `other`" (`lemma_retrieve_frame_of_root`); the statements above follow
-//! from those and the two `within_root` lemmas.
+//! `lemma_store_frame` and `lemma_retrieve_frame` follow, in `isolation.rs`,
+//! from the forms `lemmas.rs` proves, which need only the root of the new
+//! cookie (`lemma_store_frame_of_new_root`) and "no retrieved cookie is
+//! under `other`" (`lemma_retrieve_frame_of_root`, whose hypothesis is over
+//! every cookie, so `isolation.rs` proves the form over the jar's cookies),
+//! and the two `within_root` lemmas.
 
 #[allow(unused_imports)]
 use vstd::prelude::*;

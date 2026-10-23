@@ -227,6 +227,25 @@ pub proof fn lemma_store_within_root(
     assert(r10 is Some);
     let (domain, host_only) = r10->Some_0;
     assert(new.domain == domain);
+    lemma_step_9_10_within_root(rules, host, domain_attribute, da, domain, host_only);
+}
+
+/// Steps 9 and 10 of §5.7 give the new cookie a domain with the request
+/// host's cookie root.
+pub proof fn lemma_step_9_10_within_root(
+    rules: Seq<clazel_psl::spec::Rule>,
+    host: crate::matching::spec::CanonicalHost,
+    domain_attribute: Seq<u8>,
+    da: Seq<u8>,
+    domain: crate::matching::spec::CanonicalHost,
+    host_only: bool,
+)
+    requires
+        step_9_domain_attribute(rules, host, domain_attribute) == Some(da),
+        step_10_domain(host, da) == Some((domain, host_only)),
+    ensures
+        cookie_root(rules, domain) == cookie_root(rules, host),
+{
     lemma_step_9_10_domain(rules, host, domain_attribute, da, domain, host_only);
     if domain != host {
         if host.is_ip_address {
@@ -800,6 +819,113 @@ pub proof fn lemma_store_preserves_domains_nonempty(
             }
         }
     }
+}
+
+
+// ---------------------------------------------------------------------
+// What each condition of retrieval and storage guarantees. These are the
+// statements `mutations.json` certifies against.
+// ---------------------------------------------------------------------
+
+/// "If the cookie's http-only-flag is true, then exclude the cookie if the
+/// retrieval's type is 'non-HTTP'": a script never reads an HttpOnly cookie.
+pub proof fn lemma_retrieve_non_http_excludes_http_only(
+    rules: Seq<clazel_psl::spec::Rule>,
+    url: RequestUrl,
+    ctx: RequestContext,
+    host: crate::matching::spec::CanonicalHost,
+    cookie: Cookie,
+)
+    requires
+        is_non_http(ctx),
+        cookie.http_only_flag,
+    ensures
+        !cookie_is_retrieved(rules, url, ctx, host, cookie),
+{
+}
+
+/// A secure-only cookie is returned only to a "secure" connection.
+pub proof fn lemma_retrieve_secure_needs_secure_url(
+    rules: Seq<clazel_psl::spec::Rule>,
+    url: RequestUrl,
+    ctx: RequestContext,
+    host: crate::matching::spec::CanonicalHost,
+    cookie: Cookie,
+)
+    requires
+        cookie.secure_only_flag,
+        !url_is_secure(url),
+    ensures
+        !cookie_is_retrieved(rules, url, ctx, host, cookie),
+{
+}
+
+/// A cookie is returned only if the request path path-matches its path.
+pub proof fn lemma_retrieve_path_matches(
+    rules: Seq<clazel_psl::spec::Rule>,
+    url: RequestUrl,
+    ctx: RequestContext,
+    host: crate::matching::spec::CanonicalHost,
+    cookie: Cookie,
+)
+    requires
+        cookie_is_retrieved(rules, url, ctx, host, cookie),
+    ensures
+        crate::matching::spec::path_matches(url.path, cookie.path),
+{
+}
+
+/// A host-only cookie is returned only to the host it was set for.
+pub proof fn lemma_retrieve_host_only_exact(
+    rules: Seq<clazel_psl::spec::Rule>,
+    url: RequestUrl,
+    ctx: RequestContext,
+    host: crate::matching::spec::CanonicalHost,
+    cookie: Cookie,
+)
+    requires
+        cookie.host_only_flag,
+        cookie_is_retrieved(rules, url, ctx, host, cookie),
+    ensures
+        host == cookie.domain,
+{
+}
+
+/// A cookie that is not SameSite=None is not returned to a "non-HTTP" call
+/// from a cross-site document.
+pub proof fn lemma_retrieve_cross_site_non_http(
+    rules: Seq<clazel_psl::spec::Rule>,
+    url: RequestUrl,
+    ctx: RequestContext,
+    host: crate::matching::spec::CanonicalHost,
+    cookie: Cookie,
+)
+    requires
+        is_non_http(ctx),
+        !is_same_site_request(rules, ctx),
+        cookie.same_site_flag != crate::set_cookie::spec::SameSite::None,
+    ensures
+        !cookie_is_retrieved(rules, url, ctx, host, cookie),
+{
+}
+
+/// §5.7 step 18.1: a "non-HTTP" call from a cross-site document does not
+/// store a cookie that is not SameSite=None.
+pub proof fn lemma_step_18_non_http_cross_site(rules: Seq<clazel_psl::spec::Rule>, ctx: RequestContext)
+    requires
+        is_non_http(ctx),
+        !is_same_site_request(rules, ctx),
+    ensures
+        !step_18_continues(rules, ctx),
+{
+}
+
+/// A cookie is expired exactly when its expiry-time is before `now`: "an
+/// expiry date in the past".
+pub proof fn lemma_cookie_expired_iff(cookie: Cookie, now: int)
+    ensures
+        cookie_expired(cookie, now) <==> cookie.expiry_time < now,
+{
 }
 
 } // verus!
