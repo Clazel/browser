@@ -25,6 +25,7 @@ mod wpt_url_hosts;
 mod wpt_url_percent;
 mod wpt_url_setters;
 mod wpt_urltestdata;
+mod wpt_webstorage;
 
 use std::path::{Path, PathBuf};
 
@@ -79,6 +80,11 @@ const CONVERTERS: &[(&str, Convert, &[&str])] = &[
         "wpt-url-setters",
         wpt_url_setters::convert,
         wpt_url_setters::FILES,
+    ),
+    (
+        "wpt-webstorage",
+        wpt_webstorage::convert,
+        wpt_webstorage::FILES,
     ),
     (
         "wpt-urltestdata",

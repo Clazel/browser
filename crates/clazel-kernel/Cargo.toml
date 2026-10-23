@@ -24,6 +24,16 @@ clazel-url = { path = "../clazel-url" }
 # decoded to code points for the URL functions.
 clazel-encoding = { path = "../clazel-encoding" }
 
+[dev-dependencies]
+# The reference engine of tests/conformance_differential.rs, as in
+# `clazel-cookie`'s differential test: the cookie jar of reqwest's
+# `cookie_store` feature, which follows RFC 6265. Without its default
+# features (no Public Suffix List, no serde). Versions are those of
+# `clazel-cookie`, so the Cargo.lock holds no new package.
+cookie_store = { version = "=0.21.1", default-features = false }
+time = { version = "=0.3.17", default-features = false }
+url = { version = "=2.5.8", default-features = false }
+
 # Verification tier (docs/VERIFICATION.md). Item 2.10 is the spec and the
 # contracts only: nothing runs, so `tier` stays 0 until items 2.11 (the
 # isolation theorems) and 2.12 (the exec kernel) are proven.
