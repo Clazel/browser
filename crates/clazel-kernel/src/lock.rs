@@ -241,4 +241,20 @@ pub proof fn theorem_lock_set_only_by_navigation(rules: Seq<clazel_psl::spec::Ru
     }
 }
 
+/// **`theorem_lock_is_committed_origin`.** In every reachable state each
+/// renderer's lock is the origin of its committed URL, and every step keeps
+/// the lock of every renderer and creates renderers only by navigating.
+pub proof fn theorem_lock_is_committed_origin(rules: Seq<clazel_psl::spec::Rule>, urls: UrlFns, s: State)
+    requires
+        reachable(rules, urls, s),
+    ensures
+        lock_is_committed_origin_statement(urls, s),
+        forall|e: Event| #[trigger] lock_set_only_by_navigation_statement(rules, urls, s, e),
+{
+    theorem_lock_is_committed_origin_state(rules, urls, s);
+    assert forall|e: Event| #[trigger] lock_set_only_by_navigation_statement(rules, urls, s, e) by {
+        theorem_lock_set_only_by_navigation(rules, urls, s, e);
+    }
+}
+
 } // verus!

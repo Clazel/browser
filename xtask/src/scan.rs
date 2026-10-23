@@ -62,6 +62,36 @@ pub fn scan(source: &str) -> Result<Scan, String> {
     Ok(out)
 }
 
+/// The names of the `proof fn`s defined in a source file, `verus!` bodies
+/// included. Comments and strings are not tokens, so a name in one is not a
+/// definition.
+pub fn proof_fn_names(source: &str) -> Result<Vec<String>, String> {
+    let stream: TokenStream = source
+        .parse()
+        .map_err(|e: proc_macro2::LexError| format!("cannot tokenize: {e}"))?;
+    let mut out = Vec::new();
+    collect_proof_fns(stream, &mut out);
+    Ok(out)
+}
+
+fn collect_proof_fns(stream: TokenStream, out: &mut Vec<String>) {
+    let tokens: Vec<TokenTree> = stream.into_iter().collect();
+    for (k, tt) in tokens.iter().enumerate() {
+        match tt {
+            TokenTree::Ident(id) if *id == "proof" => {
+                if let (Some(TokenTree::Ident(f)), Some(TokenTree::Ident(name))) =
+                    (tokens.get(k.saturating_add(1)), tokens.get(k.saturating_add(2)))
+                    && *f == "fn"
+                {
+                    out.push(name.to_string());
+                }
+            }
+            TokenTree::Group(g) => collect_proof_fns(g.stream(), out),
+            _ => {}
+        }
+    }
+}
+
 fn scan_stream(stream: TokenStream, out: &mut Scan) {
     let tokens: Vec<TokenTree> = stream.into_iter().collect();
     let mut k = 0usize;

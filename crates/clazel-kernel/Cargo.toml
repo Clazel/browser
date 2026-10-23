@@ -30,6 +30,21 @@ clazel-encoding = { path = "../clazel-encoding" }
 [package.metadata.clazel]
 tier = 0
 target-tier = 2
+# Item 2.11's isolation theorems. `cargo xtask check` fails if one is not
+# defined as a `proof fn` in this crate, so a theorem cannot be quietly
+# deleted to get a proof through.
+theorems = [
+    "theorem_reply_only_to_sender",
+    "theorem_lock_is_committed_origin",
+    "theorem_lock_is_committed_origin_state",
+    "theorem_lock_set_only_by_navigation",
+    "theorem_cookie_confidentiality",
+    "theorem_cookie_integrity",
+    "theorem_storage_same_origin",
+    "theorem_cookie_noninterference",
+    "theorem_cookie_noninterference_from",
+    "theorem_cookie_noninterference_up_to_ids",
+]
 
 [package.metadata.verus]
 verify = true
