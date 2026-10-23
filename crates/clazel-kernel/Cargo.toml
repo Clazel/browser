@@ -1,0 +1,38 @@
+[package]
+name = "clazel-kernel"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "The browser kernel: a pure step function over renderers, cookies and Web Storage, and its isolation theorems."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+# The kernel decodes every frame itself (item 2.3), so the isolation theorems
+# cover malformed input.
+clazel-ipc = { path = "../clazel-ipc" }
+# document.cookie is RFC 6265bis storage and retrieval with the non-HTTP API
+# flag (item 2.9).
+clazel-cookie = { path = "../clazel-cookie" }
+# Origins are locks (item 2.5).
+clazel-origin = { path = "../clazel-origin" }
+# The cookie root, the isolation boundary (item 2.4).
+clazel-psl = { path = "../clazel-psl" }
+# Host and scheme types of the origins.
+clazel-url = { path = "../clazel-url" }
+# A navigation URL arrives as UTF-8 text in a message (item 2.3) and is
+# decoded to code points for the URL functions.
+clazel-encoding = { path = "../clazel-encoding" }
+
+# Verification tier (docs/VERIFICATION.md). Item 2.10 is the spec and the
+# contracts only: nothing runs, so `tier` stays 0 until items 2.11 (the
+# isolation theorems) and 2.12 (the exec kernel) are proven.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
