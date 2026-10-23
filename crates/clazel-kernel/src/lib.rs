@@ -16,6 +16,7 @@ pub mod contract;
 pub mod cookie_theorems;
 pub mod counterexamples;
 pub mod domain;
+pub mod exec;
 pub mod independent;
 pub mod independent_equivalence;
 pub mod invariant;
