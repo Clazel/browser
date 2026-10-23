@@ -301,4 +301,241 @@ pub proof fn lemma_evict_over_limit_filter(rules: Seq<clazel_psl::spec::Rule>, j
     }
 }
 
+/// The old-cookie of step 23 is found in the cookies of the root as well as
+/// in the jar, when only cookies of the root can have the new cookie's key.
+pub proof fn lemma_old_cookie_filter(jar: Seq<clazel_cookie::storage::spec::Cookie>, new: clazel_cookie::storage::spec::Cookie, p: spec_fn(clazel_cookie::storage::spec::Cookie) -> bool)
+    requires
+        forall|c: clazel_cookie::storage::spec::Cookie| #[trigger] clazel_cookie::storage::spec::same_key(c, new) ==> p(c),
+    ensures
+        (clazel_cookie::storage::spec::find_old_cookie(jar, new) is Some) == (clazel_cookie::storage::spec::find_old_cookie(jar.filter(p), new) is Some),
+        clazel_cookie::storage::spec::find_old_cookie(jar, new) is Some ==> jar[clazel_cookie::storage::spec::find_old_cookie(jar, new)->Some_0] == jar.filter(p)[clazel_cookie::storage::spec::find_old_cookie(
+            jar.filter(p),
+            new,
+        )->Some_0],
+{
+    let f = jar.filter(p);
+    clazel_cookie::storage::lemmas::lemma_find_old_cookie_from(jar, new, 0);
+    match clazel_cookie::storage::spec::find_old_cookie(jar, new) {
+        None => {
+            clazel_cookie::storage::isolation::lemma_find_old_cookie_none(jar, new, 0);
+            assert forall|m: int| 0 <= m < f.len() implies !clazel_cookie::storage::spec::same_key(#[trigger] f[m], new) by {
+                assert(f.contains(f[m]));
+                clazel_cookie::storage::isolation::lemma_filter_elem(jar, p, f[m]);
+                let q = choose|q: int| 0 <= q < jar.len() && jar[q] == f[m];
+            }
+            lemma_find_old_none(f, new, 0);
+        },
+        Some(i) => {
+            assert(p(jar[i]));
+            lemma_filter_remove_at(jar, i, p);
+            let k = jar.subrange(0, i).filter(p).len() as int;
+            lemma_find_old_before(jar, new, 0, i);
+            let pre = jar.subrange(0, i);
+            assert forall|m: int| 0 <= m < k implies !clazel_cookie::storage::spec::same_key(#[trigger] f[m], new) by {
+                assert(f[m] == pre.filter(p)[m]);
+                assert(pre.filter(p).contains(pre.filter(p)[m]));
+                clazel_cookie::storage::isolation::lemma_filter_elem(pre, p, pre.filter(p)[m]);
+                let q = choose|q: int| 0 <= q < pre.len() && pre[q] == pre.filter(p)[m];
+                assert(jar[q] == pre[q]);
+            }
+            assert(clazel_cookie::storage::spec::same_key(f[k], new));
+            lemma_find_old_first(f, new, 0, k);
+        },
+    }
+}
+
+/// Step 23's new cookie is the same from the jar and from its cookies under
+/// the root of the request host: `create_a_cookie` reads the jar only at
+/// step 16 (the overlay) and step 23 (the old-cookie), both of which look
+/// only at cookies under the root. Needs: no cookie and not the request
+/// host is a public suffix.
+pub proof fn lemma_create_filter(
+    rules: Seq<clazel_psl::spec::Rule>,
+    jar: Seq<clazel_cookie::storage::spec::Cookie>,
+    url: clazel_cookie::storage::spec::RequestUrl,
+    ctx: clazel_cookie::storage::spec::RequestContext,
+    received: clazel_cookie::set_cookie::spec::SetCookie,
+    now: int,
+    host: clazel_cookie::matching::spec::CanonicalHost,
+    root: clazel_cookie::matching::spec::CanonicalHost,
+)
+    requires
+        url.host == Some(host),
+        root == clazel_cookie::storage::spec::cookie_root(rules, host),
+        host.name.len() > 0,
+        host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
+        clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
+        jar_no_public_suffix(rules, jar),
+    ensures
+        clazel_cookie::storage::spec::create_a_cookie(rules, jar, url, ctx, received, now) == clazel_cookie::storage::spec::create_a_cookie(rules, jar.filter(clazel_cookie::storage::spec::in_root(rules, root)), url, ctx, received, now),
+{
+    let p = clazel_cookie::storage::spec::in_root(rules, root);
+    let f = jar.filter(p);
+    let dattr = match clazel_cookie::storage::spec::last_domain_within_1024(received.attributes) {
+        Some(d) => d,
+        None => seq![],
+    };
+    assert forall|domain: clazel_cookie::matching::spec::CanonicalHost, name: Seq<u8>, path: Seq<u8>|
+        domain.name.len() > 0 && (domain.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, domain.name)) && clazel_cookie::storage::spec::cookie_root(rules, domain)
+            == root implies #[trigger] clazel_cookie::storage::spec::secure_cookie_would_be_overlaid(jar, name, domain, path) == clazel_cookie::storage::spec::secure_cookie_would_be_overlaid(f, name, domain, path) by {
+        lemma_overlay_filter(rules, jar, name, domain, path, root);
+    }
+    if let Some(da) = clazel_cookie::storage::spec::step_9_domain_attribute(rules, host, dattr) {
+        if let Some((domain, ho)) = clazel_cookie::storage::spec::step_10_domain(host, da) {
+            clazel_cookie::storage::isolation::lemma_step_9_10_within_root(rules, host, dattr, da, domain, ho);
+            clazel_cookie::storage::isolation::lemma_step_9_10_domain(rules, host, dattr, da, domain, ho);
+            assert(domain.name.len() > 0);
+            assert(domain.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, domain.name));
+        }
+    }
+    assert forall|new: clazel_cookie::storage::spec::Cookie| clazel_cookie::storage::spec::cookie_root(rules, new.domain) == root implies ((clazel_cookie::storage::spec::find_old_cookie(jar, new) is Some) == (clazel_cookie::storage::spec::find_old_cookie(f, new) is Some)
+        && (clazel_cookie::storage::spec::find_old_cookie(jar, new) is Some ==> jar[clazel_cookie::storage::spec::find_old_cookie(jar, new)->Some_0] == f[clazel_cookie::storage::spec::find_old_cookie(f, new)->Some_0])) by {
+        assert forall|c: clazel_cookie::storage::spec::Cookie| #[trigger] clazel_cookie::storage::spec::same_key(c, new) implies p(c) by {
+            assert(c.domain == new.domain);
+        }
+        lemma_old_cookie_filter(jar, new, p);
+    }
+    assert(clazel_cookie::storage::spec::create_a_cookie(rules, jar, url, ctx, received, now) == clazel_cookie::storage::spec::create_a_cookie(rules, f, url, ctx, received, now));
+}
+
+/// An unexpired jar keeps the jar's invariants.
+pub proof fn lemma_live_jar_props(rules: Seq<clazel_psl::spec::Rule>, jar: Seq<clazel_cookie::storage::spec::Cookie>, now: int)
+    requires
+        clazel_cookie::storage::isolation::jar_domains_nonempty(jar),
+        jar_no_public_suffix(rules, jar),
+    ensures
+        clazel_cookie::storage::isolation::jar_domains_nonempty(clazel_cookie::storage::spec::evict_expired(jar, now)),
+        jar_no_public_suffix(rules, clazel_cookie::storage::spec::evict_expired(jar, now)),
+{
+    let live = clazel_cookie::storage::spec::evict_expired(jar, now);
+    assert forall|i: int| 0 <= i < live.len() implies clazel_cookie::storage::isolation::cookie_domain_nonempty(#[trigger] live[i]) && (live[i].domain.is_ip_address
+        || !clazel_cookie::storage::spec::is_public_suffix_string(rules, live[i].domain.name)) by {
+        assert(live.contains(live[i]));
+        clazel_cookie::storage::isolation::lemma_filter_elem(jar, clazel_cookie::storage::spec::not_expired(now), live[i]);
+        let k = choose|k: int| 0 <= k < jar.len() && jar[k] == live[i];
+    }
+}
+
+/// The unexpired cookies of a root after storing a new cookie of that root
+/// into an unexpired jar are a function of the jar's cookies under the root.
+pub proof fn lemma_store_cookie_live_root(
+    rules: Seq<clazel_psl::spec::Rule>,
+    la: Seq<clazel_cookie::storage::spec::Cookie>,
+    lb: Seq<clazel_cookie::storage::spec::Cookie>,
+    new: clazel_cookie::storage::spec::Cookie,
+    now: int,
+    root: clazel_cookie::matching::spec::CanonicalHost,
+)
+    requires
+        clazel_cookie::storage::spec::cookie_root_of(rules, new) == root,
+        clazel_cookie::storage::spec::cookies_of_root(rules, la, root) == clazel_cookie::storage::spec::cookies_of_root(rules, lb, root),
+    ensures
+        live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == live_root(
+            rules,
+            clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(lb, new), now), root),
+            now,
+            root,
+        ),
+{
+    let p = clazel_cookie::storage::spec::in_root(rules, root);
+    let ne = clazel_cookie::storage::spec::not_expired(now);
+    assert(p(new));
+    assert forall|c: clazel_cookie::storage::spec::Cookie| #[trigger] clazel_cookie::storage::spec::same_key(c, new) implies p(c) by {
+        assert(c.domain == new.domain);
+    }
+    lemma_insert_filter(la, new, p);
+    lemma_insert_filter(lb, new, p);
+    lemma_store_cookie_live_root_one(rules, la, new, now, root);
+    lemma_store_cookie_live_root_one(rules, lb, new, now, root);
+}
+
+/// One side of [`lemma_store_cookie_live_root`]: the result is a function of
+/// the root's cookies.
+pub proof fn lemma_store_cookie_live_root_one(rules: Seq<clazel_psl::spec::Rule>, la: Seq<clazel_cookie::storage::spec::Cookie>, new: clazel_cookie::storage::spec::Cookie, now: int, root: clazel_cookie::matching::spec::CanonicalHost)
+    requires
+        clazel_cookie::storage::spec::cookie_root_of(rules, new) == root,
+    ensures
+        live_root(rules, clazel_cookie::storage::spec::evict_over_limit(rules, clazel_cookie::storage::spec::evict_expired(clazel_cookie::storage::spec::insert_a_cookie(la, new), now), root), now, root) == clazel_cookie::storage::spec::evict_over_limit(
+            rules,
+            clazel_cookie::storage::spec::insert_a_cookie(la.filter(clazel_cookie::storage::spec::in_root(rules, root)), new).filter(clazel_cookie::storage::spec::not_expired(now)),
+            root,
+        ).filter(clazel_cookie::storage::spec::not_expired(now)),
+{
+    let p = clazel_cookie::storage::spec::in_root(rules, root);
+    let ne = clazel_cookie::storage::spec::not_expired(now);
+    assert(p(new));
+    assert forall|c: clazel_cookie::storage::spec::Cookie| #[trigger] clazel_cookie::storage::spec::same_key(c, new) implies p(c) by {
+        assert(c.domain == new.domain);
+    }
+    lemma_insert_filter(la, new, p);
+    let ins = clazel_cookie::storage::spec::insert_a_cookie(la, new);
+    let e = ins.filter(ne);
+    let z = clazel_cookie::storage::spec::evict_over_limit(rules, e, root);
+    // live_root(z) = z.filter(ne).filter(p) = z.filter(p).filter(ne)
+    clazel_cookie::storage::lemmas::lemma_filter_commute(z, ne, p);
+    lemma_evict_over_limit_filter(rules, e, root);
+    // e.filter(p) = ins.filter(p).filter(ne)
+    clazel_cookie::storage::lemmas::lemma_filter_commute(ins, ne, p);
+}
+
+/// Storage seen from one root: two jars that agree on the unexpired cookies
+/// of the request host's root agree after storing a set-cookie-string.
+pub proof fn lemma_store_agree(
+    rules: Seq<clazel_psl::spec::Rule>,
+    ja: Seq<clazel_cookie::storage::spec::Cookie>,
+    jb: Seq<clazel_cookie::storage::spec::Cookie>,
+    s: Seq<u8>,
+    url: clazel_cookie::storage::spec::RequestUrl,
+    ctx: clazel_cookie::storage::spec::RequestContext,
+    now: int,
+    host: clazel_cookie::matching::spec::CanonicalHost,
+    root: clazel_cookie::matching::spec::CanonicalHost,
+)
+    requires
+        url.host == Some(host),
+        root == clazel_cookie::storage::spec::cookie_root(rules, host),
+        host.name.len() > 0,
+        host.is_ip_address || !clazel_cookie::storage::spec::is_public_suffix_string(rules, host.name),
+        clazel_cookie::storage::isolation::jar_domains_nonempty(ja),
+        clazel_cookie::storage::isolation::jar_domains_nonempty(jb),
+        jar_no_public_suffix(rules, ja),
+        jar_no_public_suffix(rules, jb),
+        live_root(rules, ja, now, root) == live_root(rules, jb, now, root),
+    ensures
+        live_root(rules, clazel_cookie::storage::spec::store_a_set_cookie_string(rules, ja, s, url, ctx, now), now, root) == live_root(
+            rules,
+            clazel_cookie::storage::spec::store_a_set_cookie_string(rules, jb, s, url, ctx, now),
+            now,
+            root,
+        ),
+{
+    let la = clazel_cookie::storage::spec::evict_expired(ja, now);
+    let lb = clazel_cookie::storage::spec::evict_expired(jb, now);
+    let p = clazel_cookie::storage::spec::in_root(rules, root);
+    match clazel_cookie::set_cookie::spec::parse_a_set_cookie_string(s, url.path, now) {
+        None => {
+            lemma_live_root_evict(rules, ja, now, root);
+            lemma_live_root_evict(rules, jb, now, root);
+        },
+        Some(received) => {
+            lemma_live_jar_props(rules, ja, now);
+            lemma_live_jar_props(rules, jb, now);
+            lemma_create_filter(rules, la, url, ctx, received, now, host, root);
+            lemma_create_filter(rules, lb, url, ctx, received, now, host, root);
+            assert(la.filter(p) == lb.filter(p));
+            match clazel_cookie::storage::spec::create_a_cookie(rules, la, url, ctx, received, now) {
+                None => {
+                    lemma_live_root_evict(rules, ja, now, root);
+                    lemma_live_root_evict(rules, jb, now, root);
+                },
+                Some(new) => {
+                    clazel_cookie::storage::isolation::lemma_store_within_root(rules, la, url, ctx, received, now, host, new);
+                    assert(clazel_cookie::storage::spec::cookie_root_of(rules, new) == root);
+                    lemma_store_cookie_live_root(rules, la, lb, new, now, root);
+                },
+            }
+        },
+    }
+}
+
 } // verus!
