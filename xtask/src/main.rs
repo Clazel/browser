@@ -676,6 +676,19 @@ fn conformance_suites(r: &mut Runner, crates: &[Crate]) {
 /// since their inputs did not change; CI's full run re-measures them all.
 fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
     const NAME: &str = "README status table";
+    if let Some(counted) = report::host_shell_lines(std::path::Path::new(report::HOST_SHELL_DIR)) {
+        match counted {
+            Ok(n) if n < report::HOST_SHELL_LIMIT => {}
+            Ok(n) => {
+                let limit = report::HOST_SHELL_LIMIT;
+                r.step(
+                    "host shell size",
+                    Outcome::Fail(vec![format!("{} is {n} lines, over the limit of {limit}", report::HOST_SHELL_DIR)]),
+                );
+            }
+            Err(e) => r.step("host shell size", Outcome::Fail(vec![e])),
+        }
+    }
     let carried = match only {
         None => report::Rows::new(),
         Some(cs) => {
