@@ -130,7 +130,7 @@ pub fn encode_message(digest: &[u8], em_len: usize, h: HashId) -> (r: Option<Vec
     // 4. PS is em_len - t_len - 3 >= 8 octets of 0xff.
     let ps_len = em_len.saturating_sub(t_len).saturating_sub(3);
     // 5. EM = 0x00 || 0x01 || PS || 0x00 || T.
-    let mut em: Vec<u8> = Vec::new();
+    let mut em: Vec<u8> = Vec::with_capacity(em_len);
     em.push(0x00);
     em.push(0x01);
     let mut i: usize = 0;

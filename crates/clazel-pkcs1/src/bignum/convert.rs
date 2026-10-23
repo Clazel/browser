@@ -42,7 +42,7 @@ pub fn shl8_add(a: &[u64], byte: u8) -> (r: Vec<u64>)
         r.len() == a.len(),
         value(r@) == value(a@) * 256 + byte as nat,
 {
-    let mut out: Vec<u64> = Vec::new();
+    let mut out: Vec<u64> = Vec::with_capacity(a.len());
     let mut carry: u64 = byte as u64;
     let mut i: usize = 0;
     proof {

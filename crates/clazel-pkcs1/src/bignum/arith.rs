@@ -43,7 +43,7 @@ pub fn add(a: &[u64], b: &[u64]) -> (r: (Vec<u64>, bool))
     ensures
         super::contract::add_ensures(a@, b@, r.0@, r.1),
 {
-    let mut out: Vec<u64> = Vec::new();
+    let mut out: Vec<u64> = Vec::with_capacity(a.len());
     let mut carry = false;
     let mut i: usize = 0;
     while i < a.len()
@@ -121,7 +121,7 @@ pub fn sub(a: &[u64], b: &[u64]) -> (r: (Vec<u64>, bool))
     ensures
         super::contract::sub_ensures(a@, b@, r.0@, r.1),
 {
-    let mut out: Vec<u64> = Vec::new();
+    let mut out: Vec<u64> = Vec::with_capacity(a.len());
     let mut borrow = false;
     let mut i: usize = 0;
     while i < a.len()

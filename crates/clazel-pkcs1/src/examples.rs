@@ -373,4 +373,65 @@ pub proof fn lemma_value_examples()
         * 0x1_0000_0000_0000_0000nat * 0x1_0000_0000_0000_0000nat) by (compute_only);
 }
 
+/// The powers the spec uses: `256^m` and `2^m`.
+pub proof fn lemma_power_examples()
+    ensures
+        pow256(0nat) == 1nat,
+        pow256(1nat) == 256nat,
+        pow256(2nat) == 65536nat,
+        pow256(3nat) == 16777216nat,
+        two_to(0nat) == 1nat,
+        two_to(3nat) == 8nat,
+        two_to(4nat) == 16nat,
+        two_to(11nat) == 2048nat,
+        two_to(64nat) == 0x1_0000_0000_0000_0000nat,
+{
+    assert(pow256(0nat) == 1nat) by (compute_only);
+    assert(pow256(1nat) == 256nat) by (compute_only);
+    assert(pow256(2nat) == 65536nat) by (compute_only);
+    assert(pow256(3nat) == 16777216nat) by (compute_only);
+    assert(two_to(0nat) == 1nat) by (compute_only);
+    assert(two_to(3nat) == 8nat) by (compute_only);
+    assert(two_to(4nat) == 16nat) by (compute_only);
+    assert(two_to(11nat) == 2048nat) by (compute_only);
+    assert(two_to(64nat) == 0x1_0000_0000_0000_0000nat) by (compute_only);
+}
+
+/// The domain restrictions apply to the whole verification: with `e = 1`
+/// and a signature that equals the encoded message, the steps accept a
+/// 2048-bit modulus, and the verification does not, because `e < 3`.
+pub proof fn lemma_domain_example()
+    ensures
+        rsassa_pkcs1_v1_5_verify_steps(
+            two_to(2047nat),
+            1nat,
+            ex_zeros(32),
+            HashId::Sha256,
+            emsa_pkcs1_v1_5_encode(ex_zeros(32), 256nat, HashId::Sha256).unwrap(),
+        ),
+        !rsassa_pkcs1_v1_5_verify(
+            two_to(2047nat),
+            1nat,
+            ex_zeros(32),
+            HashId::Sha256,
+            emsa_pkcs1_v1_5_encode(ex_zeros(32), 256nat, HashId::Sha256).unwrap(),
+        ),
+{
+    reveal(vstd::arithmetic::power::pow);
+    assert(rsassa_pkcs1_v1_5_verify_steps(
+        two_to(2047nat),
+        1nat,
+        ex_zeros(32),
+        HashId::Sha256,
+        emsa_pkcs1_v1_5_encode(ex_zeros(32), 256nat, HashId::Sha256).unwrap(),
+    )) by (compute_only);
+    assert(!rsassa_pkcs1_v1_5_verify(
+        two_to(2047nat),
+        1nat,
+        ex_zeros(32),
+        HashId::Sha256,
+        emsa_pkcs1_v1_5_encode(ex_zeros(32), 256nat, HashId::Sha256).unwrap(),
+    )) by (compute_only);
+}
+
 } // verus!
