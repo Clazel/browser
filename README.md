@@ -51,6 +51,18 @@ See [docs/ROADMAP.md](docs/ROADMAP.md).
 ⁵ Counted by `cargo xtask check`: `unsafe` blocks (and `unsafe extern` blocks), with the lines from the `unsafe` keyword to the closing brace. Only `clazel-sys` may have any; the rule and its audits are in [docs/VERIFICATION.md](docs/VERIFICATION.md) and [docs/SYS-AUDITS.md](docs/SYS-AUDITS.md).
 <!-- END STATUS -->
 
+**Phase 2 process tests: where they have run.** The demo (`cargo run -p clazel
+-- demo`), the sandbox escape attempts, the hostile-renderer test and the WPT
+`cookies/` run through real processes (item 2.16) have been run on macOS arm64
+only, locally: macOS is not in CI. On Linux they have never run (they were
+written on a Mac), and CI on `ubuntu-24.04` cannot run them until a maintainer
+decides how to allow unprivileged user namespaces for the renderer, which
+otherwise fails closed (see item 2.16 in
+[docs/phases/phase-2.md](docs/phases/phase-2.md)). Attempts to `fork` and to
+`ptrace` a sibling are not made yet: they need a `clazel-sys` addition and its
+audit. The table has no rows for `clazel` and `clazel-renderer` until
+`cargo xtask report --write` is run where Verus and Kani are installed.
+
 Formalizing the standards has already found one spec bug: see
 [docs/ERRATA.md](docs/ERRATA.md).
 

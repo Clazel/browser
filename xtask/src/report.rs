@@ -242,7 +242,9 @@ pub fn render_with(table: &Table, carried: &Rows) -> String {
     if let Some(Ok(n)) = host_shell_lines(Path::new(HOST_SHELL_DIR)) {
         out.push(format!(
             "⁶ The host shell (`{HOST_SHELL_DIR}`, item 2.15) is {n} lines, counted as `wc -l` \
-             counts them over its Rust files; the plan's limit is {HOST_SHELL_LIMIT}."
+             counts them over its Rust files; the plan's limit is {HOST_SHELL_LIMIT}. The \
+             command line and the demo (`crates/clazel/cli`, item 2.16) are not counted: \
+             they only call the shell's public functions."
         ));
     }
     out.push(END.to_owned());

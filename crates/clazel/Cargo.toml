@@ -24,10 +24,10 @@ path = "cli/main.rs"
 # workspace crates the kernel's own conformance tests use, and generate the
 # hostile frames with the renderer crate.
 [dev-dependencies]
-clazel-renderer = { path = "../clazel-renderer" }
-clazel-cookie = { path = "../clazel-cookie" }
-clazel-origin = { path = "../clazel-origin" }
-clazel-url = { path = "../clazel-url" }
+clazel-renderer = { path = "../clazel-renderer", version = "=0.0.0" }
+clazel-cookie = { path = "../clazel-cookie", version = "=0.0.0" }
+clazel-origin = { path = "../clazel-origin", version = "=0.0.0" }
+clazel-url = { path = "../clazel-url", version = "=0.0.0" }
 
 # Verification tier (docs/VERIFICATION.md). Tier 0: tests only. The shell is
 # the I/O around the proven `step`; its line count is in the README table.
