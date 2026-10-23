@@ -878,6 +878,14 @@ items:**
   for the renderer spawned in that step (id `next_id` of the state before).
   Same-tuple-origin navigation keeps the renderer and re-commits to it; an
   opaque-origin target always spawns.
+- **A document on a public-suffix host is cookie-averse (added by 2.11).**
+  `cookie_averse(rules, lock)` is also true when the lock's host is a public
+  suffix (`co.uk`, `github.io`), as in Chrome and Firefox. It closes the one
+  flow of RFC 6265bis that crosses cookie roots (§5.7 step 16's whole-jar scan
+  with a host-only public-suffix cookie), `kernel_wf` gained
+  `jar_no_public_suffix`, and the contract of 2.12 is unchanged in shape.
+  Item 2.13's real URL parser changes nothing here; a URL on such a host is
+  still committed (so a renderer exists), it just gets no cookies.
 - **Malformed input:** an id naming no renderer is ignored (no state change,
   no output); a frame that does not decode, or decodes to a message a renderer
   may not send, gets `Kill(id)` and the record removed (the tab closes); a
@@ -1033,9 +1041,9 @@ name).
 - `theorem_storage_same_origin`: a storage call changes only the map of its
   lock and nothing else of the state, and its outputs and new map are a
   function of the old map of that lock (and the sender's id) alone.
-- `theorem_cookie_noninterference` (and `_from`, from any public-suffix-free
-  reachable state, and `_up_to_ids`): for every domain `d` and trace `t` with
-  the two hypotheses below, `run_outputs_for(d, t) == run_outputs_for(d,
+- `theorem_cookie_noninterference` (and `_from`, from any reachable state, and
+  `_up_to_ids`): for every domain `d` and trace `t` with the one hypothesis
+  below (`user_tabs_open`), `run_outputs_for(d, t) == run_outputs_for(d,
   purge(t, d))`, the outputs addressed to renderers of `d` (an output is
   addressed to `d` if a renderer of `s` or `s'` with that id is in `d`).
   Proven from `lemma_output_consistency` (a kept event gives the same outputs
@@ -1048,8 +1056,9 @@ name).
   other run), by induction over the trace. The relation `rel` is: both states
   well formed, every renderer of the first in the second (the second may keep
   renderers the first lost), the same renderers of `d`, counter and time, the
-  same unexpired cookies under `d`'s root and storage maps of `d`'s origins,
-  and no public-suffix host or cookie domain. The bijection on ids is the
+  same unexpired cookies under `d`'s root and storage maps of `d`'s origins.
+  (`kernel_wf` of both, which now includes `jar_no_public_suffix`, supplies
+  the rest.) The bijection on ids is the
   identity (the declassified `NavigateTab` takes the same id as the
   `Navigate`); `_up_to_ids` states the plan's form. `obs` changed from 2.10's:
   renderers are a set and cookies the unexpired ones (the proof found both
@@ -1072,21 +1081,29 @@ declassified navigation URL):
    (`example_dead_tab_breaks_noninterference`). The theorem is for traces in
    which the user only navigates open tabs, as a user can. No flow is added:
    in the first run that event is a no-op.
-3. *Noninterference needs `ps_free_run`: no renderer is on a host that is
-   itself a public suffix.* RFC 6265bis §5.7 step 16 ("Leave Secure Cookies
-   Alone") asks, over the whole jar, for a secure cookie whose domain
-   domain-matches the new cookie's domain or conversely. A host-only cookie of
-   a public suffix (allowed by step 9, e.g. host `co.uk`) matches cookies of
-   `a.co.uk`'s root, so a renderer on `x.a.co.uk` can be stopped from storing a
-   cookie by one on `co.uk` (`example_public_suffix_overlay_crosses_roots`).
-   That is a flow the RFC prescribes, so the theorem excludes runs with such a
-   host rather than claiming otherwise. Consequences for later items: the
-   kernel still commits URLs on public-suffix hosts (e.g. `localhost` with the
-   default rule); the theorem says nothing for runs that contain one. 2.13 and
-   2.16 should either refuse such URLs (a change to `valid_tuple_origin`, 2.10)
-   or say so in the README. The exit demo's `a.test` and `b.test` are not
-   public suffixes. (The counterexample is at the cookie level: it shows the
-   one place step 16 reads another root, not a full kernel trace.)
+3. *A document on a public-suffix host is cookie-averse in the kernel.* RFC
+   6265bis §5.7 step 16 ("Leave Secure Cookies Alone") asks, over the whole
+   jar, for a secure cookie whose domain domain-matches the new cookie's domain
+   or conversely. A host-only cookie of a public suffix (allowed by step 9, e.g.
+   host `co.uk` or `github.io`) matches cookies of `a.co.uk`'s root, so a
+   renderer on `x.a.co.uk` could be stopped from storing a cookie by one on
+   `co.uk` (`example_public_suffix_overlay_crosses_roots`): the one flow of
+   6265bis that crosses a root. This first appeared here as a hypothesis on
+   traces (`ps_free_run`); it is now closed in the kernel, by the maintainer's
+   decision: `cookie_averse(rules, lock)` is also true when the lock's host is
+   itself a public suffix (`lock_on_public_suffix`, over the same `rules`; an IP
+   address is not one), so the getter returns the empty string and the setter
+   does nothing, as in Chrome and Firefox (HTML has no such condition; listed
+   as a modelling choice at the top of `spec.rs`). Then no cookie with a
+   public-suffix domain can enter the jar (host-only cookies on such hosts are
+   never created, and step 9 already rejects a `Domain` attribute that is a
+   public suffix), which is `jar_no_public_suffix`, now a clause of
+   `kernel_wf` and proven preserved by `step`. The counterexample remains as
+   the record of why and is unreachable in the kernel. The theorem has no
+   public-suffix hypothesis. Note `localhost` is not on the PSL, so it is not
+   cookie-averse by this rule; a one-label host such as `test` is a public
+   suffix only by the default rule `*`, so `a.test` and `b.test` of the exit
+   demo are not.
 
 **Independent transcription** (`independent.rs`, written by a separate agent
 from the HTML Standard without reading `spec.rs`; text read 23 October 2026):
@@ -1101,7 +1118,7 @@ form, between domains (the paper names domains as future work; two tabs of one
 root legitimately share cookies), and cookie integrity (`no_xdom_cookie_set`)
 and confidentiality, each proven from the theorems.
 
-**Mutations** (`mutations.json`, 8, all `killed` with certificates): wrong
+**Mutations** (`mutations.json`, 9, all `killed` with certificates): wrong
 renderer in a reply, renderer id in a reply, request scheme from the URL's
 origin instead of the lock (the cookie messages carry no URL, so this is the
 nearest to "a URL inside the message"), cookie calls as HTTP requests (skips
@@ -1112,7 +1129,11 @@ public-suffix check in storage", "evict globally" and "skip the HttpOnly check
 for the non-HTTP API" are mutations of `clazel-cookie`'s spec and are
 `store-step9-public-suffix-check-dropped`, `eviction-victim-ignores-root` and
 `retrieval-http-only-skipped` in its `mutations.json` (2.9), killed against
-the lemmas the kernel proofs use. Not covered by a certificate: storage keyed
+the lemmas the kernel proofs use. The ninth mutation,
+`public-suffix-host-not-cookie-averse`, drops the new cookie-averse condition
+(certificate: `ml_public_suffix_is_cookie_averse`, over `cookie_averse_given`,
+which `cookie_averse` is defined through so that the condition can be
+evaluated without the host parser). Not covered by a certificate: storage keyed
 by another lock, and the storage map inherited by a spawned renderer, because
 Verus's `compute_only` does not evaluate `Map`s; the theorem proofs fail for
 them (incidentally).
@@ -1303,7 +1324,7 @@ Nothing waits on Phase 1: every item of it is merged.
 | 2.8 Set-Cookie parsing | done at tier 2 with 2.9: parser, lifetime limit and prefix check proven, 10 mutations killed, §4.1.1 independent transcription proven on a stated class; Set-Cookie conformance through 2.9's WPT and http-state suites |
 | 2.9 Cookie storage and retrieval | done at tier 2: exec proven against the contracts, isolation lemmas proven (two recorded statements corrected, see above), RFC 6265 transcription proven equal on a stated class, 43 mutations killed, WPT cookies/ 177/178 (1 xfail), http-state parser 195/222 (27 xfail), cookie_store differential 3000/3000 |
 | 2.10 Kernel spec | spec and contracts done; implementation is 2.12. `kernel_wf` and `step` preserving it are proven; `clazel-kernel` stays at tier 0 until 2.11 and 2.12 |
-| 2.11 Isolation theorems | done at tier 0 (the executable kernel is 2.12): six theorems and four unwinding lemmas proven for every `UrlFns`; the plan's integrity and noninterference statements corrected (retrieval step 5; user opens tabs only; no public-suffix host), each with a Verus counterexample; independent HTML transcription proven equal; Quark restated; 8 kernel mutations killed |
+| 2.11 Isolation theorems | done at tier 0 (the executable kernel is 2.12): six theorems and four unwinding lemmas proven for every `UrlFns`; the plan's integrity and noninterference statements corrected (retrieval step 5; user opens tabs only), each with a Verus counterexample, and public-suffix hosts made cookie-averse so the noninterference theorem has one hypothesis; independent HTML transcription proven equal; Quark restated; 9 kernel mutations killed |
 | 2.12 Kernel implementation | not started |
 | 2.13 Navigation with the real URL parser | not started |
 | 2.14 Sandbox policies | done at Tier 1 (applying them is 2.15) |
