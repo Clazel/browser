@@ -124,6 +124,125 @@
         "witness": "!cookie_averse_given(ml_tuple(seq![0x68u32, 0x74, 0x74, 0x70, 0x73]), true)"
       },
       "module": "mutation_lemmas"
+    },
+    {
+      "id": "resolve-ignores-base",
+      "file": "src/urls.rs",
+      "find": "Some(b) => match clazel_url::url::spec::basic_url_parser(input, Some(b), dp) {",
+      "replace": "Some(b) => match clazel_url::url::spec::basic_url_parser(input, None, dp) {",
+      "expect": "killed",
+      "reason": "A Navigate is resolved without the committed URL as its base: a relative reference such as `c#f` against `file:///a/b` fails to parse, so a renderer could never navigate relatively (and `base` would not matter). ml_resolve_composition, the meaning of resolve, is false.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_resolve_composition(ml_idp(), ml_base(), ml_rel())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_base()) is Some && clazel_url::url::spec::basic_url_parser(ml_rel(), Some(crate::urls::parse_absolute(ml_idp(), ml_base())->Some_0), ml_idp()) is Some && crate::urls::resolve_scalar(ml_idp(), ml_base(), ml_rel()) is None",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "resolve-returns-base",
+      "file": "src/urls.rs",
+      "find": "match clazel_url::url::spec::basic_url_parser(input, Some(b), dp) {",
+      "replace": "match Some(b) {",
+      "expect": "killed",
+      "reason": "resolve serializes the base and ignores the reference, so every Navigate commits the page it is on: ml_resolve_composition is false.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_resolve_composition(ml_idp(), ml_base(), ml_rel())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_base()) is Some && clazel_url::url::spec::basic_url_parser(ml_rel(), Some(crate::urls::parse_absolute(ml_idp(), ml_base())->Some_0), ml_idp()) is Some && crate::urls::resolve_scalar(ml_idp(), ml_base(), ml_rel()) == Some(clazel_url::url::spec::url_serializer(crate::urls::parse_absolute(ml_idp(), ml_base())->Some_0, false)) && clazel_url::url::spec::url_serializer(ml_resolved(ml_idp(), ml_base(), ml_rel()), false) != clazel_url::url::spec::url_serializer(crate::urls::parse_absolute(ml_idp(), ml_base())->Some_0, false)",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "resolve-drops-fragment",
+      "file": "src/urls.rs",
+      "find": "Some(url) => Some(clazel_url::url::spec::url_serializer(url, false)),",
+      "replace": "Some(url) => Some(clazel_url::url::spec::url_serializer(url, true)),",
+      "expect": "killed",
+      "reason": "resolve serializes with exclude fragment true, so the committed URL loses its fragment: ml_resolve_composition is false on `c#f` against `file:///a/b`.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_resolve_composition(ml_idp(), ml_base(), ml_rel())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_base()) is Some && clazel_url::url::spec::basic_url_parser(ml_rel(), Some(crate::urls::parse_absolute(ml_idp(), ml_base())->Some_0), ml_idp()) is Some && crate::urls::resolve_scalar(ml_idp(), ml_base(), ml_rel()) == Some(clazel_url::url::spec::url_serializer(ml_resolved(ml_idp(), ml_base(), ml_rel()), true)) && clazel_url::url::spec::url_serializer(ml_resolved(ml_idp(), ml_base(), ml_rel()), true) != clazel_url::url::spec::url_serializer(ml_resolved(ml_idp(), ml_base(), ml_rel()), false)",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "path-of-drops-path",
+      "file": "src/urls.rs",
+      "find": "Some(url) => clazel_cookie::matching::spec::narrow(clazel_url::url::spec::url_path_serializer(url.path)),",
+      "replace": "Some(url) => seq![],",
+      "expect": "killed",
+      "reason": "path_of is empty for every URL, so document.cookie is answered for the empty path whatever the page's path: ml_path_of_parsed is false on `file:///a?q` (path `/a`).",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_path_of_parsed(ml_idp(), ml_with_query())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_with_query()) is Some && crate::urls::path_of_scalar(ml_idp(), ml_with_query()).len() == 0 && clazel_cookie::matching::spec::narrow(clazel_url::url::spec::url_path_serializer(crate::urls::parse_absolute(ml_idp(), ml_with_query())->Some_0.path)).len() == 2",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "path-of-includes-query",
+      "file": "src/urls.rs",
+      "find": "Some(url) => clazel_cookie::matching::spec::narrow(clazel_url::url::spec::url_path_serializer(url.path)),",
+      "replace": "Some(url) => clazel_cookie::matching::spec::narrow(clazel_url::url::spec::url_serializer(url, false)),",
+      "expect": "killed",
+      "reason": "path_of is the whole URL, scheme, host and query included, instead of its path: ml_path_of_parsed is false on `file:///a?q`.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_path_of_parsed(ml_idp(), ml_with_query())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_with_query()) is Some && crate::urls::path_of_scalar(ml_idp(), ml_with_query()).len() == 11 && clazel_cookie::matching::spec::narrow(clazel_url::url::spec::url_path_serializer(crate::urls::parse_absolute(ml_idp(), ml_with_query())->Some_0.path)).len() == 2",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "origin-of-always-tuple",
+      "file": "src/urls.rs",
+      "find": "Some(url) => Some(clazel_origin::spec::url_origin(url, dp, fresh_opaque_id())),",
+      "replace": "Some(url) => Some(clazel_origin::spec::Origin::Tuple { scheme: url.scheme, host: clazel_url::host::spec::Host::Domain(seq![]), port: None, domain: None }),",
+      "expect": "killed",
+      "reason": "Every URL, `data:` and `file:` ones too, has a tuple origin, so the kernel gives two `data:` pages the same lock and shared storage: ml_origin_of_opaque is false on `data:,`.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_origin_of_opaque(ml_idp(), ml_data())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), ml_data()) is Some && crate::urls::parse_absolute(ml_idp(), ml_data())->Some_0.scheme != clazel_origin::spec::blob_str() && !clazel_origin::spec::has_tuple_origin_scheme(crate::urls::parse_absolute(ml_idp(), ml_data())->Some_0.scheme) && crate::urls::origin_of_scalar(ml_idp(), ml_data()) is Some && crate::urls::origin_of_scalar(ml_idp(), ml_data())->Some_0 is Tuple",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
+    },
+    {
+      "id": "origin-of-accepts-parse-failure",
+      "file": "src/urls.rs",
+      "find": "Some(url) => Some(clazel_origin::spec::url_origin(url, dp, fresh_opaque_id())),\n        None => None,",
+      "replace": "Some(url) => Some(clazel_origin::spec::url_origin(url, dp, fresh_opaque_id())),\n        None => Some(clazel_origin::spec::Origin::Opaque(fresh_opaque_id())),",
+      "expect": "killed",
+      "reason": "A string that does not parse gets an opaque origin, so the kernel opens a tab for it instead of refusing it: ml_origin_of_failure is false on the empty string.",
+      "certificate": {
+        "file": "src/url_mutation_lemmas.rs",
+        "lemma": "ml_origin_of_failure(ml_idp(), Seq::<u32>::empty())",
+        "witness": "crate::urls::parse_absolute(ml_idp(), Seq::<u32>::empty()) is None && crate::urls::origin_of_scalar(ml_idp(), Seq::<u32>::empty()) is Some",
+        "reveal": [
+          "clazel_url::url::spec::state_step"
+        ]
+      },
+      "module": "url_mutation_lemmas"
     }
   ]
 }
