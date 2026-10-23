@@ -4,25 +4,23 @@ HTTP cookies for the Clazel browser, from RFC 6265bis. Part of
 [Clazel](../../README.md), a web browser whose parsers of untrusted input
 carry machine-checked proofs.
 
-**Status: tier 0 (target tier 2).** The parts below marked "built" have
-proofs; cookie storage and retrieval (Phase 2 item 2.9) are being implemented
-now, so the crate as a whole is not yet at its target tier. See
-[Verification](#verification).
+**Status: tier 2.** Every part below is proven in Verus to equal a
+transcription of the draft. See [Verification](#verification).
 
 ## What it is
 
 Everything is pinned to draft-ietf-httpbis-rfc6265bis-22 (1 December 2025,
 not yet an RFC).
 
-- **Built:** §5.1.1 cookie dates; §5.1.2 canonicalized host names; §5.1.3
-  domain matching; §5.1.4 default-path and path-match; §5.4 name prefixes
+- §5.1.1 cookie dates; §5.1.2 canonicalized host names; §5.1.3 domain
+  matching; §5.1.4 default-path and path-match; §5.4 name prefixes
   (`__Secure-`, `__Host-`); §5.5 the 400-day lifetime limit; and §5.6 the
   Set-Cookie parser with §5.6.1 to §5.6.7 (Expires, Max-Age, Domain, Path,
   Secure, HttpOnly, SameSite).
-- **In progress (item 2.9):** §5.2 same-site requests, §5.7 the storage model
-  and §5.8 the retrieval model. Their specification and contracts are
-  written (`src/storage/`), including two isolation decisions below; the
-  executable code, its proofs and its evidence are not.
+- §5.2 same-site requests (over an abstract request context), §5.7 the
+  storage model and §5.8 the retrieval model (`src/storage/`), with the jar
+  as a sequence of cookie records and the current time as an input. In
+  Phase 2 the only caller is `document.cookie`, through the non-HTTP API.
 - **Out of scope:** HTTP `Set-Cookie` and `Cookie` headers (they arrive with
   Fetch in Phase 3), persistence to disk, partitioned cookies (CHIPS) and
   third-party cookie blocking, which are not in 6265bis.
@@ -45,14 +43,12 @@ non-interference theorem is false without them:
 
 ## Verification
 
-Tier 0 today: safe Rust with tests, because the tier describes the whole
-crate and storage and retrieval are not built. The target is tier 2, where the
-code is proven in Verus to equal an executable specification of the standard.
-Current numbers are in the
+Tier 2: the code is proven in Verus to equal an executable specification of
+the standard. Current numbers are in the
 [status table](../../README.md#verification-status).
 
-- **Proven for the built parts:** every executable function of dates,
-  host canonicalization, matching and Set-Cookie parsing equals its spec.
+- **Proven:** every executable function of dates, host canonicalization,
+  matching, Set-Cookie parsing, storage and retrieval equals its spec.
   Lemmas include that domain-match and path-match are preorders and
   path-match is a prefix order, that the default-path path-matches its URL, and
   that no expiry exceeds now plus the limit. `matching/independent.rs`
@@ -61,17 +57,36 @@ Current numbers are in the
   `set_cookie/independent.rs` (the §4.1.1 `set-cookie-string` grammar) are
   proven to agree with the parsers on stated classes of input, with the
   exceptions listed in those files.
-- **Mutations:** the built parts have certified mutations
-  (`mutations.json`); storage has none yet.
-- **Conformance:** the 70 `http-state` cookie-date cases
-  (`tests/conformance_dates.rs`) and worked examples written by us
-  (`tests/set_cookie_examples.rs`, not counted as conformance).
-- **Not done:** the storage and retrieval implementation and proofs; the
-  statements storage will prove (`lemma_store_within_root`,
-  `lemma_retrieve_within_root`, `lemma_store_frame`, `lemma_retrieve_frame`,
-  `lemma_store_bounds`) are recorded in the spec, not proven; no WPT
-  `cookies/` data, `http-state` parser corpus or `cookie_store` differential
-  yet; no Set-Cookie conformance data.
+- **Isolation lemmas** (`src/storage/isolation.rs`), which the browser
+  kernel's cookie non-interference theorem rests on: a stored cookie's
+  domain has the request host's cookie root (`lemma_store_within_root`);
+  storing for one root leaves every other root's cookies unchanged
+  (`lemma_store_frame`); storage keeps the per-root limit and unique keys
+  (`lemma_store_bounds`); and retrieval returns only, and changes only,
+  cookies of the request host's root (`lemma_retrieve_within_root`,
+  `lemma_retrieve_frame`). The retrieval lemmas need every cookie's domain
+  to be non-empty: a cookie with the empty domain would domain-match any
+  host ending in a dot (`example_empty_domain_breaks_retrieve_within_root`
+  shows it). Storage never creates one, and a lemma shows storing keeps
+  the invariant, so a caller holding the jar must keep it too.
+- `storage/independent.rs` (RFC 6265 §5.3 and §5.4) is proven equal to
+  storage and retrieval on a stated class: cookies without SameSite, name
+  prefixes or the secure-overwrite rule, on host names.
+- **Mutations:** every mutation in `mutations.json` is certified, including
+  global eviction, a dropped public-suffix check, a skipped HttpOnly check
+  for the non-HTTP API and a widened domain-match. **Gap:** mutations inside
+  the storage algorithm's cookie creation (§5.7 steps 2 to 8 and 11 to 23,
+  among them the storage-side HttpOnly check) have no certificate, because
+  three of its helpers are quantifiers Verus cannot evaluate on concrete
+  inputs. Those steps are covered by the proofs and the conformance suites
+  only.
+- **Conformance:** WPT `cookies/` (the fixed-data cases, with one expected
+  failure that belongs to the HTTP layer), the `http-state` parser corpus
+  (expected failures listed by name with reasons), the 70 `http-state`
+  cookie-date cases, and a differential against the `cookie_store` crate on
+  random set and get sequences. WPT tests that need a server, redirects or
+  frames are listed in `tests/data/wpt-cookies/SOURCE.md`; they arrive with
+  Phase 3.
 - **Modelling choices** (listed in the spec headers): hosts are the URL host
   parser's output, not bare IDNA2008, so labels follow UTS #46 as browsers
   do; **instants are seconds since 1601-01-01T00:00:00Z**; strings are
@@ -90,8 +105,11 @@ transcribe the draft correctly, and the Public Suffix List tables of
 ## Usage
 
 Not yet published to crates.io (`publish = false` for now); it depends on the
-workspace crates `clazel-url`, `clazel-psl` and `clazel-origin`. The API below
-is the built part; there is no storage API yet.
+workspace crates `clazel-url`, `clazel-psl` and `clazel-origin`. Storage and
+retrieval are `storage::exec::store_a_set_cookie_string_exec` and
+`storage::exec::retrieve_a_cookie_string_exec`, over a jar of
+`CookieRecord`s with the request URL and context as records; the example
+below shows the parsing and matching parts.
 
 ```rust
 use clazel_cookie::date::exec::parse_a_cookie_date;
