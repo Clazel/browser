@@ -1,0 +1,1068 @@
+{
+  "mutations": [
+    {
+      "id": "tchar-comma",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_digit(c) || is_alpha(c)",
+      "replace": "|| c == 0x60 || c == 0x7C || c == 0x7E || c == 0x2C || is_digit(c) || is_alpha(c)",
+      "expect": "killed",
+      "reason": "Makes the comma a tchar (§5.6.2 lists it as a delimiter): `a,b` becomes a token. Example clause '!is_token(seq![0x61u8, 0x2C, 0x62])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_token(seq![0x61u8, 0x2C, 0x62])"
+      }
+    },
+    {
+      "id": "tchar-drop-tilde",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_digit(c) || is_alpha(c)",
+      "replace": "|| c == 0x60 || c == 0x7C || is_digit(c) || is_alpha(c)",
+      "expect": "killed",
+      "reason": "Drops `~` from tchar: the token of every tchar is no longer a token. Example clause 'is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B, 0x2D, 0x2E, 0x5E, 0x5F, 0x60, 0x7C, 0x7E, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A]))"
+      }
+    },
+    {
+      "id": "tchar-drop-digit",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_digit(c) || is_alpha(c)",
+      "replace": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_alpha(c)",
+      "expect": "killed",
+      "reason": "Drops DIGIT from tchar: the token of every tchar is no longer a token. Example clause 'is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B, 0x2D, 0x2E, 0x5E, 0x5F, 0x60, 0x7C, 0x7E, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A]))"
+      }
+    },
+    {
+      "id": "tchar-drop-alpha",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_digit(c) || is_alpha(c)",
+      "replace": "|| c == 0x60 || c == 0x7C || c == 0x7E || is_digit(c)",
+      "expect": "killed",
+      "reason": "Drops ALPHA from tchar: the token of every tchar is no longer a token. Example clause 'is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B, 0x2D, 0x2E, 0x5E, 0x5F, 0x60, 0x7C, 0x7E, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A]))"
+      }
+    },
+    {
+      "id": "tchar-drop-bang",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "c == 0x21 || c == 0x23 || c == 0x24 || c == 0x25 || c == 0x26 || c == 0x27\n        || c == 0x2A",
+      "replace": "c == 0x23 || c == 0x24 || c == 0x25 || c == 0x26 || c == 0x27\n        || c == 0x2A",
+      "expect": "killed",
+      "reason": "Drops `!` from tchar: the token of every tchar is no longer a token. Example clause 'is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B, 0x2D, 0x2E, 0x5E, 0x5F, 0x60, 0x7C, 0x7E, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A]))"
+      }
+    },
+    {
+      "id": "alpha-upper-widened",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "(0x41 <= c <= 0x5A) || (0x61 <= c <= 0x7A)",
+      "replace": "(0x41 <= c <= 0x5B) || (0x61 <= c <= 0x7A)",
+      "expect": "killed",
+      "reason": "Widens ALPHA's upper range by one: `[`, a delimiter, becomes a letter and so a tchar. Example clause '!is_token(seq![0x61u8, 0x5B, 0x62])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_token(seq![0x61u8, 0x5B, 0x62])"
+      }
+    },
+    {
+      "id": "alpha-lower-narrowed",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "(0x41 <= c <= 0x5A) || (0x61 <= c <= 0x7A)",
+      "replace": "(0x41 <= c <= 0x5A) || (0x61 <= c <= 0x79)",
+      "expect": "killed",
+      "reason": "Drops `z` from ALPHA: the token of every tchar is no longer a token. Example clause 'is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_token(seq![0x21u8, 0x23, 0x24, 0x25, 0x26, 0x27, 0x2A, 0x2B, 0x2D, 0x2E, 0x5E, 0x5F, 0x60, 0x7C, 0x7E, 0x30, 0x31, 0x32, 0x33, 0x34, 0x35, 0x36, 0x37, 0x38, 0x39, 0x61, 0x62, 0x63, 0x64, 0x65, 0x66, 0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6C, 0x6D, 0x6E, 0x6F, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x76, 0x77, 0x78, 0x79, 0x7A, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57, 0x58, 0x59, 0x5A]))"
+      }
+    },
+    {
+      "id": "digit-widened",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "pub open spec fn is_digit(c: u8) -> bool {\n    0x30 <= c <= 0x39",
+      "replace": "pub open spec fn is_digit(c: u8) -> bool {\n    0x30 <= c <= 0x3A",
+      "expect": "killed",
+      "reason": "Widens DIGIT by one: `:`, a delimiter, becomes a digit and so a tchar. Example clause '!is_token(seq![0x61u8, 0x3A, 0x62])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_token(seq![0x61u8, 0x3A, 0x62])"
+      }
+    },
+    {
+      "id": "token-allows-empty",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.len() > 0 && all_in(s, Class::Tchar)",
+      "replace": "s.len() >= 0 && all_in(s, Class::Tchar)",
+      "expect": "killed",
+      "reason": "A token may be empty (§5.6.2: `token = 1*tchar`). Example clause '!is_token(Seq::<u8>::empty())' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_token(Seq::<u8>::empty())"
+      }
+    },
+    {
+      "id": "field-name-not-token",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "pub open spec fn is_field_name(s: Seq<u8>) -> bool {\n    is_token(s)",
+      "replace": "pub open spec fn is_field_name(s: Seq<u8>) -> bool {\n    s.len() > 0",
+      "expect": "killed",
+      "reason": "A field name is any non-empty string (§5.1: `field-name = token`). Example clause '!is_field_name(seq![0x61u8, 0x20, 0x62])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_field_name(seq![0x61u8, 0x20, 0x62])"
+      }
+    },
+    {
+      "id": "lowercase-lower-bound",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.map_values(|c: u8| if 0x41 <= c <= 0x5A { (c + 0x20) as u8 } else { c })",
+      "replace": "s.map_values(|c: u8| if 0x40 <= c <= 0x5A { (c + 0x20) as u8 } else { c })",
+      "expect": "killed",
+      "reason": "Lowercases `@` too: `@` and `` ` `` compare equal. Example clause '!field_name_eq(seq![0x40u8], seq![0x60u8])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "field_name_eq(seq![0x40u8], seq![0x60u8])"
+      }
+    },
+    {
+      "id": "lowercase-upper-bound",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.map_values(|c: u8| if 0x41 <= c <= 0x5A { (c + 0x20) as u8 } else { c })",
+      "replace": "s.map_values(|c: u8| if 0x41 <= c <= 0x5B { (c + 0x20) as u8 } else { c })",
+      "expect": "killed",
+      "reason": "Lowercases `[` too: `[` and `{` compare equal. Example clause '!field_name_eq(seq![0x5Bu8], seq![0x7Bu8])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "field_name_eq(seq![0x5Bu8], seq![0x7Bu8])"
+      }
+    },
+    {
+      "id": "lowercase-offset",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.map_values(|c: u8| if 0x41 <= c <= 0x5A { (c + 0x20) as u8 } else { c })",
+      "replace": "s.map_values(|c: u8| if 0x41 <= c <= 0x5A { (c + 0x21) as u8 } else { c })",
+      "expect": "killed",
+      "reason": "Maps `A` to `b`: names that differ only in case no longer compare equal. Example clause 'field_name_eq(seq![0x43u8, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x7...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(field_name_eq(seq![0x43u8, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x2D, 0x4C, 0x65, 0x6E, 0x67, 0x74, 0x68], seq![0x43u8, 0x4F, 0x4E, 0x54, 0x45, 0x4E, 0x54, 0x2D, 0x6C, 0x65, 0x6E, 0x67, 0x74, 0x68]))"
+      }
+    },
+    {
+      "id": "ows-drop-htab",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    is_sp(c) || is_htab(c)\n}",
+      "replace": "    is_sp(c)\n}",
+      "expect": "killed",
+      "reason": "OWS without HTAB: a tab is no longer whitespace. Example clause 'is_ows(seq![0x20u8, 0x09, 0x20])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_ows(seq![0x20u8, 0x09, 0x20]))"
+      }
+    },
+    {
+      "id": "rws-allows-empty",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.len() > 0 && all_in(s, Class::Ows)",
+      "replace": "s.len() >= 0 && all_in(s, Class::Ows)",
+      "expect": "killed",
+      "reason": "RWS may be empty (§5.6.3: `RWS = 1*( SP / HTAB )`). Example clause '!is_rws(Seq::<u8>::empty())' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_rws(Seq::<u8>::empty())"
+      }
+    },
+    {
+      "id": "bws-is-rws",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "pub open spec fn is_bws(s: Seq<u8>) -> bool {\n    is_ows(s)",
+      "replace": "pub open spec fn is_bws(s: Seq<u8>) -> bool {\n    is_rws(s)",
+      "expect": "killed",
+      "reason": "BWS requires at least one octet (§5.6.3: `BWS = OWS`). Example clause 'is_bws(Seq::<u8>::empty())' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_bws(Seq::<u8>::empty()))"
+      }
+    },
+    {
+      "id": "strip-leading-extra",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.skip(run_len(Class::Ows, s) as int)",
+      "replace": "s.skip(run_len(Class::Ows, s) as int + 1)",
+      "expect": "killed",
+      "reason": "Removes one octet more than the leading OWS. Example clause 'strip_ows(seq![0x20u8, 0x20, 0x09, 0x20, 0x61, 0x20, 0x62, 0...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(strip_ows(seq![0x20u8, 0x20, 0x09, 0x20, 0x61, 0x20, 0x62, 0x20, 0x09, 0x20]) =~= seq![0x61u8, 0x20, 0x62])"
+      }
+    },
+    {
+      "id": "strip-trailing-sp-only",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.len() > 0 && is_ows_octet(s.last())",
+      "replace": "s.len() > 0 && is_sp(s.last())",
+      "expect": "killed",
+      "reason": "Removes trailing SP but not HTAB. Example clause 'strip_ows(seq![0x20u8, 0x20, 0x09, 0x20, 0x61, 0x20, 0x62, 0...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(strip_ows(seq![0x20u8, 0x20, 0x09, 0x20, 0x61, 0x20, 0x62, 0x20, 0x09, 0x20]) =~= seq![0x61u8, 0x20, 0x62])"
+      }
+    },
+    {
+      "id": "field-value-no-last-check",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "is_field_vchar(s[0]) && is_field_vchar(s.last())\n        && all_in(s, Class::FieldContent)",
+      "replace": "is_field_vchar(s[0])\n        && all_in(s, Class::FieldContent)",
+      "expect": "killed",
+      "reason": "A field value may end with whitespace (§5.5: `field-content` ends with a `field-vchar`). Example clause '!is_field_value(seq![0x61u8, 0x20])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_field_value(seq![0x61u8, 0x20])"
+      }
+    },
+    {
+      "id": "field-value-no-first-check",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "is_field_vchar(s[0]) && is_field_vchar(s.last())\n        && all_in(s, Class::FieldContent)",
+      "replace": "is_field_vchar(s.last())\n        && all_in(s, Class::FieldContent)",
+      "expect": "killed",
+      "reason": "A field value may start with whitespace. Example clause '!is_field_value(seq![0x20u8, 0x61])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_field_value(seq![0x20u8, 0x61])"
+      }
+    },
+    {
+      "id": "field-content-drop-htab",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "is_sp(c) || is_htab(c) || is_field_vchar(c)",
+      "replace": "is_sp(c) || is_field_vchar(c)",
+      "expect": "killed",
+      "reason": "A tab is not allowed inside a field value. Example clause 'is_field_value(seq![0x61u8, 0x20, 0x62, 0x09, 0x63])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_field_value(seq![0x61u8, 0x20, 0x62, 0x09, 0x63]))"
+      }
+    },
+    {
+      "id": "vchar-includes-del",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    0x21 <= c <= 0x7E\n}",
+      "replace": "    0x21 <= c <= 0x7F\n}",
+      "expect": "killed",
+      "reason": "VCHAR includes DEL, so a field value may contain one. Example clause '!is_field_value(seq![0x61u8, 0x7F, 0x62])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "is_field_value(seq![0x61u8, 0x7F, 0x62])"
+      }
+    },
+    {
+      "id": "obs-text-narrowed",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    0x80 <= c <= 0xFF\n}",
+      "replace": "    0x81 <= c <= 0xFF\n}",
+      "expect": "killed",
+      "reason": "obs-text without 0x80. Example clause 'is_field_value(seq![0x80u8, 0xFF])' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_syntax()",
+        "witness": "!(is_field_value(seq![0x80u8, 0xFF]))"
+      }
+    },
+    {
+      "id": "combine-no-space",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "values[0] + seq![0x2Cu8, 0x20u8] + combine(values.drop_first())",
+      "replace": "values[0] + seq![0x2Cu8] + combine(values.drop_first())",
+      "expect": "killed",
+      "reason": "Joins with a bare comma instead of comma SP. Example clause 'combine(seq![seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_sections()",
+        "witness": "!(combine(seq![seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72], seq![0x42u8, 0x61, 0x7A]]) =~= seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72, 0x2C, 0x20, 0x42, 0x61, 0x7A])"
+      }
+    },
+    {
+      "id": "combine-reversed",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "values[0] + seq![0x2Cu8, 0x20u8] + combine(values.drop_first())",
+      "replace": "combine(values.drop_first()) + seq![0x2Cu8, 0x20u8] + values[0]",
+      "expect": "killed",
+      "reason": "Joins in reverse order (§5.3: order is significant). Example clause 'combine(seq![seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_sections()",
+        "witness": "!(combine(seq![seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72], seq![0x42u8, 0x61, 0x7A]]) =~= seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72, 0x2C, 0x20, 0x42, 0x61, 0x7A])"
+      }
+    },
+    {
+      "id": "lines-case-sensitive",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "} else if field_name_eq(section[0].name, name) {",
+      "replace": "} else if section[0].name == name {",
+      "expect": "killed",
+      "reason": "Compares field names case-sensitively (§5.1). Example clause 'field_values_named(seq![FieldLine { name: seq![0x45u8, 0x78,...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_sections()",
+        "witness": "!(field_values_named(seq![FieldLine { name: seq![0x45u8, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2D, 0x46, 0x69, 0x65, 0x6C, 0x64], value: seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72] }, FieldLine { name: seq![0x4Fu8, 0x74, 0x68, 0x65, 0x72], value: seq![0x78u8] }, FieldLine { name: seq![0x65u8, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2D, 0x46, 0x49, 0x45, 0x4C, 0x44], value: seq![0x42u8, 0x61, 0x7A] }], seq![0x45u8, 0x58, 0x41, 0x4D, 0x50, 0x4C, 0x45, 0x2D, 0x46, 0x49, 0x45, 0x4C, 0x44]) =~= seq![seq![0x46u8, 0x6F, 0x6F, 0x2C, 0x20, 0x42, 0x61, 0x72], seq![0x42u8, 0x61, 0x7A]])"
+      }
+    },
+    {
+      "id": "set-cookie-combined",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if is_set_cookie(name) || values.len() == 0 {",
+      "replace": "if values.len() == 0 {",
+      "expect": "killed",
+      "reason": "Combines Set-Cookie lines (§5.3's note). Example clause 'combined_field_value(seq![FieldLine { name: seq![0x53u8, 0x6...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_sections()",
+        "witness": "!(combined_field_value(seq![FieldLine { name: seq![0x53u8, 0x65, 0x74, 0x2D, 0x43, 0x6F, 0x6F, 0x6B, 0x69, 0x65], value: seq![0x61u8, 0x3D, 0x62] }, FieldLine { name: seq![0x44u8, 0x61, 0x74, 0x65], value: seq![0x78u8] }, FieldLine { name: seq![0x73u8, 0x65, 0x74, 0x2D, 0x63, 0x6F, 0x6F, 0x6B, 0x69, 0x65], value: seq![0x63u8, 0x3D, 0x64, 0x3B, 0x20, 0x50, 0x61, 0x74, 0x68, 0x3D, 0x2F] }], seq![0x53u8, 0x65, 0x74, 0x2D, 0x43, 0x6F, 0x6F, 0x6B, 0x69, 0x65]) is None)"
+      }
+    },
+    {
+      "id": "set-cookie-misspelt",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "seq![0x73u8, 0x65, 0x74, 0x2D, 0x63, 0x6F, 0x6F, 0x6B, 0x69, 0x65]",
+      "replace": "seq![0x73u8, 0x65, 0x74, 0x5F, 0x63, 0x6F, 0x6F, 0x6B, 0x69, 0x65]",
+      "expect": "killed",
+      "reason": "Misspells the Set-Cookie field name. Example clause 'set_cookie_lines(seq![FieldLine { name: seq![0x53u8, 0x65, 0...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_sections()",
+        "witness": "!(set_cookie_lines(seq![FieldLine { name: seq![0x53u8, 0x65, 0x74, 0x2D, 0x43, 0x6F, 0x6F, 0x6B, 0x69, 0x65], value: seq![0x61u8, 0x3D, 0x62] }, FieldLine { name: seq![0x44u8, 0x61, 0x74, 0x65], value: seq![0x78u8] }, FieldLine { name: seq![0x73u8, 0x65, 0x74, 0x2D, 0x63, 0x6F, 0x6F, 0x6B, 0x69, 0x65], value: seq![0x63u8, 0x3D, 0x64, 0x3B, 0x20, 0x50, 0x61, 0x74, 0x68, 0x3D, 0x2F] }]) =~= seq![seq![0x61u8, 0x3D, 0x62], seq![0x63u8, 0x3D, 0x64, 0x3B, 0x20, 0x50, 0x61, 0x74, 0x68, 0x3D, 0x2F]])"
+      }
+    },
+    {
+      "id": "list-separator",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if c == 0x2C {\n                    // \",\" separates elements",
+      "replace": "if c == 0x3B {\n                    // \",\" separates elements",
+      "expect": "killed",
+      "reason": "Splits at semicolons instead of commas. Example clause 'list_elements(seq![0x66u8, 0x6F, 0x6F, 0x2C, 0x62, 0x61, 0x7...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x66u8, 0x6F, 0x6F, 0x2C, 0x62, 0x61, 0x72]) =~= seq![seq![0x66u8, 0x6F, 0x6F], seq![0x62u8, 0x61, 0x72]])"
+      }
+    },
+    {
+      "id": "list-quote-opens-nothing",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "} else if c == 0x22 {\n                    // DQUOTE starts a quoted-string (§5.6.4).",
+      "replace": "} else if c == 0x27 {\n                    // DQUOTE starts a quoted-string (§5.6.4).",
+      "expect": "killed",
+      "reason": "A DQUOTE no longer starts a quoted string, so commas inside one split the list. Example clause 'list_elements(seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x61, 0x2E, 0x68, 0x74, 0x6D, 0x6C, 0x2C, 0x66, 0x6F, 0x6F, 0x22, 0x2C, 0x20, 0x22, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x69, 0x74, 0x68, 0x6F, 0x75, 0x74, 0x2D, 0x61, 0x2D, 0x63, 0x6F, 0x6D, 0x6D, 0x61, 0x2E, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x22]) =~= seq![seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x61, 0x2E, 0x68, 0x74, 0x6D, 0x6C, 0x2C, 0x66, 0x6F, 0x6F, 0x22], seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x69, 0x74, 0x68, 0x6F, 0x75, 0x74, 0x2D, 0x61, 0x2D, 0x63, 0x6F, 0x6D, 0x6D, 0x61, 0x2E, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x22]])"
+      }
+    },
+    {
+      "id": "list-backslash-ignored",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if c == 0x5C {\n                    // \"\\\" starts a quoted-pair.",
+      "replace": "if c == 0x2F {\n                    // \"\\\" starts a quoted-pair.",
+      "expect": "killed",
+      "reason": "A backslash no longer escapes the next octet inside a quoted string. Example clause 'list_elements(seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x2...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x22, 0x2C, 0x20, 0x63]) =~= seq![seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x22], seq![0x63u8]])"
+      }
+    },
+    {
+      "id": "list-quote-never-closes",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "} else if c == 0x22 {\n                    // The closing DQUOTE.",
+      "replace": "} else if c == 0x27 {\n                    // The closing DQUOTE.",
+      "expect": "killed",
+      "reason": "A quoted string never closes, so the rest of the list is one element. Example clause 'list_elements(seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x61, 0x2E, 0x68, 0x74, 0x6D, 0x6C, 0x2C, 0x66, 0x6F, 0x6F, 0x22, 0x2C, 0x20, 0x22, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x69, 0x74, 0x68, 0x6F, 0x75, 0x74, 0x2D, 0x61, 0x2D, 0x63, 0x6F, 0x6D, 0x6D, 0x61, 0x2E, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x22]) =~= seq![seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x61, 0x2E, 0x68, 0x74, 0x6D, 0x6C, 0x2C, 0x66, 0x6F, 0x6F, 0x22], seq![0x22u8, 0x68, 0x74, 0x74, 0x70, 0x3A, 0x2F, 0x2F, 0x77, 0x69, 0x74, 0x68, 0x6F, 0x75, 0x74, 0x2D, 0x61, 0x2D, 0x63, 0x6F, 0x6D, 0x6D, 0x61, 0x2E, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65, 0x2E, 0x63, 0x6F, 0x6D, 0x2F, 0x22]])"
+      }
+    },
+    {
+      "id": "list-escape-leaves-quote",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "QState::Escaped => split_scan(rest, QState::Quoted, cur.push(c), acc),",
+      "replace": "QState::Escaped => split_scan(rest, QState::Plain, cur.push(c), acc),",
+      "expect": "killed",
+      "reason": "After a quoted-pair the splitter is outside the quoted string. Example clause 'list_elements(seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x2...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x22, 0x2C, 0x20, 0x63]) =~= seq![seq![0x22u8, 0x61, 0x5C, 0x22, 0x2C, 0x62, 0x22], seq![0x63u8]])"
+      }
+    },
+    {
+      "id": "list-drops-last-piece",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "// The last piece ends with the input.\n        acc.push(strip_ows(cur))",
+      "replace": "// The last piece ends with the input.\n        acc",
+      "expect": "killed",
+      "reason": "The last piece of a list is lost. Example clause 'list_elements(seq![0x66u8, 0x6F, 0x6F, 0x2C, 0x62, 0x61, 0x7...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x66u8, 0x6F, 0x6F, 0x2C, 0x62, 0x61, 0x72]) =~= seq![seq![0x66u8, 0x6F, 0x6F], seq![0x62u8, 0x61, 0x72]])"
+      }
+    },
+    {
+      "id": "list-no-strip",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "split_scan(rest, QState::Plain, seq![], acc.push(strip_ows(cur)))",
+      "replace": "split_scan(rest, QState::Plain, seq![], acc.push(cur))",
+      "expect": "killed",
+      "reason": "OWS around a list element is kept at a comma. Example clause 'split_values(seq![0x61u8, 0x2C, 0x20, 0x62, 0x20, 0x2C, 0x63...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(split_values(seq![0x61u8, 0x2C, 0x20, 0x62, 0x20, 0x2C, 0x63]) =~= seq![seq![0x61u8], seq![0x62u8], seq![0x63u8]])"
+      }
+    },
+    {
+      "id": "list-keeps-empty",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "} else if v[0].len() == 0 {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Empty list elements are kept (§5.6.1.2 drops them). Example clause 'list_elements(seq![0x66u8, 0x6F, 0x6F, 0x20, 0x2C, 0x62, 0x6...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_lists()",
+        "witness": "!(list_elements(seq![0x66u8, 0x6F, 0x6F, 0x20, 0x2C, 0x62, 0x61, 0x72, 0x2C]) =~= seq![seq![0x66u8, 0x6F, 0x6F], seq![0x62u8, 0x61, 0x72]])"
+      }
+    },
+    {
+      "id": "tokens-unchecked",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "v.len() == 0 || (is_token(v[0]) && all_tokens(v.drop_first()))",
+      "replace": "v.len() == 0 || all_tokens(v.drop_first())",
+      "expect": "killed",
+      "reason": "A list of tokens whose first member need not be a token. Example clause 'parse_connection(seq![0x61u8, 0x20, 0x62]) is None' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_codings()",
+        "witness": "!(parse_connection(seq![0x61u8, 0x20, 0x62]) is None)"
+      }
+    },
+    {
+      "id": "qdtext-drop-htab",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "c == 0x09 || c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5B)",
+      "replace": "c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5B)",
+      "expect": "killed",
+      "reason": "qdtext without HTAB. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-drop-bang",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "c == 0x09 || c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5B)",
+      "replace": "c == 0x09 || c == 0x20 || (0x23 <= c <= 0x5B)",
+      "expect": "killed",
+      "reason": "qdtext without `!`. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-lower-hash",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "c == 0x09 || c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5B)",
+      "replace": "c == 0x09 || c == 0x20 || c == 0x21 || (0x24 <= c <= 0x5B)",
+      "expect": "killed",
+      "reason": "qdtext without `#`. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-upper-bracket",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "c == 0x09 || c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5B)",
+      "replace": "c == 0x09 || c == 0x20 || c == 0x21 || (0x23 <= c <= 0x5A)",
+      "expect": "killed",
+      "reason": "qdtext without `[`. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-lower-bracket",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| (0x5D <= c <= 0x7E)\n        || is_obs_text(c)",
+      "replace": "|| (0x5E <= c <= 0x7E)\n        || is_obs_text(c)",
+      "expect": "killed",
+      "reason": "qdtext without `]`. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-upper-tilde",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| (0x5D <= c <= 0x7E)\n        || is_obs_text(c)",
+      "replace": "|| (0x5D <= c <= 0x7D)\n        || is_obs_text(c)",
+      "expect": "killed",
+      "reason": "qdtext without `~`. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "qdtext-drop-obs-text",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "|| (0x5D <= c <= 0x7E)\n        || is_obs_text(c)",
+      "replace": "|| (0x5D <= c <= 0x7E)",
+      "expect": "killed",
+      "reason": "qdtext without obs-text. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x8...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D, 0x22]) =~= Some((seq![0x61u8, 0x09, 0x62, 0x20, 0x80, 0xFF, 0x7E, 0x21, 0x23, 0x5B, 0x5D], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "quoted-pair-drop-obs-text",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "is_htab(c) || is_sp(c) || is_vchar(c) || is_obs_text(c)",
+      "replace": "is_htab(c) || is_sp(c) || is_vchar(c)",
+      "expect": "killed",
+      "reason": "A quoted-pair cannot carry obs-text. Example clause 'parse_quoted_string(seq![0x22u8, 0x5C, 0x80, 0x22]) =~= Some...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x5C, 0x80, 0x22]) =~= Some((seq![0x80u8], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "quoted-pair-any-octet",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "input.len() >= 2 && is_quoted_pair_octet(input[1])",
+      "replace": "input.len() >= 2",
+      "expect": "killed",
+      "reason": "A quoted-pair may carry any octet, NUL included. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x5C, 0x00, 0x22]) is...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x5C, 0x00, 0x22]) is None)"
+      }
+    },
+    {
+      "id": "unquote-keeps-backslash",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "quoted_body(input.drop_first().drop_first(), value.push(input[1]))",
+      "replace": "quoted_body(input.drop_first().drop_first(), value.push(input[0]).push(input[1]))",
+      "expect": "killed",
+      "reason": "A quoted-pair is not replaced by the octet after the backslash (§5.6.4). Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x5C, 0x22, 0x62, 0x2...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x5C, 0x22, 0x62, 0x22, 0x20, 0x78]) =~= Some((seq![0x61u8, 0x22, 0x62], seq![0x20u8, 0x78])))"
+      }
+    },
+    {
+      "id": "unquote-drops-text",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "quoted_body(input.drop_first(), value.push(input[0]))",
+      "replace": "quoted_body(input.drop_first(), value)",
+      "expect": "killed",
+      "reason": "Plain text is dropped from the value. Example clause 'parse_quoted_string(seq![0x22u8, 0x61, 0x62, 0x63, 0x22]) =~...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x22u8, 0x61, 0x62, 0x63, 0x22]) =~= Some((seq![0x61u8, 0x62, 0x63], Seq::<u8>::empty())))"
+      }
+    },
+    {
+      "id": "quoted-must-start-with-quote",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if input.len() > 0 && input[0] == 0x22 {\n        quoted_body(input.drop_first(), seq![])",
+      "replace": "if input.len() > 0 {\n        quoted_body(input.drop_first(), seq![])",
+      "expect": "killed",
+      "reason": "A quoted string need not start with DQUOTE. Example clause 'parse_quoted_string(seq![0x61u8, 0x62, 0x63, 0x22]) is None' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(parse_quoted_string(seq![0x61u8, 0x62, 0x63, 0x22]) is None)"
+      }
+    },
+    {
+      "id": "quote-leaves-backslash",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "} else if v[0] == 0x22 || v[0] == 0x5C {\n        seq![0x5Cu8, v[0]] + quote_octets",
+      "replace": "} else if v[0] == 0x22 {\n        seq![0x5Cu8, v[0]] + quote_octets",
+      "expect": "killed",
+      "reason": "A backslash in a value is not escaped when quoted. Example clause 'quote(seq![0x61u8, 0x22, 0x62, 0x5C]) =~= seq![0x22u8, 0x61,...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(quote(seq![0x61u8, 0x22, 0x62, 0x5C]) =~= seq![0x22u8, 0x61, 0x5C, 0x22, 0x62, 0x5C, 0x5C, 0x22])"
+      }
+    },
+    {
+      "id": "quote-no-closing",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "seq![0x22u8] + quote_octets(v) + seq![0x22u8]",
+      "replace": "seq![0x22u8] + quote_octets(v)",
+      "expect": "killed",
+      "reason": "The closing DQUOTE is not written. Example clause 'quote(seq![0x61u8, 0x22, 0x62, 0x5C]) =~= seq![0x22u8, 0x61,...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(quote(seq![0x61u8, 0x22, 0x62, 0x5C]) =~= seq![0x22u8, 0x61, 0x5C, 0x22, 0x62, 0x5C, 0x5C, 0x22])"
+      }
+    },
+    {
+      "id": "quotable-too-narrow",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "all_in(v, Class::QuotedPair)",
+      "replace": "all_in(v, Class::Tchar)",
+      "expect": "killed",
+      "reason": "Only tchars are quotable. Example clause 'is_quotable(seq![0x61u8, 0x20, 0x09, 0x80, 0xFF, 0x7E, 0x21,...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_quoted()",
+        "witness": "!(is_quotable(seq![0x61u8, 0x20, 0x09, 0x80, 0xFF, 0x7E, 0x21, 0x22, 0x5C]))"
+      }
+    },
+    {
+      "id": "param-present-any",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::Parameters => input.len() > 0 && is_tchar(input[0]),",
+      "replace": "ParameterGrammar::Parameters => input.len() > 0,",
+      "expect": "killed",
+      "reason": "A parameter is required after `;` whenever any octet follows (§5.6.6: `[ parameter ]`). Example clause 'parse_parameters(seq![0x3Bu8, 0x20, 0x3B], ParameterGrammar:...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x20, 0x3B], ParameterGrammar::Parameters) =~= Some(Seq::<Parameter>::empty()))"
+      }
+    },
+    {
+      "id": "tc-param-optional",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::TransferCoding => true,\n    }\n}",
+      "replace": "ParameterGrammar::TransferCoding => input.len() > 0 && is_tchar(input[0]),\n    }\n}",
+      "expect": "killed",
+      "reason": "A transfer-parameter is optional after `;` (§10.1.4 requires one). Example clause 'parse_parameters(seq![0x3Bu8], ParameterGrammar::TransferCod...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8], ParameterGrammar::TransferCoding) is None)"
+      }
+    },
+    {
+      "id": "tc-no-bws-before-equals",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::TransferCoding => strip_leading_ows(after_name),",
+      "replace": "ParameterGrammar::TransferCoding => after_name,",
+      "expect": "killed",
+      "reason": "No BWS before the equals sign of a transfer-parameter. Example clause 'parse_parameters(seq![0x3Bu8, 0x20, 0x61, 0x20, 0x3D, 0x20, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x20, 0x61, 0x20, 0x3D, 0x20, 0x62], ParameterGrammar::TransferCoding) =~= Some(seq![Parameter { name: seq![0x61u8], value: seq![0x62u8] }]))"
+      }
+    },
+    {
+      "id": "tc-no-bws-after-equals",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::TransferCoding => strip_leading_ows(before_equals.drop_first()),",
+      "replace": "ParameterGrammar::TransferCoding => before_equals.drop_first(),",
+      "expect": "killed",
+      "reason": "No BWS after the equals sign of a transfer-parameter. Example clause 'parse_parameters(seq![0x3Bu8, 0x20, 0x61, 0x20, 0x3D, 0x20, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x20, 0x61, 0x20, 0x3D, 0x20, 0x62], ParameterGrammar::TransferCoding) =~= Some(seq![Parameter { name: seq![0x61u8], value: seq![0x62u8] }]))"
+      }
+    },
+    {
+      "id": "param-bws-before-equals",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::Parameters => after_name,",
+      "replace": "ParameterGrammar::Parameters => strip_leading_ows(after_name),",
+      "expect": "killed",
+      "reason": "Whitespace before the equals sign of a parameter (§5.6.6: not even BWS). Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x20, 0x3D, 0x62], Param...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x20, 0x3D, 0x62], ParameterGrammar::Parameters) is None)"
+      }
+    },
+    {
+      "id": "param-bws-after-equals",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "ParameterGrammar::Parameters => before_equals.drop_first(),",
+      "replace": "ParameterGrammar::Parameters => strip_leading_ows(before_equals.drop_first()),",
+      "expect": "killed",
+      "reason": "Whitespace after the equals sign of a parameter. Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x20, 0x62], Param...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x20, 0x62], ParameterGrammar::Parameters) is None)"
+      }
+    },
+    {
+      "id": "param-equals",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "before_equals.len() > 0 && before_equals[0] == 0x3D",
+      "replace": "before_equals.len() > 0 && before_equals[0] == 0x3A",
+      "expect": "killed",
+      "reason": "The name and value are separated by a colon. Example clause 'parse_parameters(seq![0x3Bu8, 0x63, 0x68, 0x61, 0x72, 0x73, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x63, 0x68, 0x61, 0x72, 0x73, 0x65, 0x74, 0x3D, 0x75, 0x74, 0x66, 0x2D, 0x38], ParameterGrammar::Parameters) =~= Some(seq![Parameter { name: seq![0x63u8, 0x68, 0x61, 0x72, 0x73, 0x65, 0x74], value: seq![0x75u8, 0x74, 0x66, 0x2D, 0x38] }]))"
+      }
+    },
+    {
+      "id": "param-empty-name",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    if n == 0 {\n        None\n    } else {\n        let name = input.take(n as int);",
+      "replace": "    if false {\n        None\n    } else {\n        let name = input.take(n as int);",
+      "expect": "killed",
+      "reason": "A parameter name may be empty (§5.6.6: `parameter-name = token`). Example clause 'parse_parameters(seq![0x3Bu8, 0x3D, 0x62], ParameterGrammar:...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x3D, 0x62], ParameterGrammar::TransferCoding) is None)"
+      }
+    },
+    {
+      "id": "param-empty-value",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "        let n = run_len(Class::Tchar, input);\n        if n > 0 {\n            Some((input.take(n as int), input.skip(n as int)))",
+      "replace": "        let n = run_len(Class::Tchar, input);\n        if n >= 0 {\n            Some((input.take(n as int), input.skip(n as int)))",
+      "expect": "killed",
+      "reason": "A token parameter value may be empty. Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D], ParameterGrammar:...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D], ParameterGrammar::Parameters) is None)"
+      }
+    },
+    {
+      "id": "param-value-never-quoted",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if input.len() > 0 && input[0] == 0x22 {\n        parse_quoted_string(input)",
+      "replace": "if false {\n        parse_quoted_string(input)",
+      "expect": "killed",
+      "reason": "A parameter value is never a quoted string. Example clause 'parse_parameters(seq![0x3Bu8, 0x20, 0x63, 0x68, 0x61, 0x72, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x20, 0x63, 0x68, 0x61, 0x72, 0x73, 0x65, 0x74, 0x3D, 0x22, 0x75, 0x74, 0x66, 0x2D, 0x38, 0x22], ParameterGrammar::Parameters) =~= Some(seq![Parameter { name: seq![0x63u8, 0x68, 0x61, 0x72, 0x73, 0x65, 0x74], value: seq![0x75u8, 0x74, 0x66, 0x2D, 0x38] }]))"
+      }
+    },
+    {
+      "id": "param-separator",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if after_ows.len() == 0 || after_ows[0] != 0x3B {",
+      "replace": "if after_ows.len() == 0 || after_ows[0] != 0x2C {",
+      "expect": "killed",
+      "reason": "Parameters are separated by commas. Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, 0x3D, 0x64], ParameterGrammar::Parameters) =~= Some(seq![Parameter { name: seq![0x61u8], value: seq![0x62u8] }, Parameter { name: seq![0x63u8], value: seq![0x64u8] }]))"
+      }
+    },
+    {
+      "id": "param-trailing-ows",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "if after_ows.len() == 0 || after_ows[0] != 0x3B {\n            // The repetition needs \";\" after OWS (so OWS cannot end the string).\n            None\n        } else {",
+      "replace": "if after_ows.len() == 0 {\n            Some(acc)\n        } else if after_ows[0] != 0x3B {\n            None\n        } else {",
+      "expect": "killed",
+      "reason": "OWS may end the parameters (the repetition `OWS \";\"` needs the semicolon). Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x20], Param...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x20], ParameterGrammar::Parameters) is None)"
+      }
+    },
+    {
+      "id": "param-dropped",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "Some((p, after)) => parameters_loop(after, grammar, acc.push(p)),",
+      "replace": "Some((p, after)) => parameters_loop(after, grammar, acc),",
+      "expect": "killed",
+      "reason": "Parameters are parsed and dropped. Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, 0x3D, 0x64], ParameterGrammar::Parameters) =~= Some(seq![Parameter { name: seq![0x61u8], value: seq![0x62u8] }, Parameter { name: seq![0x63u8], value: seq![0x64u8] }]))"
+      }
+    },
+    {
+      "id": "param-value-is-name",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "Some((value, rest)) => Some((Parameter { name: name, value: value }, rest)),",
+      "replace": "Some((value, rest)) => Some((Parameter { name: name, value: name }, rest)),",
+      "expect": "killed",
+      "reason": "A parameter's value is its name. Example clause 'parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, ...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_parameters()",
+        "witness": "!(parse_parameters(seq![0x3Bu8, 0x61, 0x3D, 0x62, 0x3B, 0x63, 0x3D, 0x64], ParameterGrammar::Parameters) =~= Some(seq![Parameter { name: seq![0x61u8], value: seq![0x62u8] }, Parameter { name: seq![0x63u8], value: seq![0x64u8] }]))"
+      }
+    },
+    {
+      "id": "coding-empty-name",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    let n = run_len(Class::Tchar, element);\n    if n == 0 {\n        None\n    } else {\n        match parse_parameters",
+      "replace": "    let n = run_len(Class::Tchar, element);\n    if false {\n        None\n    } else {\n        match parse_parameters",
+      "expect": "killed",
+      "reason": "A transfer coding's name may be empty (§10.1.4: `token`). Example clause 'parse_transfer_encoding(seq![0x3Bu8, 0x61, 0x3D, 0x62]) is N...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_codings()",
+        "witness": "!(parse_transfer_encoding(seq![0x3Bu8, 0x61, 0x3D, 0x62]) is None)"
+      }
+    },
+    {
+      "id": "codings-drop-first",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "(Some(first), Some(rest)) => Some(seq![first] + rest),",
+      "replace": "(Some(first), Some(rest)) => Some(rest),",
+      "expect": "killed",
+      "reason": "The first coding of a list is lost. Example clause 'parse_transfer_encoding(seq![0x67u8, 0x7A, 0x69, 0x70, 0x2C,...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_codings()",
+        "witness": "!(parse_transfer_encoding(seq![0x67u8, 0x7A, 0x69, 0x70, 0x2C, 0x20, 0x63, 0x68, 0x75, 0x6E, 0x6B, 0x65, 0x64]) =~= Some(seq![TransferCoding { name: seq![0x67u8, 0x7A, 0x69, 0x70], parameters: Seq::<Parameter>::empty() }, TransferCoding { name: seq![0x63u8, 0x68, 0x75, 0x6E, 0x6B, 0x65, 0x64], parameters: Seq::<Parameter>::empty() }]))"
+      }
+    },
+    {
+      "id": "connection-unchecked",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "    if all_tokens(options) {\n        Some(options)",
+      "replace": "    if true {\n        Some(options)",
+      "expect": "killed",
+      "reason": "Connection options need not be tokens. Example clause 'parse_connection(seq![0x61u8, 0x20, 0x62]) is None' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_codings()",
+        "witness": "!(parse_connection(seq![0x61u8, 0x20, 0x62]) is None)"
+      }
+    },
+    {
+      "id": "digits-allow-empty",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "s.len() > 0 && all_in(s, Class::Digit)",
+      "replace": "s.len() >= 0 && all_in(s, Class::Digit)",
+      "expect": "killed",
+      "reason": "`1*DIGIT` may be empty. Example clause 'parse_content_length(Seq::<u8>::empty()) is None' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(Seq::<u8>::empty()) is None)"
+      }
+    },
+    {
+      "id": "decimal-radix",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "decimal_value(s.drop_last()) * 10 +",
+      "replace": "decimal_value(s.drop_last()) * 9 +",
+      "expect": "killed",
+      "reason": "Reads digits in radix 9. Example clause 'parse_content_length(seq![0x33u8, 0x34, 0x39, 0x35]) =~= Som...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(seq![0x33u8, 0x34, 0x39, 0x35]) =~= Some(3495))"
+      }
+    },
+    {
+      "id": "decimal-digit-offset",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "((s.last() - 0x30) as nat)",
+      "replace": "((s.last() - 0x31) as nat)",
+      "expect": "killed",
+      "reason": "Reads `9` as 8. Example clause 'parse_content_length(seq![0x39u8]) =~= Some(9)' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(seq![0x39u8]) =~= Some(9))"
+      }
+    },
+    {
+      "id": "repeat-any-values",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "v.len() == 0 || (v[0] == e && all_equal(v.drop_first(), e))",
+      "replace": "v.len() == 0 || all_equal(v.drop_first(), e)",
+      "expect": "killed",
+      "reason": "A list of different values is accepted. Example clause 'parse_content_length(seq![0x34u8, 0x32, 0x2C, 0x20, 0x34, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(seq![0x34u8, 0x32, 0x2C, 0x20, 0x34, 0x33]) is None)"
+      }
+    },
+    {
+      "id": "length-first-unchecked",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "members.len() > 0 && is_digits(members[0]) && all_equal(members, members[0])",
+      "replace": "members.len() > 0 && all_equal(members, members[0])",
+      "expect": "killed",
+      "reason": "The first member need not be digits. Example clause 'parse_content_length(seq![0x2Bu8, 0x31]) is None' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(seq![0x2Bu8, 0x31]) is None)"
+      }
+    },
+    {
+      "id": "length-lines-last-only",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "parse_content_length(combine(lines))",
+      "replace": "parse_content_length(lines[lines.len() - 1])",
+      "expect": "killed",
+      "reason": "Only the last Content-Length line counts. Example clause 'parse_content_length_lines(seq![seq![0x31u8], seq![0x32u8]])...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length_lines(seq![seq![0x31u8], seq![0x32u8]]) is None)"
+      }
+    },
+    {
+      "id": "length-drops-empty-members",
+      "file": "src/field/spec.rs",
+      "module": "field::examples",
+      "find": "let members = split_values(value);",
+      "replace": "let members = list_elements(value);",
+      "expect": "killed",
+      "reason": "Empty list members are ignored for Content-Length (§8.6: not a list of one value). Example clause 'parse_content_length(seq![0x34u8, 0x32, 0x2C, 0x2C, 0x34, 0x...' is false for the mutant.",
+      "certificate": {
+        "file": "src/field/lemmas.rs",
+        "lemma": "super::examples::lemma_examples_content_length()",
+        "witness": "!(parse_content_length(seq![0x34u8, 0x32, 0x2C, 0x2C, 0x34, 0x32]) is None)"
+      }
+    }
+  ]
+}

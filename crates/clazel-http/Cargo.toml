@@ -1,0 +1,26 @@
+[package]
+name = "clazel-http"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "HTTP: field syntax (RFC 9110 §5, §8.6); message framing and chunked coding come next."
+
+[dependencies]
+vstd = "=0.0.0-2026-10-04-0306"
+
+# Verification tier (docs/VERIFICATION.md). Tier 0 for now, target 2:
+# field syntax (src/field/) is proven against its contracts and has an
+# independent transcription (the Fetch Standard) with certified mutations,
+# but message framing (Phase 3 item 3.2) and the conformance tests
+# (tests/conformance*.rs, item 3.3) are not built yet, so the tier is not
+# raised.
+[package.metadata.clazel]
+tier = 0
+target-tier = 2
+
+[package.metadata.verus]
+verify = true
+
+[lints]
+workspace = true
