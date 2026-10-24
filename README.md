@@ -85,6 +85,25 @@ cargo xtask verify --changed   # every check, but proofs and tests only for crat
 cargo xtask check        # fast static checks only
 ```
 
+The browser itself, the command-line host shell `clazel` and the sandboxed
+renderer it starts for each tab:
+
+```sh
+cargo build --release --bin clazel --bin clazel-renderer   # both land in target/release/
+target/release/clazel demo          # the Phase 2 exit demo (phase-2.md item 2.16)
+target/release/clazel URL SCRIPT    # open a tab at URL running SCRIPT, printing the kernel's traffic
+```
+
+`clazel` looks for `clazel-renderer` next to its own binary (or at
+`$CLAZEL_RENDERER`), so build both. SCRIPT is the script text itself: renderer
+operations, one per line (`cookie-get`, `cookie-set <cookie>`,
+`storage-get <key>`, ...; the format is in
+`crates/clazel-renderer/src/script.rs`). For example:
+
+```sh
+target/release/clazel https://example.com/ $'cookie-set a=1\ncookie-get'
+```
+
 ## How to get involved
 
 The code is written by AI agents under rules ([CLAUDE.md](CLAUDE.md)) designed
