@@ -118,6 +118,9 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | serde | 1.0.229 | test | Locked but never compiled: `serde_json` names it under the always-false `cfg(any())` to pin versions. |
 | serde_derive | 1.0.229 | test | Locked but never compiled: `serde_core` names it under `cfg(any())`. |
 | syn | 3.0.9 | test | Locked but never compiled: dependency of `serde_derive`. |
+| der | 0.8.2 | test | RustCrypto's DER implementation (used by `rsa`, `x509-cert` and `pkcs8`): the reference engine in `clazel-der`'s differential test (`tests/conformance_der.rs`). Used with default features off and only `alloc` and `oid`, so its only dependencies are `const-oid` and `zeroize` (the smallest DER crate that parses and writes every type item 3.5a covers; no other candidate was needed). Pinned to 0.8.2, the latest stable release. |
+| const-oid | 0.10.2 | test | `der`'s OBJECT IDENTIFIER type (the `oid` feature). No dependencies with default features off. |
+| zeroize | 1.9.1 | test | Memory-wiping helper that `der`'s `alloc` feature names. No dependencies. |
 <!-- END ALLOWLIST -->
 
 The only `shipped` package is `libc`, and only `clazel-sys` depends on it
