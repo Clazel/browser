@@ -144,12 +144,13 @@ pub fn rows(block: &str) -> Result<Rows, String> {
 /// The generated block, markers included, with nothing carried over.
 #[cfg(test)]
 pub fn render(table: &Table) -> String {
-    render_with(table, &Rows::new())
+    render_with(table, &Rows::new(), None)
 }
 
 /// The generated block, taking [`CARRIED_COLUMNS`] from `carried` for the
-/// crates it has a row for, and every other cell from `table`.
-pub fn render_with(table: &Table, carried: &Rows) -> String {
+/// crates it has a row for, and every other cell from `table`. The caller
+/// supplies the measured host-shell count; rendering performs no I/O.
+pub fn render_with(table: &Table, carried: &Rows, host_shell_count: Option<usize>) -> String {
     let dash = || "—".to_owned();
     let mut out = vec![BEGIN.to_owned(), HEADER.to_owned(), RULE.to_owned()];
     for (name, m) in table {
@@ -239,7 +240,7 @@ pub fn render_with(table: &Table, carried: &Rows) -> String {
          [docs/SYS-AUDITS.md](docs/SYS-AUDITS.md)."
             .to_owned(),
     );
-    if let Some(Ok(n)) = host_shell_lines(Path::new(HOST_SHELL_DIR)) {
+    if let Some(n) = host_shell_count {
         out.push(format!(
             "⁶ The host shell (`{HOST_SHELL_DIR}`, item 2.15) is {n} lines, counted as `wc -l` \
              counts them over its Rust files; the plan's limit is {HOST_SHELL_LIMIT}. The \
@@ -328,6 +329,9 @@ mod tests {
         assert!(new.contains(
             "| a | 0 (0) | not used | no harnesses | 0 | 0 (0) | — | — | none | no spec files |"
         ));
+        assert!(!block.contains("⁶ The host shell"));
+        let with_shell = render_with(&t, &super::Rows::new(), Some(298));
+        assert!(with_shell.contains("is 298 lines, counted as `wc -l`"));
         Ok(())
     }
 
@@ -372,12 +376,12 @@ mod tests {
                 ..Metrics::default()
             },
         );
-        let block = render_with(&later, &old);
+        let block = render_with(&later, &old, None);
         assert!(block.contains(
             "| a | 2 (2) | 5 verified, 0 errors | no harnesses | 1 | 0 (0) | 1 / 2 / 3 | 4 / 0 / 0 of 4 | none | 1 of 2 files current |"
         ));
         // Round trip: rendering the full measurement again changes nothing.
-        assert_eq!(render_with(&t, &old), render(&t));
+        assert_eq!(render_with(&t, &old, None), render(&t));
         Ok(())
     }
 

@@ -676,9 +676,10 @@ fn conformance_suites(r: &mut Runner, crates: &[Crate]) {
 /// since their inputs did not change; CI's full run re-measures them all.
 fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
     const NAME: &str = "README status table";
-    if let Some(counted) = report::host_shell_lines(std::path::Path::new(report::HOST_SHELL_DIR)) {
+    let host_shell_count = report::host_shell_lines(std::path::Path::new(report::HOST_SHELL_DIR));
+    if let Some(counted) = host_shell_count.as_ref() {
         match counted {
-            Ok(n) if n < report::HOST_SHELL_LIMIT => {}
+            Ok(n) if *n < report::HOST_SHELL_LIMIT => {}
             Ok(n) => {
                 let limit = report::HOST_SHELL_LIMIT;
                 r.step(
@@ -689,7 +690,7 @@ fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
                     )]),
                 );
             }
-            Err(e) => r.step("host shell size", Outcome::Fail(vec![e])),
+            Err(e) => r.step("host shell size", Outcome::Fail(vec![e.clone()])),
         }
     }
     let carried = match only {
@@ -740,7 +741,7 @@ fn readme_table(r: &mut Runner, write: bool, only: Option<&[Crate]>) {
         );
         return;
     }
-    let block = report::render_with(&r.metrics, &carried);
+    let block = report::render_with(&r.metrics, &carried, host_shell_count.and_then(Result::ok));
     let readme = match std::fs::read_to_string(report::README) {
         Ok(t) => t,
         Err(e) => {
