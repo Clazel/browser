@@ -85,6 +85,48 @@ cargo xtask verify --changed   # every check, but proofs and tests only for crat
 cargo xtask check        # fast static checks only
 ```
 
+## How to get involved
+
+The code is written by AI agents under rules ([CLAUDE.md](CLAUDE.md)) designed
+so that nobody has to trust them. That leaves a lot of useful work for people,
+and much of it is work only a person can do.
+
+- **Check our work.** Rerun every proof on your own machine with the Docker
+  command above, or `scripts/verify.sh`. If anything does not match the
+  [verification status](#verification-status) table, open an issue: a claim
+  nobody can reproduce is a bug.
+- **Review a spec against its standard.** Each `spec.rs` transcribes a
+  standard step by step, with its modelling choices listed at the top
+  ([docs/SPEC-STYLE.md](docs/SPEC-STYLE.md)). Reviews gate nothing, and only
+  people may record one, so a reviewed file means a person read it. See
+  [docs/SPEC-REVIEWS.md](docs/SPEC-REVIEWS.md) for how. `contract.rs` files are
+  the shortest route to what each crate actually promises.
+- **Take errata upstream.** Formalising the standards has found places where
+  they are wrong as written. Agents never file issues with standards bodies;
+  the entries marked "Reported upstream: not yet" in
+  [docs/ERRATA.md](docs/ERRATA.md) are waiting for a person to check them and
+  report them.
+- **Try to break it.** Feed the parsers hostile input, look for a spec bug the
+  proofs would not catch (each crate's `mutations.json` lists the known gaps,
+  marked `survives`), or close one of those gaps with a lemma or a Kani
+  harness.
+- **Add test suites.** Every Tier 2 crate is tested against official suites
+  and independent engines (`tests/conformance*.rs`). Point us at suites we have
+  not vendored, or at engines worth differential testing against.
+- **Run it where we have not.** The Phase 2 process tests (the sandbox, the
+  hostile renderer) have only run on macOS arm64, and never on Linux. The README
+  says why under the status table.
+- **Read `clazel-sys`.** It is the only crate with `unsafe`: 8 blocks that
+  enter the OS sandbox. Every change is audited by a second model
+  ([docs/SYS-AUDITS.md](docs/SYS-AUDITS.md)); a person reading it too is
+  welcome.
+- **Build the next phases.** The plan is in [docs/ROADMAP.md](docs/ROADMAP.md)
+  and the detailed plans in [docs/phases/](docs/phases/). TLS is parked on the
+  `phase3/tls` branch until it passes CI. Contributions go through the same
+  machine checks as everything else, whoever (or whatever) wrote them: read
+  [CLAUDE.md](CLAUDE.md) first, and expect `cargo xtask verify --changed` and
+  CI's full verification to be the bar.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
