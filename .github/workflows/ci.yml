@@ -15,6 +15,11 @@
 #   assemble  `verify --part assemble`: needs every job above to pass, then
 #             checks that every crate's measurements are present and from
 #             this commit, and that README.md's table matches them.
+#   release   `cargo build --release --locked` of the shipped binaries
+#             (`clazel` and `clazel-renderer`) for Linux x86-64, uploaded as
+#             a tarball with its SHA-256. It is a build, not a check: the
+#             binaries are only as verified as the commit's Full
+#             verification says.
 #
 # Together the parts run exactly the checks of one `scripts/verify.sh`, which
 # still runs them all on one machine. Verification has passed only when every
@@ -147,3 +152,33 @@ jobs:
           merge-multiple: true
       - name: Assemble
         run: cargo xtask verify --part assemble --metrics parts
+
+  release:
+    name: Release build (Linux x86-64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        run: rustup toolchain install
+      - name: cargo build --release
+        run: cargo build --release --locked --bin clazel --bin clazel-renderer
+      - name: Package
+        run: |
+          name="clazel-linux-x86_64-${GITHUB_SHA::12}"
+          mkdir -p "dist/$name"
+          cp target/release/clazel target/release/clazel-renderer LICENSE "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          (cd dist && sha256sum "$name.tar.gz" > "$name.tar.gz.sha256")
+          echo "NAME=$name" >> "$GITHUB_ENV"
+      - name: Upload
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ env.NAME }}
+          path: |
+            dist/${{ env.NAME }}.tar.gz
+            dist/${{ env.NAME }}.tar.gz.sha256
+          if-no-files-found: error
+          retention-days: 30
