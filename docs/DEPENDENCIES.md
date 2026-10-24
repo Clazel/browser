@@ -108,6 +108,8 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | windows_x86_64_gnu | 0.52.6 | test | Locked but never compiled: Windows import library, dependency of `windows-targets`. |
 | windows_x86_64_gnullvm | 0.52.6 | test | Locked but never compiled: Windows import library, dependency of `windows-targets`. |
 | windows_x86_64_msvc | 0.52.6 | test | Locked but never compiled: Windows import library, dependency of `windows-targets`. |
+| simple-dns | 0.12.0 | test | A DNS message parser and writer (balliegojr/simple-dns): the reference engine in `clazel-dns`'s differential test (`tests/conformance_dns.rs`), which writes random messages with it (with and without name compression), reads them with `clazel-dns` and compares, and compares what both read from the same mutated octets. Chosen as the full-message parser with the fewest dependencies that also writes responses: `dnsparse` has none but reads only the header, questions and answers (and uses `unsafe`), and `dns-parser` has two (`byteorder`, `quick-error`) and writes only queries. Its only dependency is `bitflags`. |
+| bitflags | 2.13.2 | test | Bit-flag macro, required by `simple-dns`. No dependencies. |
 | serde_json | 1.0.154 | tooling | `xtask` parses `cargo metadata` output. |
 | serde_core | 1.0.229 | test | Required by `serde_json`. |
 | itoa | 1.0.18 | test | Integer formatting, required by `serde_json`. |

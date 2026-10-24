@@ -1,0 +1,2062 @@
+{
+  "mutations": [
+    {
+      "id": "header-id",
+      "file": "src/spec.rs",
+      "find": "id: u16_at(b, 0) as u16,",
+      "replace": "id: u16_at(b, 2) as u16,",
+      "expect": "killed",
+      "reason": "§4.1.1 ID: reads the flags word as the ID; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-qr",
+      "file": "src/spec.rs",
+      "find": "qr: (w / 32768) % 2 == 1,",
+      "replace": "qr: (w / 16384) % 2 == 1,",
+      "expect": "killed",
+      "reason": "§4.1.1 QR: reads the top OPCODE bit as QR; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-opcode",
+      "file": "src/spec.rs",
+      "find": "opcode: ((w / 2048) % 16) as u8,",
+      "replace": "opcode: ((w / 1024) % 16) as u8,",
+      "expect": "killed",
+      "reason": "§4.1.1 OPCODE: reads OPCODE one bit too low; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-aa",
+      "file": "src/spec.rs",
+      "find": "aa: (w / 1024) % 2 == 1,",
+      "replace": "aa: (w / 512) % 2 == 1,",
+      "expect": "killed",
+      "reason": "§4.1.1 AA: reads TC as AA; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-tc",
+      "file": "src/spec.rs",
+      "find": "tc: (w / 512) % 2 == 1,",
+      "replace": "tc: (w / 256) % 2 == 1,",
+      "expect": "killed",
+      "reason": "§4.1.1 TC: reads RD as TC; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-rd",
+      "file": "src/spec.rs",
+      "find": "rd: (w / 256) % 2 == 1,",
+      "replace": "rd: (w / 128) % 2 == 1,",
+      "expect": "killed",
+      "reason": "§4.1.1 RD: reads RA as RD; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-ra",
+      "file": "src/spec.rs",
+      "find": "ra: (w / 128) % 2 == 1,",
+      "replace": "ra: (w / 64) % 2 == 1,",
+      "expect": "killed",
+      "reason": "§4.1.1 RA: reads Z as RA; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-rcode",
+      "file": "src/spec.rs",
+      "find": "rcode: (w % 16) as u8,",
+      "replace": "rcode: (w % 8) as u8,",
+      "expect": "killed",
+      "reason": "§4.1.1 RCODE: keeps three bits of RCODE; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-qdcount",
+      "file": "src/spec.rs",
+      "find": "qdcount: u16_at(b, 4) as u16,",
+      "replace": "qdcount: u16_at(b, 6) as u16,",
+      "expect": "killed",
+      "reason": "§4.1.1 QDCOUNT: reads ANCOUNT as QDCOUNT; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-ancount",
+      "file": "src/spec.rs",
+      "find": "ancount: u16_at(b, 6) as u16,",
+      "replace": "ancount: u16_at(b, 8) as u16,",
+      "expect": "killed",
+      "reason": "§4.1.1 ANCOUNT: reads NSCOUNT as ANCOUNT; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-nscount",
+      "file": "src/spec.rs",
+      "find": "nscount: u16_at(b, 8) as u16,",
+      "replace": "nscount: u16_at(b, 10) as u16,",
+      "expect": "killed",
+      "reason": "§4.1.1 NSCOUNT: reads ARCOUNT as NSCOUNT; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-arcount",
+      "file": "src/spec.rs",
+      "find": "arcount: u16_at(b, 10) as u16,",
+      "replace": "arcount: u16_at(b, 4) as u16,",
+      "expect": "killed",
+      "reason": "§4.1.1 ARCOUNT: reads QDCOUNT as ARCOUNT; the header with every field different decodes differently, so lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-flags-word",
+      "file": "src/spec.rs",
+      "find": "let w = u16_at(b, 2);",
+      "replace": "let w = u16_at(b, 0);",
+      "expect": "killed",
+      "reason": "The flags are the second pair of octets, not the ID; lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "header-z-ignored",
+      "file": "src/spec.rs",
+      "find": "if z != 0 {",
+      "replace": "if z > 7 {",
+      "expect": "killed",
+      "reason": "§4.1.1: Z \"must be zero in all queries and responses\": a header with Z set is accepted; lemma_header_other_bits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_other_bits()",
+        "witness": "decode_header(seq![0u8, 0, 0x00, 0x10, 0, 0, 0, 0, 0, 0, 0, 0]) is Some"
+      }
+    },
+    {
+      "id": "header-z-width",
+      "file": "src/spec.rs",
+      "find": "let z = (w / 16) % 8;",
+      "replace": "let z = (w / 16) % 4;",
+      "expect": "killed",
+      "reason": "Z is three bits: with two, a header with the third Z bit set is accepted; lemma_header_other_bits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_other_bits()",
+        "witness": "decode_header(seq![0u8, 0, 0x00, 0x40, 0, 0, 0, 0, 0, 0, 0, 0]) is Some"
+      }
+    },
+    {
+      "id": "header-z-position",
+      "file": "src/spec.rs",
+      "find": "let z = (w / 16) % 8;",
+      "replace": "let z = (w / 32) % 8;",
+      "expect": "killed",
+      "reason": "Z is bits 4 to 6: one position up, a header with the lowest Z bit set is accepted; lemma_header_other_bits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_other_bits()",
+        "witness": "decode_header(seq![0u8, 0, 0x00, 0x10, 0, 0, 0, 0, 0, 0, 0, 0]) is Some"
+      }
+    },
+    {
+      "id": "header-length",
+      "file": "src/spec.rs",
+      "find": "if b.len() < 12 {",
+      "replace": "if b.len() < 13 {",
+      "expect": "killed",
+      "reason": "§4.1.1: the header is twelve octets: a message of exactly twelve is rejected; lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) is None"
+      }
+    },
+    {
+      "id": "u16-radix",
+      "file": "src/spec.rs",
+      "find": "b[pos as int] as nat * 256 + b[pos as int + 1] as nat",
+      "replace": "b[pos as int] as nat * 255 + b[pos as int + 1] as nat",
+      "expect": "killed",
+      "reason": "A 16-bit field is two octets in base 256; lemma_header_fields is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_header_fields()",
+        "witness": "decode_header(seq![0x12u8, 0x34, 0xAA, 0x8A, 0, 3, 0, 2, 0, 1, 0, 4]) != Some(Header { id: 0x1234, qr: true, opcode: 5, aa: false, tc: true, rd: false, ra: true, z: 0, rcode: 10, qdcount: 3, ancount: 2, nscount: 1, arcount: 4 })"
+      }
+    },
+    {
+      "id": "u32-radix",
+      "file": "src/spec.rs",
+      "find": "u16_at(b, pos) * 65536 + u16_at(b, pos + 2)",
+      "replace": "u16_at(b, pos) * 65535 + u16_at(b, pos + 2)",
+      "expect": "killed",
+      "reason": "A 32-bit field is two 16-bit halves in base 65536: the address 1.2.3.4 decodes wrongly, so lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "u32-low-half",
+      "file": "src/spec.rs",
+      "find": "u16_at(b, pos) * 65536 + u16_at(b, pos + 2)",
+      "replace": "u16_at(b, pos) * 65536 + u16_at(b, pos)",
+      "expect": "killed",
+      "reason": "The low half of a 32-bit field is the next two octets; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "be-value-radix",
+      "file": "src/spec.rs",
+      "find": "be_value(s.drop_last()) * 256 + s.last() as nat",
+      "replace": "be_value(s.drop_last()) * 255 + s.last() as nat",
+      "expect": "killed",
+      "reason": "An AAAA address is sixteen octets in base 256; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "be16-order",
+      "file": "src/spec.rs",
+      "find": "seq![(v / 256 % 256) as u8, (v % 256) as u8]",
+      "replace": "seq![(v % 256) as u8, (v / 256 % 256) as u8]",
+      "expect": "killed",
+      "reason": "Network order is most significant octet first: the query for ID 0x1234 is built with the octets swapped; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "case-lower-low",
+      "file": "src/spec.rs",
+      "find": "if 65 <= x && x <= 90 {",
+      "replace": "if 64 <= x && x <= 90 {",
+      "expect": "killed",
+      "reason": "§2.3.3: only A to Z fold: `@` folds to `` ` ``; lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "bytes_eq_ci(seq![64u8], seq![96u8])"
+      }
+    },
+    {
+      "id": "case-lower-high",
+      "file": "src/spec.rs",
+      "find": "if 65 <= x && x <= 90 {",
+      "replace": "if 65 <= x && x <= 91 {",
+      "expect": "killed",
+      "reason": "§2.3.3: only A to Z fold: `[` folds to `{`; lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "bytes_eq_ci(seq![91u8], seq![123u8])"
+      }
+    },
+    {
+      "id": "case-lower-shift",
+      "file": "src/spec.rs",
+      "find": "(x + 32) as u8",
+      "replace": "(x + 31) as u8",
+      "expect": "killed",
+      "reason": "§2.3.3: A folds to a (offset 32); lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "!bytes_eq_ci(seq![65u8], seq![97u8])"
+      }
+    },
+    {
+      "id": "case-sensitive",
+      "file": "src/spec.rs",
+      "find": "} else if lower(a[i as int]) != lower(b[i as int]) {",
+      "replace": "} else if a[i as int] != b[i as int] {",
+      "expect": "killed",
+      "reason": "§2.3.3: comparison is case-insensitive; lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "!bytes_eq_ci(seq![65u8], seq![97u8])"
+      }
+    },
+    {
+      "id": "case-first-octet-only",
+      "file": "src/spec.rs",
+      "find": "eq_from(a, b, i + 1)\n    }",
+      "replace": "true\n    }",
+      "expect": "killed",
+      "reason": "Every octet is compared, not only the first; lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "bytes_eq_ci(seq![97u8, 98u8], seq![97u8, 99u8])"
+      }
+    },
+    {
+      "id": "case-length",
+      "file": "src/spec.rs",
+      "find": "a.len() == b.len() && eq_from(a, b, 0)",
+      "replace": "eq_from(a, b, 0)",
+      "expect": "killed",
+      "reason": "Names of different lengths are different; lemma_case_folding is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_case_folding()",
+        "witness": "bytes_eq_ci(seq![97u8], seq![97u8, 98u8])"
+      }
+    },
+    {
+      "id": "name-zero-octet",
+      "file": "src/spec.rs",
+      "find": "if len == 0 {",
+      "replace": "if len == 255 {",
+      "expect": "killed",
+      "reason": "§3.1: a zero length octet ends a name; the root at offset 92 of the §4.1.4 figure is not read; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 92) is None"
+      }
+    },
+    {
+      "id": "name-label-high-bound",
+      "file": "src/spec.rs",
+      "find": "} else if len < 64 {",
+      "replace": "} else if len < 65 {",
+      "expect": "killed",
+      "reason": "§2.3.4: labels are 63 octets or less: a label of 64 is accepted; lemma_label_limit is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_label_limit()",
+        "witness": "decode_name(seq![64u8] + crate::examples::fill(97, 64) + seq![0u8], 0) is Some"
+      }
+    },
+    {
+      "id": "name-reserved-01",
+      "file": "src/spec.rs",
+      "find": "} else if len < 64 {",
+      "replace": "} else if len < 128 {",
+      "expect": "killed",
+      "reason": "§4.1.4: the label type 01 is reserved: a length octet of 0x40 is read as a label; lemma_reserved_prefixes is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reserved_prefixes()",
+        "witness": "decode_name(seq![0x40u8] + crate::examples::fill(97, 64) + seq![0u8], 0) is Some"
+      }
+    },
+    {
+      "id": "name-reserved-10",
+      "file": "src/spec.rs",
+      "find": "} else if len < 64 {",
+      "replace": "} else if len < 64 || (len >= 128 && len < 192) {",
+      "expect": "killed",
+      "reason": "§4.1.4: the label type 10 is reserved: a length octet of 0x80 is read as a label; lemma_reserved_prefixes is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reserved_prefixes()",
+        "witness": "decode_name(seq![0x80u8] + crate::examples::fill(97, 128) + seq![0u8], 0) is Some"
+      }
+    },
+    {
+      "id": "name-pointer-prefix",
+      "file": "src/spec.rs",
+      "find": "} else if len >= 192 {",
+      "replace": "} else if len >= 224 {",
+      "expect": "killed",
+      "reason": "§4.1.4: a pointer begins with two one bits (0xC0 to 0xFF); with 0xE0 as the bound, the pointer at offset 44 is reserved; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 40) is None"
+      }
+    },
+    {
+      "id": "name-pointer-high-bits",
+      "file": "src/spec.rs",
+      "find": "(len as nat - 192) * 256",
+      "replace": "(len as nat - 192) * 255",
+      "expect": "killed",
+      "reason": "§4.1.4: the offset is 14 bits, the low six bits of the first octet are its high part; lemma_pointer_offset_bits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_pointer_offset_bits()",
+        "witness": "decode_name(crate::examples::fill(0, 256) + seq![1u8, 97, 0] + crate::examples::fill(0, 11) + seq![0xC1u8, 0x00], 270) != Some((seq![1u8, 97, 0], 272nat))"
+      }
+    },
+    {
+      "id": "name-pointer-low-octet",
+      "file": "src/spec.rs",
+      "find": "b[pos as int + 1] as nat) as nat;",
+      "replace": "b[pos as int] as nat) as nat;",
+      "expect": "killed",
+      "reason": "§4.1.4: the second octet of a pointer is the low part of the offset; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 40) != Some((seq![3u8, 70, 79, 79, 1, 70, 3, 73, 83, 73, 4, 65, 82, 80, 65, 0], 46nat))"
+      }
+    },
+    {
+      "id": "name-pointer-limit",
+      "file": "src/spec.rs",
+      "find": "read_name(b, target, pos, acc, Some(match end {",
+      "replace": "read_name(b, target, limit, acc, Some(match end {",
+      "expect": "killed",
+      "reason": "§4.1.4 \"a prior occurance\": the name found through a pointer need not end before the pointer, so a pointer at offset 2 reaches a label covering its own octets; lemma_pointer_overlap_rejected is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_pointer_overlap_rejected()",
+        "witness": "decode_name(seq![4u8, 0x41, 0xC0, 0x00, 0x42, 0], 2) is Some"
+      }
+    },
+    {
+      "id": "name-pointer-end",
+      "file": "src/spec.rs",
+      "find": "None => pos + 2,",
+      "replace": "None => pos + 1,",
+      "expect": "killed",
+      "reason": "§4.1.4: a name that ends with a pointer ends after its two octets; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 40) != Some((seq![3u8, 70, 79, 79, 1, 70, 3, 73, 83, 73, 4, 65, 82, 80, 65, 0], 46nat))"
+      }
+    },
+    {
+      "id": "name-end-after-zero",
+      "file": "src/spec.rs",
+      "find": "None => pos + 1,",
+      "replace": "None => pos + 2,",
+      "expect": "killed",
+      "reason": "§3.1: a name that ends with a zero octet ends after it; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 92) != Some((seq![0u8], 93nat))"
+      }
+    },
+    {
+      "id": "name-end-after-first-pointer",
+      "file": "src/spec.rs",
+      "find": "Some(e) => e,\n                None => pos + 1,",
+      "replace": "Some(e) => pos + 1,\n                None => pos + 1,",
+      "expect": "killed",
+      "reason": "§4.1.4: the length of the compressed name counts, not that of the expanded: after a followed pointer the name ends where the first pointer ended; lemma_rfc_1035_4_1_4_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_rfc_1035_4_1_4_example()",
+        "witness": "decode_name(crate::examples::rfc_figure(), 40) != Some((seq![3u8, 70, 79, 79, 1, 70, 3, 73, 83, 73, 4, 65, 82, 80, 65, 0], 46nat))"
+      }
+    },
+    {
+      "id": "name-limit-lax",
+      "file": "src/spec.rs",
+      "find": "acc.len() + 1 + len as nat > 254",
+      "replace": "acc.len() + 1 + len as nat > 255",
+      "expect": "killed",
+      "reason": "§2.3.4: names are 255 octets or less: one of 256 is accepted; lemma_name_limit is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_name_limit()",
+        "witness": "decode_name(crate::examples::max_name(62), 0) is Some"
+      }
+    },
+    {
+      "id": "name-limit-strict",
+      "file": "src/spec.rs",
+      "find": "acc.len() + 1 + len as nat > 254",
+      "replace": "acc.len() + 1 + len as nat > 253",
+      "expect": "killed",
+      "reason": "§2.3.4: names are 255 octets or less: one of 255 is rejected; lemma_name_limit is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_name_limit()",
+        "witness": "decode_name(crate::examples::max_name(61), 0) is None"
+      }
+    },
+    {
+      "id": "question-fields-swapped",
+      "file": "src/spec.rs",
+      "find": "qtype: u16_at(b, p) as u16, qclass: u16_at(b, p + 2) as u16 }",
+      "replace": "qtype: u16_at(b, p + 2) as u16, qclass: u16_at(b, p) as u16 }",
+      "expect": "killed",
+      "reason": "§4.1.2: QTYPE comes before QCLASS; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "question-end",
+      "file": "src/spec.rs",
+      "find": "qclass: u16_at(b, p + 2) as u16 }, p + 4))",
+      "replace": "qclass: u16_at(b, p + 2) as u16 }, p + 3))",
+      "expect": "killed",
+      "reason": "§4.1.2: a question ends after QCLASS (four octets after the name); lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-type-field",
+      "file": "src/spec.rs",
+      "find": "let rtype = u16_at(b, p) as u16;",
+      "replace": "let rtype = u16_at(b, p + 2) as u16;",
+      "expect": "killed",
+      "reason": "§4.1.3: TYPE comes before CLASS; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-class-field",
+      "file": "src/spec.rs",
+      "find": "let rclass = u16_at(b, p + 2) as u16;",
+      "replace": "let rclass = u16_at(b, p) as u16;",
+      "expect": "killed",
+      "reason": "§4.1.3: CLASS follows TYPE; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-ttl-field",
+      "file": "src/spec.rs",
+      "find": "ttl: u32_at(b, p + 4) as u32",
+      "replace": "ttl: u32_at(b, p + 6) as u32",
+      "expect": "killed",
+      "reason": "§4.1.3: the 32-bit TTL follows CLASS; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-rdlength-field",
+      "file": "src/spec.rs",
+      "find": "let rdlength = u16_at(b, p + 8);",
+      "replace": "let rdlength = u16_at(b, p + 6);",
+      "expect": "killed",
+      "reason": "§4.1.3: RDLENGTH follows the TTL; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-rdata-start",
+      "file": "src/spec.rs",
+      "find": "let rstart = p + 10;",
+      "replace": "let rstart = p + 9;",
+      "expect": "killed",
+      "reason": "§4.1.3: RDATA follows RDLENGTH, ten octets after the name; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rr-end",
+      "file": "src/spec.rs",
+      "find": "rdata }, rend))",
+      "replace": "rdata }, rend + 1))",
+      "expect": "killed",
+      "reason": "§4.1.3: a record ends where its RDATA ends; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rdata-a-length",
+      "file": "src/spec.rs",
+      "find": "if rend - rstart == 4 {",
+      "replace": "if rend - rstart == 3 {",
+      "expect": "killed",
+      "reason": "§3.4.1: an A record holds four octets; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rdata-a-value",
+      "file": "src/spec.rs",
+      "find": "Some(Rdata::A(u32_at(b, rstart) as u32))",
+      "replace": "Some(Rdata::A(u16_at(b, rstart) as u32))",
+      "expect": "killed",
+      "reason": "§3.4.1: the address is all four octets; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rdata-aaaa-length",
+      "file": "src/spec.rs",
+      "find": "if rend - rstart == 16 {",
+      "replace": "if rend - rstart == 15 {",
+      "expect": "killed",
+      "reason": "RFC 3596 §2.2: an AAAA record holds sixteen octets; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "rdata-a-class",
+      "file": "src/spec.rs",
+      "find": "if rclass == CLASS_IN && rtype == TYPE_A {",
+      "replace": "if rtype == TYPE_A {",
+      "expect": "killed",
+      "reason": "§3.4.1: the A format is that of class IN; in another class the RDATA is not interpreted; lemma_other_classes_opaque is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_other_classes_opaque()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 1, 44, 0, 1, 9]) is None"
+      }
+    },
+    {
+      "id": "rdata-aaaa-class",
+      "file": "src/spec.rs",
+      "find": "} else if rclass == CLASS_IN && rtype == TYPE_AAAA {",
+      "replace": "} else if rtype == TYPE_AAAA {",
+      "expect": "killed",
+      "reason": "RFC 3596 §2.1: AAAA belongs to class IN; in another class the RDATA is not interpreted; lemma_other_classes_opaque is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_other_classes_opaque()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 28, 0, 3, 0, 0, 1, 44, 0, 1, 9]) is None"
+      }
+    },
+    {
+      "id": "rdata-cname-class",
+      "file": "src/spec.rs",
+      "find": "} else if rclass == CLASS_IN && rtype == TYPE_CNAME {",
+      "replace": "} else if rtype == TYPE_CNAME {",
+      "expect": "killed",
+      "reason": "§3.3.1: the CNAME format is that of class IN; in another class the RDATA is not interpreted; lemma_other_classes_opaque is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_other_classes_opaque()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 0, 3, 0, 0, 1, 44, 0, 1, 9]) is None"
+      }
+    },
+    {
+      "id": "rdata-cname-fills",
+      "file": "src/spec.rs",
+      "find": "if e == rend {",
+      "replace": "if e <= rend {",
+      "expect": "killed",
+      "reason": "§3.3.1 and §4.1.4: RDLENGTH counts the compressed name, so the name fills the RDATA; with octets left over a CNAME is accepted; lemma_record_rules is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_record_rules()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 5, 0, 1, 0, 0, 1, 44, 0, 4, 1, 98, 0, 0]) is Some"
+      }
+    },
+    {
+      "id": "rdata-opaque",
+      "file": "src/spec.rs",
+      "find": "Some(Rdata::Opaque(b.subrange(rstart as int, rend as int)))",
+      "replace": "Some(Rdata::Opaque(seq![]))",
+      "expect": "killed",
+      "reason": "§3.2.2: an unknown type is kept as opaque RDATA; lemma_record_rules is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_record_rules()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 16, 0, 1, 0, 0, 1, 44, 0, 2, 1, 9]) != Some(Message { header: crate::examples::reply_header(false, 0, 0, 1, 0, 0), questions: seq![], answers: seq![Rr { name: seq![0u8], rtype: 16, rclass: 1, ttl: 300, rdata: Rdata::Opaque(seq![1u8, 9]) }], authority: seq![], additional: seq![] })"
+      }
+    },
+    {
+      "id": "rdata-unknown-error",
+      "file": "src/spec.rs",
+      "find": "Some(Rdata::Opaque(b.subrange(rstart as int, rend as int)))",
+      "replace": "None",
+      "expect": "killed",
+      "reason": "§3.2.2: an unknown type is never an error; lemma_record_rules is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_record_rules()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 16, 0, 1, 0, 0, 1, 44, 0, 2, 1, 9]) is None"
+      }
+    },
+    {
+      "id": "message-answer-count",
+      "file": "src/spec.rs",
+      "find": "read_rrs(b, p1, h.ancount as nat, seq![])",
+      "replace": "read_rrs(b, p1, h.nscount as nat, seq![])",
+      "expect": "killed",
+      "reason": "§4.1.1: ANCOUNT is the number of answer records; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "message-authority-count",
+      "file": "src/spec.rs",
+      "find": "read_rrs(b, p2, h.nscount as nat, seq![])",
+      "replace": "read_rrs(b, p2, h.ancount as nat, seq![])",
+      "expect": "killed",
+      "reason": "§4.1.1: NSCOUNT is the number of authority records; lemma_three_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_three_sections()",
+        "witness": "decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) != Some(Message {\n                header: crate::examples::reply_header(false, 0, 0, 1, 2, 3),\n                questions: seq![],\n                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],\n                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],\n                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],\n            })"
+      }
+    },
+    {
+      "id": "message-additional-count",
+      "file": "src/spec.rs",
+      "find": "read_rrs(b, p3, h.arcount as nat, seq![])",
+      "replace": "read_rrs(b, p3, h.nscount as nat, seq![])",
+      "expect": "killed",
+      "reason": "§4.1.1: ARCOUNT is the number of additional records; lemma_three_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_three_sections()",
+        "witness": "decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) != Some(Message {\n                header: crate::examples::reply_header(false, 0, 0, 1, 2, 3),\n                questions: seq![],\n                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],\n                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],\n                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],\n            })"
+      }
+    },
+    {
+      "id": "message-question-count",
+      "file": "src/spec.rs",
+      "find": "read_questions(b, 12, h.qdcount as nat, seq![])",
+      "replace": "read_questions(b, 12, h.ancount as nat, seq![])",
+      "expect": "killed",
+      "reason": "§4.1.1: QDCOUNT is the number of questions; lemma_three_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_three_sections()",
+        "witness": "decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) != Some(Message {\n                header: crate::examples::reply_header(false, 0, 0, 1, 2, 3),\n                questions: seq![],\n                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],\n                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],\n                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],\n            })"
+      }
+    },
+    {
+      "id": "message-sections-swapped",
+      "file": "src/spec.rs",
+      "find": "Some(Message { header: h, questions, answers, authority, additional })",
+      "replace": "Some(Message { header: h, questions, answers, authority: additional, additional: authority })",
+      "expect": "killed",
+      "reason": "§4.1: the third section is the authority section and the fourth the additional; lemma_three_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_three_sections()",
+        "witness": "decode_message(seq![0u8, 7, 129, 128, 0, 0, 0, 1, 0, 2, 0, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 1, 1, 1, 1, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 2, 2, 2, 2, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 4, 4, 4, 4, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 3, 3, 3, 3, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 5, 5, 5, 5, 0, 0, 1, 0, 1, 0, 0, 0, 60, 0, 4, 6, 6, 6, 6]) != Some(Message {\n                header: crate::examples::reply_header(false, 0, 0, 1, 2, 3),\n                questions: seq![],\n                answers: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x01010101) }],\n                authority: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x02020202) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x04040404) }],\n                additional: seq![Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x03030303) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x05050505) }, Rr { name: seq![0u8], rtype: 1, rclass: 1, ttl: 60, rdata: Rdata::A(0x06060606) }],\n            })"
+      }
+    },
+    {
+      "id": "message-trailing-octets",
+      "file": "src/spec.rs",
+      "find": "if p4 == b.len() {",
+      "replace": "if p4 <= b.len() {",
+      "expect": "killed",
+      "reason": "Octets after the last record are an error (a modelling choice of spec.rs): lemma_record_rules is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_record_rules()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0]) is Some"
+      }
+    },
+    {
+      "id": "message-udp-limit",
+      "file": "src/spec.rs",
+      "find": "if b.len() > MAX_UDP {\n        None\n    } else {\n        decode_message(b)",
+      "replace": "if b.len() >= MAX_UDP {\n        None\n    } else {\n        decode_message(b)",
+      "expect": "killed",
+      "reason": "§2.3.4: UDP messages are 512 octets or less: one of exactly 512 is refused; lemma_udp_limit is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_udp_limit()",
+        "witness": "decode_udp(crate::examples::big_message(489)) is None"
+      }
+    },
+    {
+      "id": "message-udp-lax",
+      "file": "src/spec.rs",
+      "find": "pub const MAX_UDP: usize = 512;",
+      "replace": "pub const MAX_UDP: usize = 513;",
+      "expect": "killed",
+      "reason": "§2.3.4: UDP messages are 512 octets or less: one of 513 is decoded; lemma_udp_limit is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_udp_limit()",
+        "witness": "decode_udp(crate::examples::big_message(490)) is Some"
+      }
+    },
+    {
+      "id": "limit-tcp",
+      "file": "src/spec.rs",
+      "find": "pub const MAX_TCP: usize = 65535;",
+      "replace": "pub const MAX_TCP: usize = 65536;",
+      "expect": "killed",
+      "reason": "§4.2.2: the length of a TCP message is two octets, so 65535 at most; lemma_limits_and_codes is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_limits_and_codes()",
+        "witness": "MAX_TCP != 65535"
+      }
+    },
+    {
+      "id": "limit-label",
+      "file": "src/spec.rs",
+      "find": "pub const MAX_LABEL: usize = 63;",
+      "replace": "pub const MAX_LABEL: usize = 64;",
+      "expect": "killed",
+      "reason": "§2.3.4: labels are 63 octets or less: a dotted label of 64 is accepted; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::fill(97, 64)) is Some"
+      }
+    },
+    {
+      "id": "limit-name",
+      "file": "src/spec.rs",
+      "find": "pub const MAX_NAME: usize = 255;",
+      "replace": "pub const MAX_NAME: usize = 256;",
+      "expect": "killed",
+      "reason": "§2.3.4: names are 255 octets or less: a dotted name of 256 is accepted; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::dotted_name(62)) is Some"
+      }
+    },
+    {
+      "id": "code-type-a",
+      "file": "src/spec.rs",
+      "find": "pub const TYPE_A: u16 = 1;",
+      "replace": "pub const TYPE_A: u16 = 2;",
+      "expect": "killed",
+      "reason": "§3.2.2: TYPE A is 1; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "code-type-cname",
+      "file": "src/spec.rs",
+      "find": "pub const TYPE_CNAME: u16 = 5;",
+      "replace": "pub const TYPE_CNAME: u16 = 6;",
+      "expect": "killed",
+      "reason": "§3.2.2: TYPE CNAME is 5; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 5, 0, 1, 0, 0, 1, 44, 0, 4, 1, 98, 0xC0, 12]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::cname_rr(crate::examples::na(), seq![1u8, 98, 1, 97, 0])], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "code-type-aaaa",
+      "file": "src/spec.rs",
+      "find": "pub const TYPE_AAAA: u16 = 28;",
+      "replace": "pub const TYPE_AAAA: u16 = 29;",
+      "expect": "killed",
+      "reason": "RFC 3596 §2.1: TYPE AAAA is 28; lemma_reply_aaaa_and_cname is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_aaaa_and_cname()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1, 0xC0, 12, 0, 28, 0, 1, 0, 0, 1, 44, 0, 16, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]) != Some(crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 0x0102030405060708090a0b0c0d0e0f10)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "code-class-in",
+      "file": "src/spec.rs",
+      "find": "pub const CLASS_IN: u16 = 1;",
+      "replace": "pub const CLASS_IN: u16 = 2;",
+      "expect": "killed",
+      "reason": "§3.2.4: CLASS IN is 1; lemma_reply_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_reply_example()",
+        "witness": "decode_message(seq![0u8, 7, 0x81, 0x80, 0, 1, 0, 1, 0, 0, 0, 0, 1, 97, 0, 0, 1, 0, 1, 0xC0, 12, 0, 1, 0, 1, 0, 0, 1, 44, 0, 4, 1, 2, 3, 4]) != Some(crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304)], seq![], seq![]))"
+      }
+    },
+    {
+      "id": "dotted-empty",
+      "file": "src/spec.rs",
+      "find": "if s.len() == 0 {\n        None\n    } else if s == seq![46u8] {",
+      "replace": "if s.len() == 99999 {\n        None\n    } else if s == seq![46u8] {",
+      "expect": "killed",
+      "reason": "An empty host name is not a name; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![]) is Some"
+      }
+    },
+    {
+      "id": "dotted-root",
+      "file": "src/spec.rs",
+      "find": "} else if s == seq![46u8] {",
+      "replace": "} else if s == seq![47u8] {",
+      "expect": "killed",
+      "reason": "\".\" alone is the root; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![46u8]) is None"
+      }
+    },
+    {
+      "id": "dotted-empty-label",
+      "file": "src/spec.rs",
+      "find": "if i == start || i - start > MAX_LABEL as nat {",
+      "replace": "if i - start > MAX_LABEL as nat {",
+      "expect": "killed",
+      "reason": "An empty label (\"a..b\") is not a name; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 46, 46, 98]) is Some"
+      }
+    },
+    {
+      "id": "dotted-ascii",
+      "file": "src/spec.rs",
+      "find": "} else if s[i as int] >= 128 {",
+      "replace": "} else if s[i as int] > 128 {",
+      "expect": "killed",
+      "reason": "The name is ASCII: octets of 128 and over are refused; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 128]) is Some"
+      }
+    },
+    {
+      "id": "dotted-trailing-dot",
+      "file": "src/spec.rs",
+      "find": "            // The name ended with a dot.\n            Some(acc)",
+      "replace": "            // The name ended with a dot.\n            None",
+      "expect": "killed",
+      "reason": "One trailing dot is allowed; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 46]) is None"
+      }
+    },
+    {
+      "id": "dotted-length-octet-inner",
+      "file": "src/spec.rs",
+      "find": "dotted_scan(s, i + 1, i + 1, acc + seq![(i - start) as u8] + s.subrange(start as int, i as int))",
+      "replace": "dotted_scan(s, i + 1, i + 1, acc + seq![(i - start + 1) as u8] + s.subrange(start as int, i as int))",
+      "expect": "killed",
+      "reason": "§3.1: a label is its length octet and then its octets; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 46, 98, 99]) != Some(seq![1u8, 97, 2, 98, 99, 0])"
+      }
+    },
+    {
+      "id": "dotted-length-octet-last",
+      "file": "src/spec.rs",
+      "find": "Some(acc + seq![(i - start) as u8] + s.subrange(start as int, i as int))",
+      "replace": "Some(acc + seq![(i - start + 1) as u8] + s.subrange(start as int, i as int))",
+      "expect": "killed",
+      "reason": "§3.1: the last label too; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 46, 98, 99]) != Some(seq![1u8, 97, 2, 98, 99, 0])"
+      }
+    },
+    {
+      "id": "dotted-label-start",
+      "file": "src/spec.rs",
+      "find": "dotted_scan(s, i + 1, start, acc)",
+      "replace": "dotted_scan(s, i + 1, i + 1, acc)",
+      "expect": "killed",
+      "reason": "A label runs from the previous dot to the next; lemma_dotted_names is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_names()",
+        "witness": "dotted_to_wire(seq![97u8, 46, 98, 99]) != Some(seq![1u8, 97, 2, 98, 99, 0])"
+      }
+    },
+    {
+      "id": "dotted-label-limit-last",
+      "file": "src/spec.rs",
+      "find": "if i - start > MAX_LABEL as nat {\n                // §2.3.4: \"labels 63 octets or less\".",
+      "replace": "if i - start >= MAX_LABEL as nat {\n                // §2.3.4: \"labels 63 octets or less\".",
+      "expect": "killed",
+      "reason": "§2.3.4: a label of 63 octets is allowed; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::fill(97, 63)) is None"
+      }
+    },
+    {
+      "id": "dotted-label-limit-last-lax",
+      "file": "src/spec.rs",
+      "find": "if i - start > MAX_LABEL as nat {\n                // §2.3.4: \"labels 63 octets or less\".",
+      "replace": "if i - start > 64 {\n                // §2.3.4: \"labels 63 octets or less\".",
+      "expect": "killed",
+      "reason": "§2.3.4: a last label of 64 octets is refused; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::fill(97, 64)) is Some"
+      }
+    },
+    {
+      "id": "dotted-label-limit-inner",
+      "file": "src/spec.rs",
+      "find": "if i == start || i - start > MAX_LABEL as nat {",
+      "replace": "if i == start || i - start >= MAX_LABEL as nat {",
+      "expect": "killed",
+      "reason": "§2.3.4: a label of 63 octets is allowed before a dot; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::dotted_name(61)) is None"
+      }
+    },
+    {
+      "id": "dotted-label-limit-inner-lax",
+      "file": "src/spec.rs",
+      "find": "if i == start || i - start > MAX_LABEL as nat {",
+      "replace": "if i == start || i - start > 64 {",
+      "expect": "killed",
+      "reason": "§2.3.4: a label of 64 octets before a dot is refused; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::fill(97, 64) + seq![46u8, 97]) is Some"
+      }
+    },
+    {
+      "id": "dotted-name-limit-lax",
+      "file": "src/spec.rs",
+      "find": "if w.len() + 1 > MAX_NAME as nat {",
+      "replace": "if w.len() > MAX_NAME as nat {",
+      "expect": "killed",
+      "reason": "§2.3.4: a name is 255 octets with its zero octet; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::dotted_name(62)) is Some"
+      }
+    },
+    {
+      "id": "dotted-name-limit-strict",
+      "file": "src/spec.rs",
+      "find": "if w.len() + 1 > MAX_NAME as nat {",
+      "replace": "if w.len() + 2 > MAX_NAME as nat {",
+      "expect": "killed",
+      "reason": "§2.3.4: a name of exactly 255 octets is allowed; lemma_dotted_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_dotted_limits()",
+        "witness": "dotted_to_wire(crate::examples::dotted_name(61)) is None"
+      }
+    },
+    {
+      "id": "query-flags",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(id as nat) + seq![0u8, 1u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "expect": "killed",
+      "reason": "§4.1.1: a query has RD set and nothing else (flags 0x0100); lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-id",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(0) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "expect": "killed",
+      "reason": "§4.1.1: the query carries the ID it is given; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-qdcount",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(id as nat) + seq![1u8, 0u8] + be16(2) + be16(0) + be16(0) + be16(0)",
+      "expect": "killed",
+      "reason": "§4.1.1: a query has one question; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-ancount",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(1) + be16(0) + be16(0)",
+      "expect": "killed",
+      "reason": "§4.1.1: a query has no answers; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-nscount",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(1) + be16(0)",
+      "expect": "killed",
+      "reason": "§4.1.1: a query has no authority records; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-arcount",
+      "file": "src/spec.rs",
+      "find": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(0)",
+      "replace": "be16(id as nat) + seq![1u8, 0u8] + be16(1) + be16(0) + be16(0) + be16(1)",
+      "expect": "killed",
+      "reason": "§4.1.1: a query has no additional records (no EDNS); lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "query-qtype",
+      "file": "src/spec.rs",
+      "find": "be16(q.qtype as nat) + be16(CLASS_IN as nat)",
+      "replace": "be16(CLASS_IN as nat) + be16(CLASS_IN as nat)",
+      "expect": "killed",
+      "reason": "§4.1.2: the question has the QTYPE asked for; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0xABCD, name: seq![97u8, 46], qtype: 28 }) != Some(seq![0xABu8, 0xCD, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1])"
+      }
+    },
+    {
+      "id": "query-qclass",
+      "file": "src/spec.rs",
+      "find": "be16(q.qtype as nat) + be16(CLASS_IN as nat)",
+      "replace": "be16(q.qtype as nat) + be16(q.qtype as nat)",
+      "expect": "killed",
+      "reason": "§4.1.2: the question is in class IN; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0xABCD, name: seq![97u8, 46], qtype: 28 }) != Some(seq![0xABu8, 0xCD, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 1, 97, 0, 0, 28, 0, 1])"
+      }
+    },
+    {
+      "id": "query-name",
+      "file": "src/spec.rs",
+      "find": "Some(query_header_bytes(q.id) + w + be16(q.qtype as nat)",
+      "replace": "Some(query_header_bytes(q.id) + be16(q.qtype as nat)",
+      "expect": "killed",
+      "reason": "§4.1.2: the question carries the name; lemma_query_example is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_query_example()",
+        "witness": "encode_query(Query { id: 0x1234, name: seq![101u8, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109], qtype: 1 }) != Some(seq![0x12u8, 0x34, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0, 7, 101, 120, 97, 109, 112, 108, 101, 3, 99, 111, 109, 0, 0, 1, 0, 1])"
+      }
+    },
+    {
+      "id": "tcp-frame-prefix",
+      "file": "src/spec.rs",
+      "find": "Some(be16(msg.len()) + msg)",
+      "replace": "Some(msg)",
+      "expect": "killed",
+      "reason": "§4.2.2: a message sent over TCP is prefixed by its two octet length; lemma_tcp_and_udp_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_tcp_and_udp_limits()",
+        "witness": "tcp_frame(seq![9u8, 8, 7]) != Some(seq![0u8, 3, 9, 8, 7])"
+      }
+    },
+    {
+      "id": "tcp-message-complete",
+      "file": "src/spec.rs",
+      "find": "if b.len() < 2 + n {",
+      "replace": "if b.len() < 1 + n {",
+      "expect": "killed",
+      "reason": "§4.2.2: the message is complete only when all the octets the length says have arrived; lemma_tcp_and_udp_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_tcp_and_udp_limits()",
+        "witness": "tcp_message_len(seq![0u8, 3, 9, 8]) is Some"
+      }
+    },
+    {
+      "id": "tcp-message-length-field",
+      "file": "src/spec.rs",
+      "find": "let n = u16_at(b, 0);",
+      "replace": "let n = u16_at(b, 1);",
+      "expect": "killed",
+      "reason": "§4.2.2: the length is the first two octets; lemma_tcp_and_udp_limits is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_tcp_and_udp_limits()",
+        "witness": "tcp_message_len(seq![0u8, 3, 9, 8, 7, 6]) is None"
+      }
+    },
+    {
+      "id": "answer-type-gate",
+      "file": "src/spec.rs",
+      "find": "if q.qtype != TYPE_A && q.qtype != TYPE_AAAA {",
+      "replace": "if false {",
+      "expect": "killed",
+      "reason": "Only A and AAAA are queried; lemma_answer_types is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_types()",
+        "witness": "answer_addresses(Query { id: 7, name: seq![97u8], qtype: 5 }, crate::examples::reply(crate::examples::na(), 5, false, 0, seq![], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-qr",
+      "file": "src/spec.rs",
+      "find": "!m.header.qr || m.header.opcode != 0",
+      "replace": "false || m.header.opcode != 0",
+      "expect": "killed",
+      "reason": "RFC 5452: only a response (QR set) is an answer; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), Message { header: Header { qr: false, ..crate::examples::reply_header(false, 0, 1, 1, 0, 0) }, ..crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![]) }) is Some"
+      }
+    },
+    {
+      "id": "answer-opcode",
+      "file": "src/spec.rs",
+      "find": "m.header.opcode != 0 || m.header.tc",
+      "replace": "false || m.header.tc",
+      "expect": "killed",
+      "reason": "Only a response to a standard query (OPCODE 0) is an answer; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), Message { header: Header { opcode: 2, ..crate::examples::reply_header(false, 0, 1, 1, 0, 0) }, ..crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![]) }) is Some"
+      }
+    },
+    {
+      "id": "answer-tc",
+      "file": "src/spec.rs",
+      "find": "m.header.tc || m.header.id != q.id",
+      "replace": "false || m.header.id != q.id",
+      "expect": "killed",
+      "reason": "RFC 7766 §8: a truncated reply is not an answer; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, true, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-id",
+      "file": "src/spec.rs",
+      "find": "|| m.header.id != q.id {",
+      "replace": "|| false {",
+      "expect": "killed",
+      "reason": "RFC 5452 §4: the reply must carry the query's ID; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(Query { id: 8, name: seq![97u8], qtype: 1 }, crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-question-count",
+      "file": "src/spec.rs",
+      "find": "m.questions.len() == 1 &&",
+      "replace": "m.questions.len() >= 1 &&",
+      "expect": "killed",
+      "reason": "RFC 5452 §4: exactly one question; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), Message { questions: seq![Question { name: crate::examples::na(), qtype: 1, qclass: 1 }, Question { name: crate::examples::na(), qtype: 1, qclass: 1 }], ..crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![]) }) is Some"
+      }
+    },
+    {
+      "id": "answer-question-name",
+      "file": "src/spec.rs",
+      "find": "bytes_eq_ci(m.questions[0].name, qname) &&",
+      "replace": "true &&",
+      "expect": "killed",
+      "reason": "RFC 5452 §4: the question's name must be the query's; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::nb(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-question-type",
+      "file": "src/spec.rs",
+      "find": "&& m.questions[0].qtype == q.qtype",
+      "replace": "&& true",
+      "expect": "killed",
+      "reason": "RFC 5452 §4: the question's type must be the query's; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-question-class",
+      "file": "src/spec.rs",
+      "find": "m.questions[0].qclass == CLASS_IN)",
+      "replace": "true)",
+      "expect": "killed",
+      "reason": "RFC 5452 §4: the question's class must be IN; lemma_answer_matching is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_matching()",
+        "witness": "answer_addresses(crate::examples::query_a(), Message { questions: seq![Question { name: crate::examples::na(), qtype: 1, qclass: 3 }], ..crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![]) }) is Some"
+      }
+    },
+    {
+      "id": "answer-nxdomain",
+      "file": "src/spec.rs",
+      "find": "} else if m.header.rcode == 3 {",
+      "replace": "} else if m.header.rcode == 4 {",
+      "expect": "killed",
+      "reason": "§4.1.1 RCODE 3 is a name error: no addresses and no failure; lemma_answer_rcodes is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_rcodes()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 3, seq![], seq![], seq![])) is None"
+      }
+    },
+    {
+      "id": "answer-other-rcodes",
+      "file": "src/spec.rs",
+      "find": "} else if m.header.rcode != 0 {",
+      "replace": "} else if false {",
+      "expect": "killed",
+      "reason": "Every RCODE other than 0 and 3 is refused; lemma_answer_rcodes is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_rcodes()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 2, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) is Some"
+      }
+    },
+    {
+      "id": "answer-chain-section",
+      "file": "src/spec.rs",
+      "find": "chain_end(m.answers, qname, 0, m.answers.len())",
+      "replace": "chain_end(m.answers + m.authority, qname, 0, m.answers.len())",
+      "expect": "killed",
+      "reason": "The authority section is never used: a CNAME there is followed; lemma_answer_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_sections()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![], seq![crate::examples::cname_rr(crate::examples::na(), crate::examples::nb())], seq![crate::examples::cname_rr(crate::examples::na(), crate::examples::nb()), crate::examples::a_rr(crate::examples::nb(), 2)])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-collect-section",
+      "file": "src/spec.rs",
+      "find": "collect(m.answers, fin, q.qtype)",
+      "replace": "collect(m.answers + m.additional, fin, q.qtype)",
+      "expect": "killed",
+      "reason": "The additional section is never used: its addresses are returned; lemma_answer_sections is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_sections()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![], seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![crate::examples::a_rr(crate::examples::na(), 2)])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-redirect-needs-no-data",
+      "file": "src/spec.rs",
+      "find": "if hops > 0 && addresses.len() == 0 {",
+      "replace": "if hops > 0 {",
+      "expect": "killed",
+      "reason": "RFC 1034 §5.3.3: the chain is re-queried only if it leaves the answer section; one that ends in addresses returns them; lemma_answer_cname_chain is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_cname_chain()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::cname_rr(crate::examples::na(), crate::examples::nb()), crate::examples::cname_rr(crate::examples::nb(), crate::examples::nc()), crate::examples::a_rr(crate::examples::nc(), 9)], seq![], seq![])) != Some(Resolution { addresses: seq![Addr::V4(9)], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-redirect-needs-hop",
+      "file": "src/spec.rs",
+      "find": "if hops > 0 && addresses.len() == 0 {",
+      "replace": "if addresses.len() == 0 {",
+      "expect": "killed",
+      "reason": "A name with no data and no CNAME is not redirected; lemma_answer_direct is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_direct()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::nb(), 0x01020304)], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-chain-fuel",
+      "file": "src/spec.rs",
+      "find": "Some(t) => if fuel == 0 {",
+      "replace": "Some(t) => if fuel <= 1 {",
+      "expect": "killed",
+      "reason": "A chain as long as the answer section is followed: with one hop fewer the two-hop chain of lemma_answer_cname_redirect is refused.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_cname_redirect()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::cname_rr(crate::examples::na(), crate::examples::nb()), crate::examples::cname_rr(crate::examples::nb(), crate::examples::nc())], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: Some(crate::examples::nc()) })"
+      }
+    },
+    {
+      "id": "answer-cname-owner",
+      "file": "src/spec.rs",
+      "find": "Some(t) => if bytes_eq_ci(answers[0].name, name) {\n                Some(t)",
+      "replace": "Some(t) => if true {\n                Some(t)",
+      "expect": "killed",
+      "reason": "A CNAME is followed only from its owner; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::cname_rr(crate::examples::nb(), crate::examples::nc()), crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) != Some(Resolution { addresses: seq![Addr::V4(1)], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-cname-first",
+      "file": "src/spec.rs",
+      "find": "Some(t) => if bytes_eq_ci(answers[0].name, name) {\n                Some(t)\n            } else {\n                cname_next(answers.drop_first(), name)",
+      "replace": "Some(t) => if bytes_eq_ci(answers[0].name, name) {\n                match cname_next(answers.drop_first(), name) {\n                    Some(t2) => Some(t2),\n                    None => Some(t),\n                }\n            } else {\n                cname_next(answers.drop_first(), name)",
+      "expect": "killed",
+      "reason": "The first CNAME record for a name is the one followed (the last wins here); lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::cname_rr(crate::examples::na(), crate::examples::nb()), crate::examples::cname_rr(crate::examples::na(), crate::examples::nc()), crate::examples::a_rr(crate::examples::nb(), 2), crate::examples::a_rr(crate::examples::nc(), 3)], seq![], seq![])) != Some(Resolution { addresses: seq![Addr::V4(2)], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-owner",
+      "file": "src/spec.rs",
+      "find": "Some(a) => if bytes_eq_ci(answers[0].name, name) {\n                seq![a] + rest",
+      "replace": "Some(a) => if true {\n                seq![a] + rest",
+      "expect": "killed",
+      "reason": "Only records owned by the final name give addresses; lemma_answer_direct is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_direct()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::nb(), 0x01020304)], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-order",
+      "file": "src/spec.rs",
+      "find": "seq![a] + rest",
+      "replace": "rest + seq![a]",
+      "expect": "killed",
+      "reason": "Addresses keep the order of the records; lemma_answer_direct is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_direct()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 0x01020304), crate::examples::a_rr(crate::examples::na(), 0x05060708)], seq![], seq![])) != Some(Resolution { addresses: seq![Addr::V4(0x01020304), Addr::V4(0x05060708)], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-a-qtype",
+      "file": "src/spec.rs",
+      "find": "Rdata::A(a) => if qtype == TYPE_A && rr.rtype == TYPE_A",
+      "replace": "Rdata::A(a) => if rr.rtype == TYPE_A",
+      "expect": "killed",
+      "reason": "An A record answers only an A query; lemma_answer_types is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_types()",
+        "witness": "answer_addresses(crate::examples::query_aaaa(), crate::examples::reply(crate::examples::na(), 28, false, 0, seq![crate::examples::a_rr(crate::examples::na(), 1)], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-aaaa-qtype",
+      "file": "src/spec.rs",
+      "find": "Rdata::Aaaa(a) => if qtype == TYPE_AAAA && rr.rtype == TYPE_AAAA",
+      "replace": "Rdata::Aaaa(a) => if rr.rtype == TYPE_AAAA",
+      "expect": "killed",
+      "reason": "An AAAA record answers only an AAAA query; lemma_answer_types is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_types()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![crate::examples::aaaa_rr(crate::examples::na(), 1)], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-a-type",
+      "file": "src/spec.rs",
+      "find": "Rdata::A(a) => if qtype == TYPE_A && rr.rtype == TYPE_A",
+      "replace": "Rdata::A(a) => if qtype == TYPE_A",
+      "expect": "killed",
+      "reason": "The record's own TYPE must be A; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![Rr { name: crate::examples::na(), rtype: 2, rclass: 1, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-a-class",
+      "file": "src/spec.rs",
+      "find": "&& rr.rtype == TYPE_A && rr.rclass == CLASS_IN {",
+      "replace": "&& rr.rtype == TYPE_A {",
+      "expect": "killed",
+      "reason": "An A record is in class IN; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![Rr { name: crate::examples::na(), rtype: 1, rclass: 3, ttl: 1, rdata: Rdata::A(5) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-aaaa-type",
+      "file": "src/spec.rs",
+      "find": "Rdata::Aaaa(a) => if qtype == TYPE_AAAA && rr.rtype == TYPE_AAAA",
+      "replace": "Rdata::Aaaa(a) => if qtype == TYPE_AAAA",
+      "expect": "killed",
+      "reason": "The record's own TYPE must be AAAA; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_aaaa(), crate::examples::reply(crate::examples::na(), 28, false, 0, seq![Rr { name: crate::examples::na(), rtype: 1, rclass: 1, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-aaaa-class",
+      "file": "src/spec.rs",
+      "find": "&& rr.rtype == TYPE_AAAA && rr.rclass == CLASS_IN {",
+      "replace": "&& rr.rtype == TYPE_AAAA {",
+      "expect": "killed",
+      "reason": "An AAAA record is in class IN; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_aaaa(), crate::examples::reply(crate::examples::na(), 28, false, 0, seq![Rr { name: crate::examples::na(), rtype: 28, rclass: 3, ttl: 1, rdata: Rdata::Aaaa(5) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-cname-type",
+      "file": "src/spec.rs",
+      "find": "Rdata::Cname(t) => if rr.rtype == TYPE_CNAME && rr.rclass == CLASS_IN {",
+      "replace": "Rdata::Cname(t) => if rr.rclass == CLASS_IN {",
+      "expect": "killed",
+      "reason": "The record's own TYPE must be CNAME; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![Rr { name: crate::examples::na(), rtype: 16, rclass: 1, ttl: 1, rdata: Rdata::Cname(crate::examples::nb()) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "answer-cname-class",
+      "file": "src/spec.rs",
+      "find": "Rdata::Cname(t) => if rr.rtype == TYPE_CNAME && rr.rclass == CLASS_IN {",
+      "replace": "Rdata::Cname(t) => if rr.rtype == TYPE_CNAME {",
+      "expect": "killed",
+      "reason": "A CNAME record is in class IN; lemma_answer_record_kinds is false.",
+      "module": "examples",
+      "certificate": {
+        "file": "src/lemmas.rs",
+        "lemma": "crate::examples::lemma_answer_record_kinds()",
+        "witness": "answer_addresses(crate::examples::query_a(), crate::examples::reply(crate::examples::na(), 1, false, 0, seq![Rr { name: crate::examples::na(), rtype: 5, rclass: 3, ttl: 1, rdata: Rdata::Cname(crate::examples::nb()) }], seq![], seq![])) != Some(Resolution { addresses: seq![], redirect: None })"
+      }
+    },
+    {
+      "id": "resolv-keyword",
+      "file": "src/resolv/spec.rs",
+      "find": "110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114",
+      "replace": "110u8, 97, 109, 101, 115, 101, 114, 118, 101, 115",
+      "expect": "killed",
+      "reason": "The keyword is `nameserver`; a line that starts with it gives its address; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-keyword-test",
+      "file": "src/resolv/spec.rs",
+      "find": "if line.subrange(a as int, b as int) != keyword() {",
+      "replace": "if line.subrange(a as int, b as int) == keyword() {",
+      "expect": "killed",
+      "reason": "Only lines that start with the keyword give an address; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-ws-space",
+      "file": "src/resolv/spec.rs",
+      "find": "c == 32 || c == 9 || c == 13",
+      "replace": "c == 9 || c == 13",
+      "expect": "killed",
+      "reason": "A space separates the tokens; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-ws-tab",
+      "file": "src/resolv/spec.rs",
+      "find": "c == 32 || c == 9 || c == 13",
+      "replace": "c == 32 || c == 13",
+      "expect": "killed",
+      "reason": "A tab separates the tokens; lemma_resolv_example_4 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_4()",
+        "witness": "nameservers(seq![32u8, 32, 9, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 9, 49, 57, 50, 46, 49, 54, 56, 46, 49, 46, 49, 32, 32, 35, 32, 114, 111, 117, 116, 101, 114, 10]) != seq![crate::spec::Addr::V4(3232235777)]"
+      }
+    },
+    {
+      "id": "resolv-ws-cr",
+      "file": "src/resolv/spec.rs",
+      "find": "c == 32 || c == 9 || c == 13",
+      "replace": "c == 32 || c == 9",
+      "expect": "killed",
+      "reason": "A carriage return ends a token, so CR LF line ends work; lemma_resolv_example_3 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_3()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 48, 46, 48, 46, 48, 46, 49, 13, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 48, 46, 48, 46, 48, 46, 50, 13, 10]) != seq![crate::spec::Addr::V4(167772161), crate::spec::Addr::V4(167772162)]"
+      }
+    },
+    {
+      "id": "resolv-line-end",
+      "file": "src/resolv/spec.rs",
+      "find": "if i < s.len() && s[i as int] != 10 {",
+      "replace": "if i < s.len() && s[i as int] != 11 {",
+      "expect": "killed",
+      "reason": "A line ends at a line feed; lemma_resolv_example_2 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_2()",
+        "witness": "nameservers(seq![35u8, 32, 103, 101, 110, 101, 114, 97, 116, 101, 100, 10, 115, 101, 97, 114, 99, 104, 32, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 57, 46, 57, 46, 57, 46, 57, 10]) != seq![crate::spec::Addr::V4(16843009), crate::spec::Addr::V4(151587081)]"
+      }
+    },
+    {
+      "id": "resolv-next-line",
+      "file": "src/resolv/spec.rs",
+      "find": "e + 1\n        } else {",
+      "replace": "e + 2\n        } else {",
+      "expect": "killed",
+      "reason": "The next line starts after the line feed; lemma_resolv_example_2 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_2()",
+        "witness": "nameservers(seq![35u8, 32, 103, 101, 110, 101, 114, 97, 116, 101, 100, 10, 115, 101, 97, 114, 99, 104, 32, 101, 120, 97, 109, 112, 108, 101, 46, 99, 111, 109, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 57, 46, 57, 46, 57, 46, 57, 10]) != seq![crate::spec::Addr::V4(16843009), crate::spec::Addr::V4(151587081)]"
+      }
+    },
+    {
+      "id": "resolv-token-end",
+      "file": "src/resolv/spec.rs",
+      "find": "if i < s.len() && !is_ws(s[i as int]) {",
+      "replace": "if i < s.len() && is_ws(s[i as int]) {",
+      "expect": "killed",
+      "reason": "A token runs to the next white space; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-skip-ws",
+      "file": "src/resolv/spec.rs",
+      "find": "if i < s.len() && is_ws(s[i as int]) {",
+      "replace": "if i < s.len() && !is_ws(s[i as int]) {",
+      "expect": "killed",
+      "reason": "Leading white space is skipped; lemma_resolv_example_4 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_4()",
+        "witness": "nameservers(seq![32u8, 32, 9, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 9, 49, 57, 50, 46, 49, 54, 56, 46, 49, 46, 49, 32, 32, 35, 32, 114, 111, 117, 116, 101, 114, 10]) != seq![crate::spec::Addr::V4(3232235777)]"
+      }
+    },
+    {
+      "id": "resolv-dot-at",
+      "file": "src/resolv/spec.rs",
+      "find": "if i < s.len() && s[i as int] != 46 {",
+      "replace": "if i < s.len() && s[i as int] != 47 {",
+      "expect": "killed",
+      "reason": "The dots of an IPv4 address are found; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-leading-zero",
+      "file": "src/resolv/spec.rs",
+      "find": "&& !(s.len() > 1 && s[0] == 48) &&",
+      "replace": "&&",
+      "expect": "killed",
+      "reason": "A part with a leading zero is refused; lemma_resolv_example_10 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_10()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 46, 53, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 49, 46, 50, 46, 51, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 53, 54, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 120, 55, 102, 46, 48, 46, 48, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 97, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 48, 48, 48, 52, 10]) != seq![]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-range",
+      "file": "src/resolv/spec.rs",
+      "find": "dec_value(s) <= 255",
+      "replace": "dec_value(s) <= 256",
+      "expect": "killed",
+      "reason": "A part above 255 is refused; lemma_resolv_example_10 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_10()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 46, 53, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 49, 46, 50, 46, 51, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 53, 54, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 120, 55, 102, 46, 48, 46, 48, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 97, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 48, 48, 48, 52, 10]) != seq![]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-nonempty",
+      "file": "src/resolv/spec.rs",
+      "find": "1 <= s.len() && s.len() <= 3",
+      "replace": "0 <= s.len() && s.len() <= 3",
+      "expect": "killed",
+      "reason": "An empty part is refused; lemma_resolv_example_10 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_10()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 46, 53, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 49, 46, 50, 46, 51, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 53, 54, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 120, 55, 102, 46, 48, 46, 48, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 97, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 48, 48, 48, 52, 10]) != seq![]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-digits",
+      "file": "src/resolv/spec.rs",
+      "find": "&& all_digits(s) &&",
+      "replace": "&&",
+      "expect": "killed",
+      "reason": "A part is digits only; lemma_resolv_example_10 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_10()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 46, 53, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 49, 46, 50, 46, 51, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 53, 54, 46, 49, 46, 49, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 46, 52, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 120, 55, 102, 46, 48, 46, 48, 46, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 52, 97, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 46, 50, 46, 51, 46, 48, 48, 48, 52, 10]) != seq![]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-value",
+      "file": "src/resolv/spec.rs",
+      "find": "Some(((a * 256 + b) * 256 + c) * 256 + d)",
+      "replace": "Some(((a * 256 + b) * 255 + c) * 256 + d)",
+      "expect": "killed",
+      "reason": "An IPv4 address is its four parts in base 256; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-ipv4-zero-parts",
+      "file": "src/resolv/spec.rs",
+      "find": "dec_value(s.drop_last()) * 10 + (s.last() - 48) as nat",
+      "replace": "dec_value(s.drop_last()) * 10 + (s.last() - 47) as nat",
+      "expect": "killed",
+      "reason": "A part is read in decimal; lemma_resolv_example_11 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_11()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 48, 46, 48, 46, 48, 46, 48, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 53, 53, 46, 50, 53, 53, 46, 50, 53, 53, 46, 50, 53, 53, 10, 110, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 49, 48, 46, 48, 46, 49, 48, 46, 48, 10]) != seq![crate::spec::Addr::V4(0), crate::spec::Addr::V4(4294967295), crate::spec::Addr::V4(167774720)]"
+      }
+    },
+    {
+      "id": "resolv-ipv6-pieces",
+      "file": "src/resolv/spec.rs",
+      "find": "pieces_value(p.drop_last()) * 65536 + p.last()",
+      "replace": "pieces_value(p.drop_last()) * 65535 + p.last()",
+      "expect": "killed",
+      "reason": "An IPv6 address is its eight pieces in base 65536; lemma_resolv_example_6 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_6()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 48, 48, 49, 58, 100, 98, 56, 58, 58, 56, 56, 56, 56, 10]) != seq![crate::spec::Addr::V6(42540766411282592856903984951653861512)]"
+      }
+    },
+    {
+      "id": "resolv-address-v4",
+      "file": "src/resolv/spec.rs",
+      "find": "Some(a) => Some(crate::spec::Addr::V4(a as u32)),",
+      "replace": "Some(a) => Some(crate::spec::Addr::V6(a as u128)),",
+      "expect": "killed",
+      "reason": "A dotted quad is an IPv4 address; lemma_resolv_example_0 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_0()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 56, 46, 56, 46, 56, 46, 56, 10]) != seq![crate::spec::Addr::V4(134744072)]"
+      }
+    },
+    {
+      "id": "resolv-address-v6",
+      "file": "src/resolv/spec.rs",
+      "find": "Some(p) => Some(crate::spec::Addr::V6(pieces_value(p) as u128)),",
+      "replace": "Some(p) => Some(crate::spec::Addr::V4(pieces_value(p) as u32)),",
+      "expect": "killed",
+      "reason": "A colon-separated address is an IPv6 address; lemma_resolv_example_6 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_6()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 48, 48, 49, 58, 100, 98, 56, 58, 58, 56, 56, 56, 56, 10]) != seq![crate::spec::Addr::V6(42540766411282592856903984951653861512)]"
+      }
+    },
+    {
+      "id": "resolv-code-points",
+      "file": "src/resolv/spec.rs",
+      "find": "s.map_values(|c: u8| c as u32)",
+      "replace": "s.map_values(|c: u8| (c + 1) as u32)",
+      "expect": "killed",
+      "reason": "The IPv6 parser reads the octets as code points; lemma_resolv_example_6 is false.",
+      "module": "resolv::examples",
+      "certificate": {
+        "file": "src/resolv/lemmas.rs",
+        "lemma": "crate::resolv::examples::lemma_resolv_example_6()",
+        "witness": "nameservers(seq![110u8, 97, 109, 101, 115, 101, 114, 118, 101, 114, 32, 50, 48, 48, 49, 58, 100, 98, 56, 58, 58, 56, 56, 56, 56, 10]) != seq![crate::spec::Addr::V6(42540766411282592856903984951653861512)]"
+      }
+    }
+  ]
+}
