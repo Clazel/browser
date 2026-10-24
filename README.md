@@ -14,7 +14,11 @@ UTF-8 (`clazel-encoding`), percent-encoding (`clazel-percent`), forgiving
 base64 (`clazel-base64`), MIME types and sniffing (`clazel-mime`), IDNA
 (`clazel-idna`) and URLs (`clazel-url`) are at Tier 2, on macOS and on
 Linux CI. Phase 2 (kernel and IPC) is in progress; see the table below and
-[docs/phases/phase-2.md](docs/phases/phase-2.md).
+[docs/phases/phase-2.md](docs/phases/phase-2.md). Phase 3 (networking) has
+HTTP field syntax, DNS, DER, RSA PKCS#1 v1.5 verification and TLS 1.3 message
+formats implemented at tier 0, target tier 2. Full CI verification is pending;
+the remaining networking work is in
+[docs/phases/phase-3.md](docs/phases/phase-3.md).
 Recheck every proof yourself, on Linux x86-64, with:
 
 ```sh

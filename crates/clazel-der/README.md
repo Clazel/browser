@@ -46,10 +46,11 @@ callers compose the readers.
 
 ## Verification
 
-Tier 2 (see the [status table](../../README.md#verification-status) for the
-current numbers): the executable code is proven, in Verus, to equal an
-executable specification transcribed from X.690, over all inputs. Verus also
-proves it never panics, overflows or indexes out of bounds.
+Currently tier 0, target tier 2; promotion requires CI's full verification
+on a pull request. See the [status table](../../README.md#verification-status)
+for current numbers. The executable code has Verus proofs against an
+executable specification transcribed from X.690, including absence of panics,
+overflow and out-of-bounds indexing.
 
 - **Proven:** every reader and encoder meets its contract
   (`src/contract.rs`). About the spec itself, with lemmas:

@@ -630,6 +630,39 @@ saying how, since no official suite exists), including a truncated one, a
 NXDOMAIN, a CNAME chain and an AAAA answer; and the RFC 1035 §4.1.4
 compression example. **Raise `clazel-dns` to tier 2.**
 
+**As built:** `crates/clazel-dns`, tier 0, target tier 2; promotion waits for
+CI's full verification on a pull request. API (exec, each proven equal
+to its spec): `decode_message`, `decode_udp`, `encode_query(id, dotted_name,
+qtype) -> Option<Vec<u8>>` (names are dotted ASCII; `None` if not a name),
+`answer_addresses(id, dotted_name, qtype, &Msg) -> Option<Resolved>` with
+`Resolved { addresses, redirect }`, `Msg::tc()`, `tcp_frame` and
+`tcp_message_len`, and `resolv::parse::nameservers(&[u8]) -> Vec<Addr>` (the
+grammar is ours; IPv4 is strict dotted decimal, IPv6 uses `clazel-url`'s proven
+parser, which is a dependency). Findings: (1) "a lower offset" is not enough
+for the pointer rule, since a label at offset 0 followed by a pointer to 0
+loops; the spec requires the target name to end before the pointer
+(`ERRATA.md`), and the explicit `target < pos` check is then redundant (kept
+for fidelity). (2) RFC 883's TTL is 16 bits, so the "same wire format" is not
+exact; `independent.rs` uses 32 bits, lists that and the other differences, and
+is the same family as RFC 1035, not a second body. (3) Z is rejected when
+nonzero, including the AD and CD bits of RFC 4035: 3.8 must treat that as
+fail-closed (a resolver that sets AD without DO would fail every lookup).
+Choices: answers come from the final name of the CNAME chain only, following
+the first CNAME at each name; octets after the last record are an error; only
+QTYPE A and AAAA are queried. Proven: the lemmas listed above plus the
+bounded-reservation lemma, Verus 228 verified. 147 mutations, all certified
+kills (the MAX_TCP bound is killed through a statement about the constant,
+since a 65536-octet witness is too big to evaluate). Conformance:
+hand-built messages (24), real responses captured on 2026-10-23 from 8.8.8.8
+and an authoritative server (12, stored as hex in the test, not under
+`tests/data/`, which is for vendored suites), `simple-dns` 0.12.0 (chosen over
+`dnsparse`, which reads only the header, questions and answers, and
+`dns-parser`, which writes only queries) on 8000 random messages, 4000 queries
+and 60000 mutated messages (1269 expected differences, each assigned to a
+rule: the prior-occurrence rule, trailing octets, AD/CD, RDLENGTH 0 or longer
+than the data, unknown types or classes; none unexplained), and 10
+`resolv.conf` files.
+
 ### 3.5 TLS (seven items; 3.0 decided option B)
 
 Our own TLS 1.3 client. Every parser is a pure function over bytes and the
@@ -661,6 +694,16 @@ author's text of the same rules, proven equal on its subset. Conformance:
 a differential against RustCrypto's `der` crate (a `test` row, counting its
 dependencies) on random and mutated TLVs, and the DER cases of the
 `x509-limbo` corpus (3.5b vendors it) that are pure encoding errors.
+
+**As built:** `crates/clazel-der`, tier 0, target tier 2; promotion waits
+for CI's full verification on a pull request. Cursor-based DER readers and
+encoders cover the types listed above, with contracts, round-trip,
+canonicity, no-over-read and bounded-reservation lemmas. The independent
+transcription uses Kaliski's Guide, with its coverage limits recorded in the
+crate README; the same agent wrote both transcriptions. `mutations.json`
+contains 59 certified mutations. Conformance includes hand-built cases and
+a differential against RustCrypto `der` 0.8.2. Character and time validation,
+SET OF ordering and DEFAULT omission remain the X.509 caller's duty.
 
 #### 3.5b X.509 certificates and path validation (L, after 3.5a)
 
@@ -718,6 +761,71 @@ Conformance: the signature vectors of Wycheproof (`rsa_signature_*_test.json`,
 Apache-2.0) and FIPS 186-3 `SigVer15_186-3.rsp`, vendored with converters;
 a differential against the `rsa` crate (RustCrypto) as a `test` row;
 a Kani harness on the limb arithmetic for small widths.
+
+**As built:** `crates/clazel-pkcs1`, tier 0, target tier 2; promotion waits
+for CI's full verification on a pull request. `src/spec.rs` transcribes RFC 8017
+§4.1, §4.2, §5.2.2, §8.2.2 (the steps are `rsassa_pkcs1_v1_5_verify_steps`,
+under the domain restrictions of `rsassa_pkcs1_v1_5_verify`) and §9.2 with
+Note 1's three `DigestInfo` prefixes as literals; its header lists the
+modelling choices (a digest of the wrong length is "invalid signature",
+`3 <= e <= 2^64 - 1`, 2048 to 8192 bit moduli, plain equality of the encoded
+messages). `src/bignum/` is the arithmetic: little-endian `u64` limbs with
+`value`, add, subtract, compare (the borrow of the subtraction), and
+**double-and-add modular multiplication** (not Montgomery: add, subtract
+and a loop, any modulus, a proof that is a chain of congruences),
+right-to-left square-and-multiply for any `u64` exponent, and OS2IP by
+Horner's rule; `src/verify.rs` is `verify` and `encode_message`. Everything
+executable is proven against `contract.rs` (Verus: 169 verified, 0 errors),
+which includes absence of panics and overflow. Lemmas (`lemmas.rs`): I2OSP
+and OS2IP are inverse, the modulus range check, the prefix lengths (and
+that their length octets say `tLen - 2` and `hLen`), a representative at
+least `n` and a signature of the wrong length are rejected, and
+`lemma_sign_verify`, the RFC's correctness claim for the textbook signer,
+**with the Carmichael-exponent property of the modulus as a hypothesis**
+(Fermat's little theorem is not in `vstd` and is not proven here); it is
+not a security claim. `examples.rs` proves known answers by evaluation
+(`compute_only`); to make 2048-bit moduli evaluable, `pow256` and `two_to`
+recurse by squaring and are proven equal to `vstd`'s `pow` and `pow2`.
+Independent: `independent.rs` is RFC 2313's parse-the-block-and-compare
+verification with HAC Algorithm 14.79, proven to accept exactly what the
+spec accepts (the parse-versus-build difference is the Bleichenbacher
+case); `bignum/independent.rs` is HAC Algorithm 14.12 (multiplication),
+proven to compute the product. The HAC numbers are from memory (the
+chapter PDF could not be read here) and the brief's "14.7" is, as the
+author recalls, the addition algorithm; Algorithm 14.20 (division) is not
+transcribed. Both files were written by the agent that wrote the spec. 54
+mutations, every one a certified kill (`mutations.json`; the certificates
+live in the empty module `certificates.rs`, because a certificate is
+verified with its module and the examples fail under a mutated spec). Kani:
+seven harnesses (`adc`, `sbb`, and `add`, `sub`, `lt`, `shl8_add`,
+`mod_add` for every 2-limb input against `u128`), not `mod_mul` (CBMC does
+not unroll 64 iterations per limb in reasonable time); "multiply by a limb"
+is `shl8_add`, the multiplication the code has. Conformance: Wycheproof at
+commit `d17cc89f`, 1035 vectors (2048-bit SHA-256 and SHA-384, 3072-bit
+SHA-256, 4096-bit SHA-512), 1031 pass and the four `acceptable`
+`MissingNull` vectors are expected failures (listed by `tcId` in the test);
+35 hand-built cases, several made by OpenSSL, including the e = 3
+Bleichenbacher forgery, signatures of at least `n`, a wrong `DigestInfo`,
+bad and short padding, 1024-, 2047- and 8200-bit moduli, `e` of 0, 1 and 2
+and `e = 2^64 - 59`; bit flips of every valid vector. A new converter,
+`xtask/src/testdata/wycheproof_rsa.rs`; `sha2` and six more packages as
+`test` rows. **Not done, and why:** the named `rsa_signature_test.json`
+does not exist at the pinned Wycheproof commit (the legacy directory was
+removed; `SOURCE.md` says what replaced it); the 8192-bit Wycheproof file
+was vendored and dropped (about two seconds per verification in a debug
+build, nine minutes for 258 vectors, for the checks the 4096-bit file
+already makes; the size limit has two hand-built cases); FIPS 186-3
+`SigVer15_186-3.rsp` was not vendored; no differential against the `rsa`
+crate (35 packages with default features off, over the ten allowed), so
+OpenSSL, through the hand-built cases, is the only independent engine;
+the equality of the `DigestInfo` literals with a DER encoding is left to
+3.5f. Measured (Apple M-series, `cargo test`): one verification with a
+2048-bit key and `e = 65537` takes about 120 ms in a debug build (9 ms
+release), and one with an 8192-bit key about 2 s; the Wycheproof run takes
+about four minutes in a debug build, so the arithmetic is quadratic with a
+large constant and Montgomery multiplication would be the next step if it
+matters. Under Miri the test runs only the exponent 3 vectors and the
+hand-built cases with `e <= 3`.
 
 #### 3.5d TLS 1.3 record layer and handshake message formats (L)
 
@@ -959,10 +1067,10 @@ half does not wait on TLS.
 | 3.1 HTTP field syntax | built: 146 verified, independent transcription (Fetch), 76 certified mutations, 10 unit tests; tier stays 0 until 3.2 and 3.3 |
 | 3.2 HTTP/1.1 message framing | not started |
 | 3.3 HTTP conformance | not started |
-| 3.4 DNS message format | not started |
-| 3.5a DER | not started |
+| 3.4 DNS message format | built (see As built); tier 0, target 2, pending CI full verification |
+| 3.5a DER | built (see As built); tier 0, target 2, pending CI full verification |
 | 3.5b X.509 and path validation | not started (after 3.5a) |
-| 3.5c RSA PKCS#1 v1.5 | not started |
+| 3.5c RSA PKCS#1 v1.5 | built (see As built); tier 0, target 2, pending CI full verification |
 | 3.5d TLS record and handshake formats | built and proven to the level stated in its **As built** paragraph (2026-10-24), `clazel-tls` at tier 0: tier 2 waits for 3.5e and 3.5f and for CI's full run |
 | 3.5e Key schedule and handshake state machine | not started (after 3.5d) |
 | 3.5f Cryptography and the join | not started |

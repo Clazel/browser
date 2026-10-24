@@ -88,7 +88,7 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | rustls | 0.23.46 | test | The TLS library used by Firefox-adjacent projects and many Rust programs: the reference engine in `clazel-tls`'s differential test (`tests/conformance_tls_formats.rs`). Used without default features, so no cryptography provider is built and nothing but the message codec of `rustls::internal::msgs` (read one handshake message, alert or change_cipher_spec; fragment a payload into records; the number enums) is used. `cargo tree` shows six dependencies under it: `once_cell`, `rustls-pki-types`, `rustls-webpki`, `subtle`, `untrusted` and `zeroize`. rustls forbids `unsafe` (`#![forbid(unsafe_code)]`); `rustls-pki-types` has one `mem::transmute`, and `zeroize`, `once_cell` and `subtle` contain `unsafe`; `rustls-webpki` and `untrusted` have none. Test-class code never ships. |
 | rustls-pki-types | 1.15.1 | test | rustls's shared types for certificates, keys and names, required by `rustls` and `rustls-webpki`. Its only dependency is `zeroize`. |
 | rustls-webpki | 0.103.16 | test | rustls's certificate verifier, required by `rustls`. Compiled without its `ring` and `aws-lc-rs` features, so it has no cryptography, and none of its code runs in the test (only the message codec does). Its dependencies are `rustls-pki-types` and `untrusted`; its optional `ring` is named by weak features and appears in the lock only for that reason. |
-| zeroize | 1.9.1 | test | Zeroing of memory on drop, required by `rustls` and `rustls-pki-types`. No dependencies as built. |
+| zeroize | 1.9.1 | test | Zeroing of memory on drop, required by `rustls`, `rustls-pki-types` and `der`'s `alloc` feature. No dependencies as built. |
 | subtle | 2.6.1 | test | Constant-time comparison helpers, required by `rustls`. No dependencies. |
 | once_cell | 1.21.4 | test | Lazily initialised values, required by `rustls`. No dependencies as built. |
 | untrusted | 0.9.0 | test | A zero-copy reader for untrusted input, required by `rustls-webpki`. No dependencies. |
@@ -127,7 +127,6 @@ Changing a row is a reviewable act. Adding one means saying why below.
 | syn | 3.0.9 | test | Locked but never compiled: dependency of `serde_derive`. |
 | der | 0.8.2 | test | RustCrypto's DER implementation (used by `rsa`, `x509-cert` and `pkcs8`): the reference engine in `clazel-der`'s differential test (`tests/conformance_der.rs`). Used with default features off and only `alloc` and `oid`, so its only dependencies are `const-oid` and `zeroize` (the smallest DER crate that parses and writes every type item 3.5a covers; no other candidate was needed). Pinned to 0.8.2, the latest stable release. |
 | const-oid | 0.10.2 | test | `der`'s OBJECT IDENTIFIER type (the `oid` feature). No dependencies with default features off. |
-| zeroize | 1.9.1 | test | Memory-wiping helper that `der`'s `alloc` feature names. No dependencies. |
 <!-- END ALLOWLIST -->
 
 The only `shipped` package is `libc`, and only `clazel-sys` depends on it

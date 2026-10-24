@@ -41,9 +41,9 @@ AAAA and CNAME, and the sockets (the network shell, phase-3.md item 3.8).
 
 ## Verification
 
-Tier 2: the executable code is proven, in Verus, to equal an executable
-specification transcribed from the standards, over all inputs. The current
-numbers are in the
+Currently tier 0, target tier 2; promotion requires CI's full verification
+on a pull request. The executable code has Verus proofs against a
+specification transcribed from the standards. The current numbers are in the
 [status table](../../README.md#verification-status).
 
 - **Proven:** `decode_message`, `decode_udp`, `encode_query`,

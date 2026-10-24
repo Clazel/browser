@@ -156,6 +156,15 @@ fn wycheproof_vectors() {
             .iter()
             .filter(|c| KEYS.get(c.key).is_some_and(|k| k.file == *file))
         {
+            // Keep Miri's workload to the exponent-3 subset documented above;
+            // native runs still check every vector and report the full totals.
+            if cfg!(miri)
+                && !KEYS
+                    .get(c.key)
+                    .is_some_and(|k| exponent(k.exponent) == Some(3))
+            {
+                continue;
+            }
             let got = verdict(c);
             let ok = match (c.result, got) {
                 ("valid", Some(true)) | ("invalid", Some(false)) => Some(true),
