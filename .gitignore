@@ -5,3 +5,6 @@
 /kani-out
 # `cargo xtask verify --part crate` measurements (xtask/src/parts.rs)
 /parts/
+# Local agent checkouts and per-machine permissions.
+/.claude/worktrees/
+/.claude/settings.local.json
