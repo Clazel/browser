@@ -85,24 +85,17 @@ cargo xtask verify --changed   # every check, but proofs and tests only for crat
 cargo xtask check        # fast static checks only
 ```
 
-The browser itself, the command-line host shell `clazel` and the sandboxed
-renderer it starts for each tab:
+The command-line browser, `clazel`, and the sandboxed renderer it starts for
+each tab:
 
 ```sh
 cargo build --release --bin clazel --bin clazel-renderer   # both land in target/release/
-target/release/clazel demo          # the Phase 2 exit demo (phase-2.md item 2.16)
-target/release/clazel URL SCRIPT    # open a tab at URL running SCRIPT, printing the kernel's traffic
+target/release/clazel fetch http://example.com/           # one http:// GET, response printed
 ```
 
-`clazel` looks for `clazel-renderer` next to its own binary (or at
-`$CLAZEL_RENDERER`), so build both. SCRIPT is the script text itself: renderer
-operations, one per line (`cookie-get`, `cookie-set <cookie>`,
-`storage-get <key>`, ...; the format is in
-`crates/clazel-renderer/src/script.rs`). For example:
-
-```sh
-target/release/clazel https://example.com/ $'cookie-set a=1\ncookie-get'
-```
+`fetch` resolves the host with our own DNS client, sends a request built by
+proven code, and frames the response with the proven HTTP/1.1 parser. It
+needs the Internet, and speaks only `http://` for now.
 
 ## How to get involved
 
