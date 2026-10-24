@@ -4,8 +4,6 @@
 //! about the spec.
 
 #[allow(unused_imports)]
-use super::independent::*;
-#[allow(unused_imports)]
 use super::spec::*;
 #[allow(unused_imports)]
 use vstd::prelude::*;
@@ -88,13 +86,13 @@ pub proof fn lemma_parameter_value_rest(input: Seq<u8>)
 }
 
 /// Fetch's collecting never moves the position backwards, nor past the end.
-pub proof fn lemma_f_collect_loop_position(cond: Until, input: Seq<u8>, position: nat, result: Seq<u8>)
+pub proof fn lemma_f_collect_loop_position(cond: super::independent::Until, input: Seq<u8>, position: nat, result: Seq<u8>)
     ensures
-        f_collect_loop(cond, input, position, result).1 >= position,
-        position <= input.len() ==> f_collect_loop(cond, input, position, result).1 <= input.len(),
+        super::independent::f_collect_loop(cond, input, position, result).1 >= position,
+        position <= input.len() ==> super::independent::f_collect_loop(cond, input, position, result).1 <= input.len(),
     decreases input.len() - position
 {
-    if position < input.len() && f_meets(cond, input[position as int]) {
+    if position < input.len() && super::independent::f_meets(cond, input[position as int]) {
         lemma_f_collect_loop_position(cond, input, position + 1, result.push(input[position as int]));
     }
 }
@@ -103,12 +101,12 @@ pub proof fn lemma_f_collect_loop_position(cond: Until, input: Seq<u8>, position
 /// past the end.
 pub proof fn lemma_f_quoted_loop_position(input: Seq<u8>, position: nat, value: Seq<u8>)
     ensures
-        f_quoted_loop(input, position, value).1 >= position,
-        position <= input.len() ==> f_quoted_loop(input, position, value).1 <= input.len(),
+        super::independent::f_quoted_loop(input, position, value).1 >= position,
+        position <= input.len() ==> super::independent::f_quoted_loop(input, position, value).1 <= input.len(),
     decreases input.len() - position
 {
-    lemma_f_collect_loop_position(Until::QuoteOrBackslash, input, position, seq![]);
-    let (collected, p) = f_collect(Until::QuoteOrBackslash, input, position);
+    lemma_f_collect_loop_position(super::independent::Until::QuoteOrBackslash, input, position, seq![]);
+    let (collected, p) = super::independent::f_collect(super::independent::Until::QuoteOrBackslash, input, position);
     if p < input.len() && input[p as int] == 0x5C && p + 1 < input.len() {
         lemma_f_quoted_loop_position(input, p + 2, (value + collected).push(input[(p + 1) as int]));
     }
